@@ -373,8 +373,9 @@ def _occurrence(goal, at):
         if existing is not None:
             return existing
         # Cycle 0 is the accepted window; any later cycle is a future offer.
+        # Compare in the window's own zone so a DST-repeated hour still matches.
         future = bool(goal.is_catalog and goal.repeat_days
-                      and (start != goal.starts_at or goal.occurrences.exists()))
+                      and (start != _occurrence_window(goal, goal.starts_at)[0] or goal.occurrences.exists()))
         if future:
             # User admission precedes definition rows, matching legacy starts
             # and reviewed reconciliation. A bundled/publication writer must

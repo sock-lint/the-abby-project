@@ -14,12 +14,20 @@ from config.tests.factories import make_family
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class UnsavedRepeatWindowTests(TestCase):
+    anchor = datetime(2026, 10, 1, 18, 0, tzinfo=ZoneInfo("UTC"))
+    zone = None
+
     def setUp(self):
-        self.now = datetime(2026, 10, 1, 18, 0, tzinfo=ZoneInfo("UTC"))
+        self.now = self.anchor
         # date_joined ignores a patched clock, so pin it explicitly.
-        self.child = make_family("Unsaved windows", parents=[{"username": "unsaved-parent"}], children=[
+        household = make_family("Unsaved windows", parents=[{"username": "unsaved-parent"}], children=[
             {"username": "unsaved-child", "date_joined": self.now - timedelta(days=30)},
-        ]).children[0]
+        ])
+        if self.zone:
+            household.family.timezone = self.zone
+            household.family.save(update_fields=["timezone"])
+        self.child = household.children[0]
+        self.child.refresh_from_db()
         clock = patch("django.utils.timezone.now", return_value=self.now)
         clock.start()
         self.addCleanup(clock.stop)
@@ -58,6 +66,15 @@ class UnsavedRepeatWindowTests(TestCase):
         self.assertFalse(ChallengeOccurrence.objects.filter(goal=goal).exists())
         self.assertEqual(self.coins(), [])
 
+    def test_first_cycle_stays_accepted_after_a_duplicate_appears(self):
+        original = self.definition()
+        goal = self.enroll_without_window(original)
+        self.definition()
+        self.fact("first-1", goal.starts_at + timedelta(days=2))
+        self.fact("first-2", goal.starts_at + timedelta(days=2, minutes=5))
+        self.assertEqual(goal.occurrences.count(), 1)
+        self.assertEqual(self.coins(), [10])
+
     def test_demoted_definition_cannot_open_a_later_cycle(self):
         original = self.definition(name="Demoted weekly")
         goal = self.enroll_without_window(original)
@@ -85,3 +102,15 @@ class UnsavedRepeatWindowTests(TestCase):
         window = goal.occurrences.get()
         self.assertEqual((window.snapshot["coins"], window.snapshot["filter"].get("distinct_active_days")), (10, True))
         self.assertEqual(self.coins(), [])
+
+
+
+class RepeatedHourFirstPassTests(UnsavedRepeatWindowTests):
+    # America/Denver repeats 01:00-02:00 local on 2026-11-01.
+    anchor = datetime(2026, 11, 1, 7, 30, tzinfo=ZoneInfo("UTC"))
+    zone = "America/Denver"
+
+
+class RepeatedHourSecondPassTests(UnsavedRepeatWindowTests):
+    anchor = datetime(2026, 11, 1, 8, 30, tzinfo=ZoneInfo("UTC"))
+    zone = "America/Denver"
