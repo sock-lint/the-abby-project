@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import date
 from unittest.mock import patch
 
+from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.core.management.color import no_style
 from django.db import connection
@@ -12,6 +13,8 @@ from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.chronicle.models import ChronicleEntry, GradeDailyCounter
+from apps.mcp_server.context import override_user
+from apps.mcp_server.server import mcp
 from apps.rewards.models import CoinLedger
 from config.tests import test_api_contract_fixtures as shared_fixtures
 from config.tests.factories import make_family
@@ -90,6 +93,31 @@ class ReportCardApiResponseFixtureTests(APITestCase):
         return self.client.post(
             "/api/chronicle/grades/", self.submission if submission is None else submission, format="json",
         )
+
+    def test_report_card_renamed_taxonomy_preserves_measured_receipt_and_retry(self):
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        with override_user(self.parent, scopes=frozenset({"mcp:author", "mcp:catalog", "mcp:publish"})):
+            for name, params in [
+                ("update_category", {"category_id": self.skill.category_id, "name": "Everyday practice"}),
+                ("update_skill", {"skill_id": self.skill.pk, "name": "Time planning"}),
+            ]:
+                result = async_to_sync(mcp.call_tool)(name, {"params": params, "confirmation": True})
+                body = result[1] if isinstance(result, tuple) else result.structuredContent
+                self.assertNotIn("error", body, body)
+        response = self.post()
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()["reward_receipt"]["xp_awarded"], 10)
+        created = self.assert_response_fixture(response, "report-card-renamed-taxonomy.json", status=201)
+        self.assertEqual(created["reward_receipt"]["skills"], [{
+            "skill_id": self.skill.pk, "name": "Time planning", "xp": 10,
+        }])
+        replay = self.post()
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.json(), created)
+        self.assertEqual(GradeDailyCounter.objects.get(user=self.child).count, 1)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 10)
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
 
     def test_quarter_semester_history_and_correction_preserve_original_recognition(self):
         created = self.assert_response_fixture(self.post(), "report-card-created.json", status=201)

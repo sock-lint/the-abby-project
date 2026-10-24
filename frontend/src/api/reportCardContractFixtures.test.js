@@ -4,10 +4,34 @@ import createdCard from '../../../contracts/api/fixtures/report-card-created.jso
 import correctedCard from '../../../contracts/api/fixtures/report-card-corrected.json';
 import reportCards from '../../../contracts/api/fixtures/report-cards-list.json';
 import invalidCard from '../../../contracts/api/fixtures/report-card-invalid.json';
+import renamedCard from '../../../contracts/api/fixtures/report-card-renamed-taxonomy.json';
 import { server } from '../test/server';
 import { getGrades, updateGradeEntry, writeGrade } from './index';
 
 describe('report card responses through the shared React API client', () => {
+  it('keeps the measured fixed XP receipt after taxonomy display names change', async () => {
+    const payload = {
+      report_card: renamedCard.metadata.report_card,
+      reflection: renamedCard.summary,
+      occurred_on: renamedCard.occurred_on,
+      is_private: renamedCard.is_private,
+      client_entry_id: renamedCard.client_entry_id,
+    };
+    const requests = [];
+    server.use(http.post('*/api/chronicle/grades/', async ({ request }) => {
+      requests.push(await request.json());
+      return HttpResponse.json(renamedCard, { status: requests.length === 1 ? 201 : 200 });
+    }));
+    const saved = await writeGrade(payload);
+    expect(saved).toEqual(renamedCard);
+    expect(saved.reward_receipt).toMatchObject({
+      status: 'awarded', xp_awarded: 10,
+      skills: [{ skill_id: 22, name: 'Time planning', xp: 10 }],
+    });
+    expect(await writeGrade(payload)).toEqual(saved);
+    expect(requests).toEqual([payload, payload]);
+  });
+
   it('saves a complete quarter and reads both quarter and semester history with confirmed rewards', async () => {
     const requests = [];
     const payload = {

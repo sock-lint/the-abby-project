@@ -14,6 +14,7 @@ from apps.quests.services import DailyChallengeService
 
 from ..context import get_current_user, resolve_target_user
 from ..errors import safe_tool
+from ..legacy_household import household_context
 from ..schemas import ClaimDailyChallengeIn, GetDailyChallengeIn
 from ..server import tool
 from ..shapes import daily_challenge_to_dict
@@ -25,8 +26,9 @@ def get_daily_challenge(params: GetDailyChallengeIn) -> dict[str, Any]:
     """Return today's DailyChallenge for the user, creating one if missing."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    challenge = DailyChallengeService.get_or_create_today(target)
-    return daily_challenge_to_dict(challenge)
+    with household_context(user, target) as (_user, target):
+        challenge = DailyChallengeService.get_or_create_today(target)
+        return daily_challenge_to_dict(challenge)
 
 
 @tool()
@@ -35,4 +37,5 @@ def claim_daily_challenge(params: ClaimDailyChallengeIn) -> dict[str, Any]:
     """Claim today's reward (idempotent — second claim returns already_claimed=True)."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    return DailyChallengeService.claim_reward(target)
+    with household_context(user, target) as (_user, target):
+        return DailyChallengeService.claim_reward(target)

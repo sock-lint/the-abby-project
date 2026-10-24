@@ -7,16 +7,20 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 from datetime import date
+import hashlib
 import json
 import uuid
 
+from django.apps import apps
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import User
 from apps.quests.activity import household_timezone
+from apps.rpg.authoring_archive import MAX_ARCHIVED, ensure_active_capacity, list_authoring, locked_author
 from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
 from .catalog import load_catalog
 from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, pet_incubation_policy, rules_fingerprint, simulate_progression
@@ -44,9 +48,9 @@ class ExperimentUnavailable(Exception):
 
 
 def _actor(actor, *, lock=False):
-    queryset = User.objects
     if lock:
-        queryset = queryset.select_for_update()
+        return locked_author(actor)
+    queryset = User.objects
     current = queryset.filter(pk=actor.pk, family_id=actor.family_id, is_active=True, is_staff=True, role="parent").first()
     if current is None:
         raise PermissionDenied("Progression experiments are available to active staff parents.")
@@ -64,6 +68,8 @@ def _experiment(actor, experiment_id, *, lock=False):
 
 
 def _revision(experiment, revision):
+    if experiment.is_archived:
+        raise ExperimentConflict("This experiment is archived and read-only. Restore it before making changes.")
     if type(revision) is not int or experiment.revision != revision:
         raise ExperimentConflict("Experiment changed. Reload it before continuing.")
 
@@ -153,10 +159,7 @@ def _binding(catalog, *, incubation_policy=None):
 _REQUEST_BINDING = ContextVar("progression_request_binding", default=None)
 
 
-def _current_binding():
-    preset = _REQUEST_BINDING.get()
-    if preset is not None:
-        return preset[0]
+def _read_binding():
     try:
         return _binding(load_catalog())
     except ValueError:
@@ -165,16 +168,95 @@ def _current_binding():
         return None
 
 
+def _current_binding():
+    preset = _REQUEST_BINDING.get()
+    return preset[0] if preset is not None else _read_binding()
+
+
+# Source rows, rather than accepted catalog rows, also cover eligibility changes
+# and previously excluded definitions becoming available. No household records or
+# private authoring/pack metadata enter this short-lived optimistic token.
+_CATALOG_SOURCE_LIMITS = {
+    "achievements.SkillCategory": 2048, "achievements.Subject": 8192,
+    "achievements.Skill": 2048, "achievements.SkillPrerequisite": 32768,
+    "achievements.Badge": 512, "pets.PetSpecies": 256,
+    "pets.PotionType": 256, "rpg.ItemDefinition": 4096,
+    "rpg.DropTable": 16384, "quests.QuestDefinition": 4096,
+    "quests.QuestSkillTag": 32768, "quests.QuestRewardItem": 32768,
+}
+
+
+def _catalog_sources():
+    sources = [(apps.get_model(label), limit) for label, limit in _CATALOG_SOURCE_LIMITS.items()]
+    species = apps.get_model("pets.PetSpecies")
+    sources.append((species.available_potions.through, 65536))
+    return sorted(sources, key=lambda source: source[0]._meta.db_table)
+
+
+def _catalog_source_token():
+    """Bounded source versions, used only within one decision request.
+
+    PostgreSQL's row versions detect updates even when a writer restores the
+    original values. They avoid copying catalog descriptions/report-sized JSON
+    under household locks. Portable tests use exact concrete values instead.
+    """
+    rows = []
+    for model, limit in _catalog_sources():
+        queryset = model.objects.order_by("pk")
+        label = model._meta.label_lower
+        if label == "quests.questdefinition":
+            queryset = queryset.filter(is_system=True)
+        elif label in {"quests.questskilltag", "quests.questrewarditem"}:
+            queryset = queryset.filter(quest_definition__is_system=True)
+        if connection.vendor == "postgresql":
+            table = connection.ops.quote_name(model._meta.db_table)
+            queryset = queryset.annotate(_source_version=RawSQL(
+                f"{table}.xmin::text || '/' || {table}.ctid::text", [],
+            ))
+            values = list(queryset.values_list("pk", "_source_version")[:limit + 1])
+        else:
+            values = list(queryset.values_list(*[field.attname for field in model._meta.concrete_fields])[:limit + 1])
+        if len(values) > limit:
+            raise ValueError("Global catalog source exceeds the decision freshness limit.")
+        rows.append((label, values))
+    policy = {"incubation": dict(pet_incubation_policy()),
+              "asset_support": getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None),
+              "coins_per_hour": settings.COINS_PER_HOUR, "coins_per_dollar": settings.COINS_PER_DOLLAR,
+              "badge_coins": settings.COINS_PER_BADGE_RARITY}
+    return hashlib.sha256(json.dumps([rows, policy], sort_keys=True, default=str).encode()).hexdigest()
+
+
 @contextmanager
-def request_catalog_binding():
+def request_catalog_binding(*, for_decision=False):
     """Snapshot today's global catalog binding once, before callers take household locks.
 
     The snapshot takes a substantial fraction of a second and holds no
     household data. Within the block every freshness check and report reuses
     it, so lock holders never rebuild the catalog. Callers without the block,
-    including the native REST views, keep computing it on demand.
+    including native reads, keep computing it on demand. A decision additionally
+    binds the source versions around that computation; its final short catalog
+    fence validates those versions before any decision is appended.
     """
-    token = _REQUEST_BINDING.set((_current_binding(),))
+    source_token = None
+    if for_decision:
+        try:
+            # A shared read fence prevents transient insert/delete generations
+            # from appearing in the detached projection and disappearing before
+            # its source stamp. This transaction ends BEFORE any caller takes
+            # household locks; simulations are never performed here.
+            with transaction.atomic():
+                if connection.vendor == "postgresql":
+                    tables = ", ".join(connection.ops.quote_name(model._meta.db_table)
+                                       for model, _ in _catalog_sources())
+                    with connection.cursor() as cursor:
+                        cursor.execute("LOCK TABLE " + tables + " IN SHARE MODE")
+                binding = _read_binding()
+                source_token = _catalog_source_token()
+        except ValueError:
+            binding = None
+    else:
+        binding = _current_binding()
+    token = _REQUEST_BINDING.set((binding, source_token) if for_decision else (binding,))
     try:
         yield
     finally:
@@ -197,7 +279,7 @@ def _decision_json(decision):
 def _summary(experiment):
     decision = experiment.decisions.order_by("-created_at", "-id").first()
     return {"id": str(experiment.pk), "name": experiment.name, "hypothesis": experiment.hypothesis,
-            "revision": experiment.revision, "updated_at": experiment.updated_at.isoformat(),
+            "revision": experiment.revision, "is_archived": experiment.is_archived, "updated_at": experiment.updated_at.isoformat(),
             "latest_decision": _decision_json(decision) if decision else None}
 
 
@@ -257,21 +339,22 @@ def _detail(experiment, *, include_observations=True):
                              for row in experiment.observations.order_by("-created_at", "-id")] if include_observations else []}
 
 
-def list_experiments(actor):
-    actor = _actor(actor)
-    rows = ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).order_by("-updated_at", "-id")[:MAX_EXPERIMENTS]
-    return {"schema_version": 1, "limits": {"max_experiments": MAX_EXPERIMENTS, "max_comparisons": MAX_COMPARISONS,
+@transaction.atomic
+def list_experiments(actor, *, include_archived=False, after=None, limit=20):
+    page = list_authoring(actor, "experiment", include_archived=include_archived, after=after, limit=limit)
+    rows = ProgressionExperiment.objects.filter(pk__in=[row["id"] for row in page["rows"]]).order_by("pk")
+    return {"schema_version": 1, "limits": {"max_experiments": MAX_EXPERIMENTS, "max_archived_experiments": MAX_ARCHIVED, "max_comparisons": MAX_COMPARISONS,
             "max_observations": MAX_OBSERVATIONS,
             "max_comparison_work_units": MAX_COMPARISON_WORK_UNITS, "max_evidence_bytes": MAX_EVIDENCE_BYTES}, "feedback": feedback_metadata(),
-            "experiments": [_summary(row) for row in rows]}
+            "experiments": [_summary(row) for row in rows],
+            "total": page["total"], "has_more": page["has_more"], "next_after": page["next_after"]}
 
 
 @transaction.atomic
 def create_experiment(actor, data, *, include_observations=True):
     values = _inputs(data)
     actor = _actor(actor, lock=True)
-    if ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).count() >= MAX_EXPERIMENTS:
-        raise ValueError("This notebook has reached its 20-experiment limit.")
+    ensure_active_capacity("experiment", actor, limit=MAX_EXPERIMENTS)
     return _detail(ProgressionExperiment.objects.create(actor=actor, family_id=actor.family_id, **values),
                    include_observations=include_observations)
 
@@ -356,9 +439,33 @@ def get_comparison(actor, experiment_id, comparison_id):
     return _comparison_json(experiment, comparison, full=True, binding=_current_binding())
 
 
-@transaction.atomic
 def record_decision(actor, experiment_id, data, *, include_observations=True):
+    # REST callers need the same detached preparation as MCP. An ordinary read
+    # binding is insufficient; never upgrade a cached read into commit proof.
+    preset = _REQUEST_BINDING.get()
+    if preset is None or len(preset) < 2:
+        with request_catalog_binding(for_decision=True):
+            return _record_decision(actor, experiment_id, data, include_observations=include_observations)
+    return _record_decision(actor, experiment_id, data, include_observations=include_observations)
+
+
+@transaction.atomic
+def _record_decision(actor, experiment_id, data, *, include_observations=True):
     actor = _actor(actor, lock=True)
+    # Match authoring's Family -> author -> catalog order. The existing fence
+    # blocks supported and raw catalog writers through this transaction's save;
+    # no simulation, catalog projection or source inspection runs under it.
+    from apps.rpg.content.publication import _catalog_lock
+    _catalog_lock()
+    binding, source_token = _REQUEST_BINDING.get()
+    if binding is None or source_token is None:
+        raise ExperimentUnavailable("Current catalog is unavailable. Saved evidence remains readable; retry the decision after the catalog recovers.")
+    try:
+        current_token = _catalog_source_token()
+    except ValueError as error:
+        raise ExperimentUnavailable("Current catalog is unavailable. Retry the decision after the catalog recovers.") from error
+    if current_token != source_token:
+        raise ExperimentConflict("Catalog changed after checking evidence. Run a new comparison before recording a decision.")
     experiment = _experiment(actor, experiment_id, lock=True)
     _revision(experiment, data["revision"])
     try:
@@ -369,9 +476,6 @@ def record_decision(actor, experiment_id, data, *, include_observations=True):
     comparison = experiment.comparisons.defer("control", "candidate", "inputs").filter(pk=comparison_id).first()
     if comparison is None:
         raise ExperimentNotFound("Comparison not found.")
-    binding = _current_binding()
-    if binding is None:
-        raise ExperimentUnavailable("Current catalog is unavailable. Saved evidence remains readable; retry the decision after the catalog recovers.")
     if _stale(experiment, comparison, binding):
         raise ExperimentConflict("Evidence is stale. Run a new comparison before recording a decision.")
     outcome = data["outcome"]

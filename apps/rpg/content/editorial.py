@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from apps.families.models import Family
+from apps.rpg.authoring_archive import ensure_active_capacity, list_authoring, require_writable
 from apps.rpg.models import RPGEditorialDraft, RPGEditorialOverride
 
 from .loader import ContentPackError
@@ -89,7 +90,7 @@ def _draft(actor, draft_id, revision=None):
 
 
 def _payload(draft):
-    return {"id": str(draft.pk), "section": draft.section, "name": draft.name, "revision": draft.revision,
+    return {"id": str(draft.pk), "section": draft.section, "name": draft.name, "revision": draft.revision, "is_archived": draft.is_archived,
             "changes": deepcopy(draft.changes), "preview": deepcopy(draft.preview) or None,
             "published_at": draft.published_at.isoformat() if draft.published_at else None}
 
@@ -99,8 +100,7 @@ def create_editorial_draft(actor, section, name):
     actor = _actor(actor)
     if section not in SECTIONS or not isinstance(name, str) or not name.strip() or len(name) > 100:
         raise ContentPackError("Choose an editorial section and a nonempty name of at most 100 characters.")
-    if RPGEditorialDraft.objects.filter(actor=actor, family=actor.family, published_at__isnull=True).count() >= 30:
-        raise ContentPackError("At most 30 unpublished editorial drafts may be kept per author.")
+    ensure_active_capacity("editorial", actor)
     return _payload(RPGEditorialDraft.objects.create(actor=actor, family=actor.family, section=section, name=name.strip()))
 
 
@@ -109,23 +109,9 @@ def get_editorial_draft(actor, draft_id):
     return _payload(_draft(actor, draft_id))
 
 
-@transaction.atomic
-def list_editorial_drafts(actor, *, after=None, limit=30):
-    from django.db.models import Q
-
-    actor = _actor(actor)
-    rows = RPGEditorialDraft.objects.filter(actor=actor, family=actor.family).annotate(
-        has_preview=~Q(preview={}),
-    ).values("id", "section", "name", "revision", "published_at", "has_preview").order_by("pk")
-    if after:
-        rows = rows.filter(pk__gt=after)
-    selected = list(rows[:limit + 1])
-    more = len(selected) > limit
-    selected = selected[:limit]
-    return {"drafts": [{**row, "id": str(row["id"]),
-                       "published_at": row["published_at"].isoformat() if row["published_at"] else None}
-                      for row in selected],
-            "next_after": str(selected[-1]["id"]) if more else None}
+def list_editorial_drafts(actor, *, include_archived=False, after=None, limit=30):
+    result = list_authoring(actor, "editorial", include_archived=include_archived, after=after, limit=limit)
+    return {"drafts": result.pop("rows"), **result}
 
 
 def _proposal(actor, section, changes):
@@ -180,6 +166,7 @@ def _state(section):
 @transaction.atomic
 def save_editorial_draft(actor, draft_id, revision, changes):
     draft = _draft(actor, draft_id, revision)
+    require_writable(draft)
     if draft.published_at:
         raise ContentPackError("Create a new draft to revise published editorial content.")
     _proposal(actor, draft.section, changes)
@@ -191,8 +178,10 @@ def save_editorial_draft(actor, draft_id, revision, changes):
 
 @transaction.atomic
 def preview_editorial_draft(actor, draft_id, revision):
+    actor = _actor(actor)
     _lock()
     draft = _draft(actor, draft_id, revision)
+    require_writable(draft)
     if draft.published_at:
         raise ContentPackError("This editorial draft is already published.")
     changes = _proposal(actor, draft.section, draft.changes)
@@ -205,13 +194,22 @@ def preview_editorial_draft(actor, draft_id, revision):
 
 @transaction.atomic
 def publish_editorial_draft(actor, draft_id, revision, preview_id, content_digest):
+    actor = _actor(actor)
     _lock()
-    draft = _draft(actor, draft_id, revision)
+    draft = _draft(actor, draft_id)
     plan = draft.preview
+    expected_revision = plan.get("revision") if draft.published_at else draft.revision
+    if type(revision) is not int or revision != expected_revision:
+        raise ContentPackError("Supply the original reviewed publication revision." if draft.published_at
+                               else "Editorial draft revision changed; reload before continuing.")
+    if not draft.published_at:
+        require_writable(draft)
     if (not plan or plan["id"] != str(preview_id) or plan["content_digest"] != content_digest):
         raise ContentPackError("Supply this draft's exact reviewed preview and digest.")
     if draft.published_at:
         return _payload(draft)
+    if plan.get("revision") != draft.revision:
+        raise ContentPackError("Editorial draft revision changed; preview it again before publishing.")
     if parse_datetime(plan["expires_at"]) <= timezone.now() or plan["state_digest"] != _state(draft.section):
         raise ContentPackError("Editorial preview expired or catalog changed; preview again.")
     changes = _proposal(actor, draft.section, draft.changes)

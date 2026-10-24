@@ -70,6 +70,13 @@ npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContrac
 npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/taxonomyRetirementContractFixtures.test.jsx src/api/journalContractFixtures.test.js src/api/lorebookContractFixtures.test.jsx src/pages/Manage.oauth.test.jsx
 ```
 
+Archive and participant-privacy contracts additionally run
+`config.tests.test_authoring_archive_api_contract_fixtures` and
+`config.tests.test_participant_privacy_api_contract_fixtures`, with
+`src/api/authoringArchiveContractFixtures.test.js` and the existing challenge
+fixture consumer. These verify real archive/history/restore receipts, retry
+state, and retained legacy contributions without departed profile names.
+
 The catalog producer/consumer pair uses production asset support and checks
 available offers separately from retained saved ownership. Historical breeding fixtures are retained only for retired Unity reference; active contracts verify HTTP 410 and inert compatibility fields. For
 catalog changes, also run:
@@ -91,6 +98,19 @@ reads and edits against the same measured XP/Coin receipt. Summary fixtures keep
 legacy daily notes in the same history with unavailable historical receipts;
 parent responses exclude private notes and journals. Old-client note saves and
 new journal saves share one daily Coin acknowledgment.
+Journal and challenge fixtures also exercise MCP taxonomy renames followed by
+real REST activity saves: journal retains the original 10/5 XP split and the
+untagged daily bonus retains 20 Persistence XP. Registered-SDK regressions in
+`apps.mcp_server.tests.test_fixed_reward_source_identity` cover source reloads,
+reparenting, retirement, ambiguity, unlock eligibility and receipt replay.
+The report-card and parent contract pairs additionally verify renamed grade XP
+and inactive-child physical handover. MCP regressions cover current habit/daily
+authority and saved experiment decisions. Run their PostgreSQL concurrency tests
+with main settings: `test_habit_daily_authority_concurrency`,
+`test_decision_catalog_freshness`, `test_experiment_lock_scope` and
+`test_experiment_retry_concurrency` under `apps.mcp_server.tests`. The decision
+checks cover a cross-family catalog edit between preparation and commit, source
+read/write fences, and continued unrelated-family activity during computation.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

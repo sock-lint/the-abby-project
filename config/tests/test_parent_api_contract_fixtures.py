@@ -2,6 +2,7 @@
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
+from asgiref.sync import async_to_sync
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
@@ -91,6 +92,42 @@ class ParentApiResponseFixtureTests(APITestCase):
 
 class ParentDeliveryApiFixtureTests(APITestCase):
     assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
+
+    def test_inactive_child_saved_delivery_is_shared_by_mcp_and_native_replay(self):
+        from apps.mcp_server.context import override_user
+        from apps.mcp_server.server import mcp
+        from apps.rewards.models import CoinLedger, Reward, RewardRedemption
+        from apps.rewards.services import CoinService, RewardService
+        from apps.rpg.models import UserInventory
+        household = make_family(
+            "Inactive Delivery Fixture", family_id=62,
+            parents=[{"id": 6, "username": "inactive-delivery-parent", "is_staff": True}],
+            children=[{"id": 7, "username": "inactive-delivery-child", "display_name": "Abby"}],
+        )
+        parent, child = household.parents[0], household.children[0]
+        self.client.force_authenticate(user=parent)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            reward = Reward.objects.create(id=901, family=household.family, name="Saved park afternoon", cost_coins=20)
+            CoinService.award_coins(child, 50, CoinLedger.Reason.ADJUSTMENT)
+            redemption = RewardRedemption.objects.create(id=902, user=child, reward=reward, coin_cost_snapshot=20)
+            approved = RewardService.approve(redemption, parent, notes="Saturday after lunch")
+            child.is_active = False
+            child.save(update_fields=["is_active"])
+            before = list(CoinLedger.objects.values())
+            with override_user(parent, scopes=frozenset({"mcp:read", "mcp:write"})):
+                result = async_to_sync(mcp.call_tool)("deliver_reward_redemption", {"params": {
+                    "user_id": child.pk, "redemption_id": redemption.pk,
+                }, "confirmation": True})
+            delivered = result[1] if isinstance(result, tuple) else result.structuredContent
+            self.assertNotIn("error", delivered, delivered)
+            self.assertEqual(delivered["status"], "fulfilled")
+            response = self.client.post(f"/api/redemptions/{redemption.pk}/deliver/", {}, format="json")
+            native = self.assert_response_fixture(response, "parent-reward-inactive-delivered.json")
+            self.assertEqual(native["delivered_at"], delivered["delivered_at"])
+            self.assertEqual(datetime.fromisoformat(native["decided_at"]), approved.decided_at)
+            self.assertEqual(self.client.post(f"/api/redemptions/{redemption.pk}/deliver/", {}, format="json").json(), native)
+            self.assertEqual(list(CoinLedger.objects.values()), before)
+            self.assertFalse(UserInventory.objects.filter(user=child).exists())
 
     def test_real_world_approval_and_delivery_keep_distinct_audit_receipts(self):
         from apps.rewards.models import Reward, RewardRedemption

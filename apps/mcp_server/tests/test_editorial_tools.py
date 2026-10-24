@@ -81,7 +81,7 @@ class EditorialPublicationTests(TestCase):
             EditorialDraftPage.model_validate(page)
             self.assertLessEqual(len(page["drafts"]), 2)
             for row in page["drafts"]:
-                self.assertEqual(set(row), {"id", "section", "name", "revision", "published_at", "has_preview"})
+                self.assertEqual(set(row), {"id", "section", "name", "revision", "is_archived", "published_at", "has_preview", "updated_at"})
                 self.assertEqual(row["has_preview"], bool(own[row["id"]]["preview"]))
             rows.extend(page["drafts"])
             if page["next_after"] is None:

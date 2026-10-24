@@ -49,7 +49,7 @@ def create_editorial_draft(params: CreateEditorialDraftIn) -> EditorialDraftResu
 @safe_tool
 def list_editorial_drafts(params: ListEditorialDraftsIn) -> EditorialDraftPage:
     """Read only the acting author's family-bound editorial drafts."""
-    return _call(editorial.list_editorial_drafts, require_staff_parent(), after=params.after, limit=params.limit)
+    return _call(editorial.list_editorial_drafts, require_staff_parent(), include_archived=params.include_archived, after=params.after, limit=params.limit)
 
 
 @tool()

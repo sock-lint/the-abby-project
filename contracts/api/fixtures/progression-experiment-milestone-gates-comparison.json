@@ -145,7 +145,7 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-22.1",
-    "rules_fingerprint": "5715e3ee638803607929edffcd84aa218d1c0ca20a1c3187cbd90a9f4931912e",
+    "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "0067a147c82882479b5b8e700a0bd88566df47d6cf7bd520a6cb5d64f1b98a94",
     "source_commit": "unavailable"
@@ -321,7 +321,7 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "5715e3ee638803607929edffcd84aa218d1c0ca20a1c3187cbd90a9f4931912e",
+    "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
     "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -7162,7 +7162,7 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "5715e3ee638803607929edffcd84aa218d1c0ca20a1c3187cbd90a9f4931912e",
+    "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
     "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {

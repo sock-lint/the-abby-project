@@ -251,6 +251,17 @@ parent goals. Use the modern tools for new challenge authoring and auditing.
 
 ## Reviewed content-pack publishing
 
+Pack file operations coordinate concurrent workers. Disjoint
+`draft_pack_entries(mode="append")` calls merge with the latest saved file;
+replacement mode intentionally replaces its contents. `read_pack_file` returns
+`content_digest`. Supply it as `expected_digest` to `write_pack_file`,
+`draft_pack_entries` or `delete_pack_file` when editing a particular saved version.
+Use `expected_digest="missing"` when creating a file that must not already exist.
+If omitted, replacement keeps its existing unconditional contract. A
+`pack_source_conflict` means read and review again; `pack_busy` means wait for the
+other operation to finish. Both are retryable. Atomic replacement keeps the
+previous file intact when a write is interrupted before replacement.
+
 1. Inspect global content and rules with `read_rpg_catalog`,
    `audit_rpg_catalog` and `get_economy_rules`.
 2. Create/edit the family's pack with `write_pack_file` or
@@ -281,6 +292,12 @@ to overwrite another pack or bundled content. Shop publication targets the
 author's explicit family. Draft files are also family-owned. Unowned legacy
 draft directories require operator reconciliation rather than automatic
 adoption by the first caller.
+
+Public challenge drafts check name collisions within the public definition
+namespace. A private household challenge may share a public title and does not
+block an unrelated public edit selected by ID. Genuine public collisions,
+retained source identities and named badge dependencies still require explicit
+resolution.
 
 Reconciliation removes owned obsolete drop rules and retires removed shop
 offers. Quest reward links are reconciled to the new definition. Owned
@@ -550,6 +567,16 @@ daily bonus fallback XP targets `Life Skills::Persistence`, and sample movement
 tags target Physical skills. An absent canonical skill never selects another
 category's namesake.
 
+Installed journal, grade, Reading and daily-bonus XP routes use their original
+category/skill identities through the shared achievements source resolver.
+Exact version-1 MCP provenance retains those identities across renames and
+reparenting; source-less canonical rows still work. Retirement keeps installed
+routes, while ordinary unlock checks still apply. Missing or ambiguous identities
+fail closed. Journal retains its existing split across surviving destinations;
+explicit daily source tags take precedence over the Persistence fallback.
+Saved receipts are never rewritten or backfilled, and forecast fingerprints
+include the shared resolver and fixed-destination rules.
+
 Pack relationship edits distinguish omission from explicit clearing:
 `required_badge` omitted retains its value; null clears it. Skill `prereqs`
 omitted retains edges; an explicit list replaces the owned skill's edges,
@@ -589,6 +616,14 @@ reports, observations or catalog/rules bindings.
    accounting is distinct from a hypothetical forecast and never validates an
    undeployed policy.
 
+Decision preparation captures a consistent global catalog and an internal,
+bounded source-version token before household locks. The final native write
+revalidates that token under the existing catalog fence and holds it through
+the append. An edit after preparation rejects the new decision; missing or
+oversized source evidence remains unavailable. Catalog projection and simulation
+stay outside household locks. Tokens exclude private quests and household data,
+are not client inputs or saved evidence, and do not replace immutable UUID replay.
+
 Notebook tools require `mcp:author`. Author-only results explicitly set
 `observations_redacted=true` and do not query checkpoint payloads. Household
 observation reads require `mcp:read`; checkpoint capture requires **both** author
@@ -603,11 +638,53 @@ notebook or evidence result. Receipts store digests and UUID identities, without
 copying hypothesis prose or household observations; actor/family deletion removes
 those identities. Apply MCP migration `0005` first.
 
-Native limits remain 20 experiments per author/family, 20 comparisons and
+Native limits remain 20 active experiments per author/family, 20 comparisons and
 20 observation checkpoints per experiment, 100 decisions, bounded paired work,
 and a 4 MiB stored-evidence cap. Large native reports are not reduced to the
 older generic MCP receipt's 256 KiB response cap. Historical evidence remains
 readable with explicit freshness even when today's catalog is unavailable.
+
+## Reversible authoring archives
+
+Use `set_content_draft_archived`, `set_editorial_draft_archived` or
+`set_progression_experiment_archived` with `mcp:author` and explicit top-level
+`confirmation: true`. Supply `draft_id` or `experiment_id`, the current
+`revision`, `is_archived: true` and a stable UUID `request_id`. Restore with
+`is_archived: false` and a new operation UUID. Reuse the exact original UUID and
+arguments after an uncertain response.
+
+Archives hide records from default lists and free active capacity. Lists accept
+`include_archived: true` and bounded UUID continuation pages. Exact reads retain
+all changes, previews, simulations, publication receipts, comparison reports,
+decisions and checkpoints. Checkpoints keep their separate household read grant.
+Archived records are read-only until restored. Archiving published work changes
+its organization only; its live definitions and copy stay published.
+
+An exact completed publication retry is a read of its existing receipt, even
+after archive/restore. It requires the original preview, digest and reviewed
+revision. Organizational revisions cannot authorize publication of an older,
+unpublished preview; preview and evaluate the current draft again after restore.
+
+A state transition increments the revision, so previous experiment evidence is
+historical and cannot authorize a new decision. Archive results separate current
+`is_archived`/`revision` from the original `operation` state and revision. Replaying
+an earlier archive after restoration therefore reports the saved operation while
+leaving the record restored. Current owner, family and staff authority are
+required even for retries; another same-family parent cannot adopt the work.
+
+Each author/family may keep 20 active experiments, 30 active unpublished content
+drafts and 30 active unpublished editorial drafts. Restoration checks the same
+active quota. Each type separately permits 100 archived records. Reaching that
+retention bound returns a clear conflict and deletes nothing; restoration or an
+explicit retention review is required. Comparisons, decisions, checkpoints and
+request tombstones are never automatically pruned by archival.
+
+Native POST archive routes use the same service and receipts under
+`/api/rpg/content-workbench/drafts/<id>/archive/`,
+`/api/rpg/editorial/drafts/<id>/archive/`, and
+`/api/rpg/progression-lab/experiments/<id>/archive/`. Their body includes the same
+revision, boolean, UUID and `confirmation: true`. Apply RPG migration `0040`
+before serving these workflows.
 
 ## Household RPG management
 

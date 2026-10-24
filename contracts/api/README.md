@@ -1,5 +1,29 @@
 # Shared API response fixtures
 
+`authoring-{content,editorial,experiment}-{archived,history}.json` are real
+native archive receipts and bounded retained-history responses. The experiment
+restore and archive-replay fixtures distinguish the record's current restored
+state from the original archive operation, without reapplying that operation.
+The producer is `config.tests.test_authoring_archive_api_contract_fixtures`;
+React consumes the same bodies in `src/api/authoringArchiveContractFixtures.test.js`.
+Both run in the required fixture gate. Archive flags preserve all saved evidence
+and do not unpublish content or change rewards.
+
+`report-card-renamed-taxonomy.json` comes from a real child report-card save
+after MCP renames the installed Life Skills / Time Management category and
+skill. It retains the original skill ID and verified 10 XP receipt, including
+retry behavior. The existing report-card producer and React consumer cover it.
+`parent-reward-inactive-delivered.json` verifies native parent handover of an
+inactive same-family child's saved physical promise, with unchanged spending
+and an idempotent delivery receipt. It uses the existing parent contract pair.
+
+`quest-history-former-participant.json` comes from the authenticated legacy
+quest history endpoint after one saved participant moves families. It preserves
+participant IDs, contributions and a current same-family name, while replacing
+the departed member's current name with `Former participant`. The producer is
+`config.tests.test_participant_privacy_api_contract_fixtures`; the existing
+React challenge fixture consumer checks the same response.
+
 `oauth-applications.json` is a real authenticated staff-parent response from
 `GET /api/admin/oauth/applications/`, produced by
 `config.tests.test_oauth_api_contract_fixtures` and consumed by

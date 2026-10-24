@@ -20,6 +20,7 @@ import completedRun from '../../../contracts/api/fixtures/challenge-run-complete
 import invalidGoal from '../../../contracts/api/fixtures/challenge-goal-invalid.json';
 import promisedQuest from '../../../contracts/api/fixtures/quest-promised-item-active.json';
 import promisedQuestHistory from '../../../contracts/api/fixtures/quest-promised-item-history.json';
+import formerParticipantHistory from '../../../contracts/api/fixtures/quest-history-former-participant.json';
 import legacyPromisedItems from '../../../contracts/api/fixtures/challenges-legacy-promised-item.json';
 import readingGoal from '../../../contracts/api/fixtures/challenge-reading-goal-created.json';
 import readingThreshold from '../../../contracts/api/fixtures/challenge-reading-threshold-session.json';
@@ -38,6 +39,7 @@ import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-
 import milestoneLocked from '../../../contracts/api/fixtures/challenges-milestone-locked.json';
 import milestoneReady from '../../../contracts/api/fixtures/challenges-milestone-ready.json';
 import untimedGoals from '../../../contracts/api/fixtures/challenges-untimed.json';
+import renamedTaxonomyDaily from '../../../contracts/api/fixtures/challenges-renamed-taxonomy-daily.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
@@ -47,6 +49,34 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('preserves the confirmed daily fallback XP after its taxonomy is renamed', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(renamedTaxonomyDaily)));
+    const saved = await getChallenges();
+    expect(saved).toEqual(renamedTaxonomyDaily);
+    expect(saved.daily_bonus).toMatchObject({
+      completed: true, awarded: true, xp_reward: 20, xp_awarded: 20,
+      coin_reward: 10, coins_awarded: 10,
+    });
+    expect(saved.daily_bonus.receipt_id).toEqual(expect.stringMatching(/^daily:\d+$/));
+  });
+
+  it('retains saved co-op IDs and contributions while masking a departed participant current profile', async () => {
+    const requests = [];
+    server.use(http.get('*/api/quests/history/', ({ request }) => {
+      requests.push({ path: new URL(request.url).pathname, auth: request.headers.get('Authorization') });
+      return HttpResponse.json(formerParticipantHistory);
+    }));
+    const history = await getQuestHistory();
+    expect(history).toEqual(formerParticipantHistory);
+    expect(requests).toEqual([{ path: '/api/quests/history/', auth: 'Token test-session' }]);
+    expect(history[0]).toMatchObject({ id: 1202, status: 'completed', current_progress: 10 });
+    expect(history[0].participants).toEqual([
+      { id: 1203, user: 122, user_name: 'Current shared name', contribution: 7 },
+      { id: 1204, user: 123, user_name: 'Former participant', contribution: 3 },
+    ]);
+    expect(JSON.stringify(history)).not.toContain('Private later household name');
+  });
+
   it('preserves an untimed catalog Reading Companion promise from the actual endpoint', async () => {
     server.use(http.get('*/api/challenges/', () => HttpResponse.json(untimedGoals)));
     const response = await getChallenges();

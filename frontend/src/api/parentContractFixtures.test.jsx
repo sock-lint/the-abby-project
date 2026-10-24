@@ -9,11 +9,25 @@ import { getDashboard } from './index';
 import { getAwaitingRedemptions, deliverRedemption } from './index';
 import approvedReward from '../../../contracts/api/fixtures/parent-reward-approved.json';
 import deliveredReward from '../../../contracts/api/fixtures/parent-reward-delivered.json';
+import inactiveDeliveredReward from '../../../contracts/api/fixtures/parent-reward-inactive-delivered.json';
 import RewardDeliveryQueue from '../pages/rewards/RewardDeliveryQueue';
 import userEvent from '@testing-library/user-event';
 import { spyHandler } from '../test/spy';
 
 describe('parent dashboard response through the real React API client', () => {
+  it('retains the saved inactive-child handover audit on delivery replay', async () => {
+    const delivery = spyHandler('post', '*/api/redemptions/902/deliver/', inactiveDeliveredReward);
+    server.use(delivery.handler);
+    const delivered = await deliverRedemption(inactiveDeliveredReward.id);
+    expect(delivered).toEqual(inactiveDeliveredReward);
+    expect(delivered.status).toBe('fulfilled');
+    expect(delivered.delivered_by).toBe(6);
+    expect(delivered.delivered_at).toBeTruthy();
+    expect(delivered.decided_at).toBeTruthy();
+    expect(await deliverRedemption(inactiveDeliveredReward.id)).toEqual(delivered);
+    expect(delivery.calls.map((call) => call.body)).toEqual([{}, {}]);
+  });
+
   it('uses the saved approval and delivery receipts for a real-world reward', async () => {
     const user = userEvent.setup();
     const delivery = spyHandler('post', '*/api/redemptions/902/deliver/', deliveredReward);

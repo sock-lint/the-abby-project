@@ -76,7 +76,7 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
         "unread_count": unread_count,
         "notifications": NotificationSerializer(notifications, many=True).data,
         "recent_drops": DropLogSerializer(drops, many=True).data,
-        "active_quest": QuestSerializer(active_quest).data if active_quest else None,
+        "active_quest": QuestSerializer(active_quest, context={"observer_family_id": user.family_id}).data if active_quest else None,
         "challenge_receipts": receipts,
         "companion_growth": {"events": _companion_growth(profile)},
         "identity": earned_identity(user, profile, request=request),

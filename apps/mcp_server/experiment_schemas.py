@@ -3,13 +3,14 @@ import json
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import Field, StrictInt, model_validator
+from pydantic import Field, StrictBool, StrictInt, model_validator
 
 from .schemas import _Base
 from .workbench_schemas import ProgressionReportOut, WorkbenchResult
 
 
 class ListProgressionExperimentsIn(_Base):
+    include_archived: StrictBool = False
     after: UUID | None = None
     limit: StrictInt = Field(default=20, ge=1, le=20)
 
@@ -80,6 +81,7 @@ class ProgressionDecisionOut(WorkbenchResult):
 
 
 class ProgressionExperimentSummaryOut(WorkbenchResult):
+    is_archived: bool
     id: str
     name: str
     hypothesis: str

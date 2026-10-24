@@ -3,6 +3,7 @@
   "name": "100-Coin starting experiment",
   "hypothesis": "Test income and first-reward pacing before changing live grants.",
   "revision": 1,
+  "is_archived": false,
   "updated_at": "2026-10-18T12:00:00+00:00",
   "latest_decision": {
     "id": "00000000-0000-4000-8000-000000000003",
@@ -186,7 +187,7 @@
       "freshness": "current",
       "binding": {
         "engine_version": "2026-10-22.1",
-        "rules_fingerprint": "5715e3ee638803607929edffcd84aa218d1c0ca20a1c3187cbd90a9f4931912e",
+        "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
         "source_commit": "unavailable"
@@ -271,7 +272,7 @@
       },
       "binding": {
         "source_commit": "unavailable",
-        "rules_fingerprint": "5715e3ee638803607929edffcd84aa218d1c0ca20a1c3187cbd90a9f4931912e",
+        "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "policy": "installed_uncapped",
         "scope": "own_family_recent_children"

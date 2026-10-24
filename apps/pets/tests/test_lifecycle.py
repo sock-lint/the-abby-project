@@ -5,7 +5,9 @@ import tempfile
 from uuid import uuid4
 
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -149,8 +151,14 @@ class CompanionLifecycleTests(TestCase):
             name="Other family egg", item_type="egg", pet_species=self.species,
         )
         UserInventory.objects.create(user=self.other_child, item=foreign_egg)
-        with override_user(self.child), self.assertNumQueries(1):
+        with override_user(self.child), CaptureQueriesContext(connection) as queries:
             result = list_inventory(ListInventoryIn(item_type="egg"))
+        selects = [query["sql"] for query in queries if query["sql"].lstrip().upper().startswith("SELECT")]
+        inventory_selects = [sql for sql in selects if f'FROM "{UserInventory._meta.db_table}"' in sql]
+        # Fresh Family and member authority each add one fixed read. Item and
+        # species projections must remain batched for all owned eggs.
+        self.assertEqual(len(inventory_selects), 1, inventory_selects)
+        self.assertEqual(len(selects), 3, selects)
         self.assertEqual({row["item"]["id"] for row in result["inventory"]}, {egg.pk for egg in eggs})
         for row in result["inventory"]:
             self.assertEqual(row["item"]["lifecycle_stage"], "egg")

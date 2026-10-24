@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 277 tools across 38 modules.** Checked against registered tool metadata and `tool_policy.py` on October 24, 2026.
+> **Total: 280 tools across 39 modules.** Checked against registered tool metadata and `tool_policy.py` on October 24, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -126,6 +126,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | --- | --- |
 | `achievements` | 19 |
 | `asset_proposals` | 7 |
+| `authoring_archive` | 3 |
 | `catalog` | 2 |
 | `challenge_reconciliation` | 3 |
 | `challenges` | 7 |
@@ -163,6 +164,20 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `timecards` | 9 |
 | `users` | 3 |
 
+
+## authoring_archive
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `set_content_draft_archived` | `mcp:author` | No | Required | Archive or restore an owned content draft without changing published definitions. |
+| `set_editorial_draft_archived` | `mcp:author` | No | Required | Archive or restore an owned textual draft while retaining review and publication receipts. |
+| `set_progression_experiment_archived` | `mcp:author` | No | Required | Archive or restore an owned notebook entry, retaining comparisons, decisions and grant-protected checkpoints. |
+
+All three require the current `revision`, strict `is_archived` boolean and stable
+UUID `request_id`. Replays return current state plus the original `operation`
+without reapplying an older archive after a restore. Lists hide archives by
+default; `include_archived=true` includes retained history. See the
+[archival workflow](operations/mcp-authoring.md#reversible-authoring-archives).
 
 ## achievements
 
