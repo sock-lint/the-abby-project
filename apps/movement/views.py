@@ -155,6 +155,7 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
                 distance=write.validated_data.get("distance"),
                 distance_unit=write.validated_data.get("distance_unit", "mi"),
                 client_request_id=write.validated_data.get("client_request_id"),
+                usage_actor=request.user,
             )
         except MovementSessionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

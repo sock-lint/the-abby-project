@@ -84,6 +84,7 @@ class MovementSessionService:
         distance=None,
         distance_unit="mi",
         client_request_id=None,
+        usage_actor=None,
     ) -> MovementSession:
         """Log a session, conditionally distribute XP + drop + quest progress.
 
@@ -156,6 +157,12 @@ class MovementSessionService:
         activity_result = GameLoopService.record_challenge_activity(user, "movement_session", {"session_id": session.pk})
         session._challenge_receipts = activity_result.get("challenge_receipts", [])
 
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "movement", "completed",
+                source="movement.movementsession", source_id=session.pk,
+            )
         return session
 
     @classmethod

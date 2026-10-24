@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "apps.quests",
     "apps.lorebook",
     "apps.activity",
+    "apps.usage",
     "apps.creations",
     "apps.movement",
     "apps.reading",
@@ -622,6 +623,10 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "usage-data-retention": {
+        "task": "apps.usage.tasks.prune_usage_events",
+        "schedule": crontab(hour=3, minute=20),
+    },
     "private-file-cleanup": {
         "task": "apps.accounts.tasks.cleanup_deleted_files",
         "schedule": crontab(minute="*/5"),

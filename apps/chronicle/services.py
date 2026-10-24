@@ -246,8 +246,12 @@ class ChronicleService:
             return entry
 
     @staticmethod
+    @transaction.atomic
     def record_birthday(user, *, on_date: Optional[date] = None) -> ChronicleEntry:
-        """Idempotent. Keyed on (user, kind=BIRTHDAY, occurred_on)."""
+        """Save a birthday and its new badges once, without granting a gift."""
+        from apps.achievements.services import BadgeService, _lock_award_user
+
+        _lock_award_user(user)
         day = on_date or date.today()
         age = None
         if user.date_of_birth:
@@ -255,7 +259,7 @@ class ChronicleService:
             if (day.month, day.day) < (user.date_of_birth.month, user.date_of_birth.day):
                 age -= 1
         title = f"Turned {age}" if age is not None else "Birthday"
-        entry, _ = ChronicleEntry.objects.get_or_create(
+        entry, created = ChronicleEntry.objects.get_or_create(
             user=user,
             kind=ChronicleEntry.Kind.BIRTHDAY,
             occurred_on=day,
@@ -265,6 +269,8 @@ class ChronicleService:
                 "icon_slug": "birthday-candle",
             },
         )
+        if created:
+            BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
         return entry
 
     @staticmethod

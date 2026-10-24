@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
+from apps.usage.services import record_action
 
 from .models import ReadingBook, ReadingSession
 from .services import (
@@ -102,6 +103,11 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
         write.is_valid(raise_exception=True)
         with authorized_reading(request.user, target) as (actor, target):
             session, created = create_reading_session(actor, target, write.validated_data)
+            if created:
+                record_action(
+                    actor, "reading", "completed",
+                    source="reading.readingsession", source_id=session.pk,
+                )
             return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):

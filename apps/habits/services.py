@@ -13,7 +13,7 @@ class HabitService:
 
     @staticmethod
     @transaction.atomic
-    def log_tap(user, habit, direction):
+    def log_tap(user, habit, direction, *, usage_actor=None):
         """Log a +1 or -1 tap on a habit, update strength, return rewards."""
         if direction not in (1, -1):
             raise ValueError(f"direction must be +1 or -1, got {direction}")
@@ -115,6 +115,12 @@ class HabitService:
         if direction == 1:
             from apps.rpg.services import GameLoopService
             GameLoopService.record_challenge_activity(user, "habit_log", {"habit_log_id": log.pk})
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "habits", "completed" if direction == 1 else "checked_in",
+                source="habits.habitlog", source_id=log.pk,
+            )
         return {
             "direction": direction,
             "xp_reward": habit.xp_reward if direction == 1 else 0,
