@@ -106,6 +106,7 @@ urlpatterns = [
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),
     path("api/", include("apps.activity.urls")),
+    path("api/", include("apps.usage.urls")),
     path("api/", include("apps.chronicle.urls")),
     path("api/", include("apps.creations.urls")),
     path("api/", include("apps.lorebook.urls")),
