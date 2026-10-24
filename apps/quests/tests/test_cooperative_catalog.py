@@ -21,7 +21,7 @@ from config.tests.factories import make_family
 class CooperativeCatalogTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
         cls.definition = QuestDefinition.objects.get(name="Family Co-op — Spring Cleaning", is_system=True)
         QuestDefinition.objects.exclude(pk=cls.definition.pk).update(is_system=False)
 
