@@ -430,6 +430,39 @@ or notification history from a production smoke run.
 
 ## Existing catalog editing and progression evaluation
 
+### Canonical challenge reconciliation
+
+`preview_challenge_reconciliation` and `get_challenge_reconciliation` use
+`mcp:author`; `publish_challenge_reconciliation` uses `mcp:publish` and an
+independent top-level literal `confirmation: true`. These operate on one exact
+unresolved source/canonical system-definition pair. They share the native
+reconciliation service, rather than extending ordinary item/challenge drafts.
+
+Preview takes `source_definition_id`, `canonical_definition_id` and a stable
+`client_request_id` UUID. Its global-only projection shows the selected rules,
+provenance categories and differences without household records or counts.
+An identical request recovers the original preview. Get resumes its saved
+receipt; another author or family cannot inspect or publish it.
+
+Publish takes `preview_id` and `content_digest`. The server also verifies its
+expiring catalog, source-ownership and accepted-goal bindings. A cooperative
+difference on a one-time pair requires `acknowledge_cooperative_transition: true`
+in `params` in addition to transport confirmation. Repeating personal-to-cooperative
+conversions, other incompatible behavior, unsupported
+claims and alias/dependency states are refused. Stale or expired plans need a
+fresh preview UUID. Successful publication replays its stored receipt after
+current authorization without another history rewrite or reward.
+
+Both definition rows and their original provenance remain. Accepted windows,
+contributions, payments and reward promises stay intact. Only an eligible sole
+alias goal's definition FK moves to retain its existing cadence; additional
+accepted aliases cannot create more repeat windows. The preview and receipt
+never expose account/goal IDs or usage counts. No content data changes merely
+because these tools are installed. See the [challenge runbook](automatic-challenges.md#review-unresolved-duplicate-pairs)
+for the preservation and admission boundary.
+
+### Existing definition editing
+
 `get_content_workbench` supplies bounded global references without family shop
 usage or private drafts. `get_rpg_rules` and `explain_rpg_catalog_entry` expose
 installed calculations, effective effects, audits and bounded incoming global

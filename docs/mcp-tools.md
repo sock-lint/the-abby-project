@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 274 tools across 37 modules.** Checked against registered tool metadata and `tool_policy.py` on October 21, 2026.
+> **Total: 277 tools across 38 modules.** Checked against registered tool metadata and `tool_policy.py` on October 24, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -87,6 +87,7 @@ Recent receipt summaries remain bounded. Use `get_challenge` for an exact saved
 | `log_movement_session` | `client_request_id` |
 | `create_reading_book` | `client_request_id` |
 | `log_reading_session` | `client_request_id` |
+| `preview_challenge_reconciliation` | `client_request_id` |
 | `create_progression_experiment` | `request_id` |
 | `save_progression_experiment` | `request_id` |
 | `compare_progression_experiment` | `request_id` |
@@ -126,6 +127,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `achievements` | 19 |
 | `asset_proposals` | 7 |
 | `catalog` | 2 |
+| `challenge_reconciliation` | 3 |
 | `challenges` | 7 |
 | `chores` | 9 |
 | `chronicle` | 10 |
@@ -206,6 +208,18 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | --- | --- | --- | --- | --- |
 | `audit_rpg_catalog` | `mcp:catalog` | Yes | — | Inspect one bounded catalog page without modifying rules or player state. |
 | `read_rpg_catalog` | `mcp:catalog` | Yes | — | Read one global section in primary-key order with a stable after cursor. |
+
+
+## challenge_reconciliation
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `get_challenge_reconciliation` | `mcp:author` | Yes | — | Read this author's saved reconciliation preview or publication receipt without household identities or usage. |
+| `preview_challenge_reconciliation` | `mcp:author` | No | — | Preview one explicit unresolved source/canonical pair using a stable request UUID; change no live offers or accepted promises. |
+| `publish_challenge_reconciliation` | `mcp:publish` | No | Required | Publish the exact reviewed pair and digest once; separately acknowledge a cooperative difference when required. |
+
+See [canonical reconciliation](operations/mcp-authoring.md#canonical-challenge-reconciliation)
+for source ownership, stale-plan checks, retained history and repeat cadence.
 
 
 ## challenges
