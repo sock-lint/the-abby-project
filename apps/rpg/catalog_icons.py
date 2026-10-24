@@ -12,6 +12,7 @@ BINDINGS_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/icon-bindi
 ARTWORK_BINDINGS_PATH = BINDINGS_PATH.with_name("artwork-bindings.json")
 ELEMENTAL_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bindings.json")
 ELEMENTAL_EXPANSION_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-expansion-bindings.json")
+ELEMENTAL_BEE_BAT_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bee-bat-bindings.json")
 
 
 @lru_cache(maxsize=1)
@@ -32,6 +33,11 @@ def elemental_bindings():
 @lru_cache(maxsize=1)
 def elemental_expansion_bindings():
     return json.loads(ELEMENTAL_EXPANSION_BINDINGS_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def elemental_bee_bat_bindings():
+    return json.loads(ELEMENTAL_BEE_BAT_BINDINGS_PATH.read_text(encoding="utf-8"))
 
 
 def badge_catalog_icon(badge):
@@ -96,6 +102,8 @@ def challenge_catalog_icon(definition):
     entry = elemental_bindings()["challenges"].get(definition.name)
     if entry is None:
         entry = elemental_expansion_bindings()["challenges"].get(definition.name)
+    if entry is None:
+        entry = elemental_bee_bat_bindings()["challenges"].get(definition.name)
     if entry and definition.quest_type == entry["quest_type"]:
         return entry["asset_id"]
     entry = bindings()["challenges"].get(definition.name)

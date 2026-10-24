@@ -13,6 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from apps.usage.services import record_action
 from config.viewsets import (
     NestedProjectResourceMixin, ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin,
@@ -531,8 +532,14 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             return Response(
                 {"error": "Not your project"}, status=status.HTTP_403_FORBIDDEN
             )
+        previous_status = project.status
         project.status = "in_review"
         project.save()
+        if previous_status != "in_review":
+            record_action(
+                request.user, "projects", "submitted",
+                source="projects.project", source_id=project.pk,
+            )
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
@@ -540,8 +547,14 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         project = self.get_object()
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
+        previous_status = project.status
         project.status = "completed"
         project.save()
+        if previous_status != "completed":
+            record_action(
+                request.user, "projects", "approved",
+                source="projects.project", source_id=project.pk,
+            )
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], url_path="request-changes", permission_classes=[IsParent])

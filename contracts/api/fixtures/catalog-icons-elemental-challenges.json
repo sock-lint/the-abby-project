@@ -1,5 +1,78 @@
 [
   {
+    "id": 102,
+    "name": "Ember Cave",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-bat-fire-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 10,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 204,
+        "item": 73,
+        "item_name": "Bat Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "bat-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-bat"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 205,
+        "item": 51,
+        "item_name": "Fire Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-fire-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "fire"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
     "id": 96,
     "name": "Ember Grove",
     "description": "",
@@ -37,6 +110,79 @@
       },
       {
         "id": 193,
+        "item": 51,
+        "item_name": "Fire Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-fire-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "fire"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
+    "id": 100,
+    "name": "Ember Hive",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-bee-fire-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 5,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 200,
+        "item": 76,
+        "item_name": "Bee Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "bee-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-bee"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 201,
         "item": 51,
         "item_name": "Fire Potion",
         "item_icon": "P",
@@ -326,6 +472,79 @@
     "catalog_available": true
   },
   {
+    "id": 103,
+    "name": "Frost Cave",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-bat-ice-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 10,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 206,
+        "item": 73,
+        "item_name": "Bat Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "bat-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-bat"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 207,
+        "item": 52,
+        "item_name": "Ice Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-ice-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "ice"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
     "id": 97,
     "name": "Frost Grove",
     "description": "",
@@ -363,6 +582,79 @@
       },
       {
         "id": 195,
+        "item": 52,
+        "item_name": "Ice Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-ice-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "ice"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
+    "id": 101,
+    "name": "Frost Hive",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-bee-ice-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 5,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 202,
+        "item": 76,
+        "item_name": "Bee Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "bee-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-bee"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 203,
         "item": 52,
         "item_name": "Ice Potion",
         "item_icon": "P",

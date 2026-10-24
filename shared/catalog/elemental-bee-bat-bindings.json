@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "family_id": "abby-elemental-bee-bat",
+  "release_version": "1.0.0",
+  "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+  "challenges": {
+    "Ember Hive": {
+      "asset_id": "review-bee-fire-acquisition-icon",
+      "variant_id": "icon",
+      "sha256": "7d216f6b48f3283a0436af4513099b5bdae63376bd64364527d41a54f9188965",
+      "quest_type": "collection"
+    },
+    "Frost Hive": {
+      "asset_id": "review-bee-ice-acquisition-icon",
+      "variant_id": "icon",
+      "sha256": "b2dcdadd014b6e599b1dccc4db4a1b41495e665d17729ebb6535b7970171b5c5",
+      "quest_type": "collection"
+    },
+    "Ember Cave": {
+      "asset_id": "review-bat-fire-acquisition-icon",
+      "variant_id": "icon",
+      "sha256": "167ac802517f9a3a5ad56837f963a2a9b8f424696cd94386b25c20adfeec1258",
+      "quest_type": "collection"
+    },
+    "Frost Cave": {
+      "asset_id": "review-bat-ice-acquisition-icon",
+      "variant_id": "icon",
+      "sha256": "24c32fc74574fcd4593429d0ed0d515beb309a7a7852d0984da0635a180b4693",
+      "quest_type": "collection"
+    }
+  }
+}

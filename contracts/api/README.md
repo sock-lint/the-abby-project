@@ -1,5 +1,34 @@
 # Shared API response fixtures
 
+`oauth-applications.json` is a real authenticated staff-parent response from
+`GET /api/admin/oauth/applications/`, produced by
+`config.tests.test_oauth_api_contract_fixtures` and consumed by
+`frontend/src/pages/Manage.oauth.test.jsx`. Both registrations are server-wide;
+`can_delete` is true only when the registration has no user's unexpired access
+token, unrevoked refresh token or unexpired authorization code. The second
+registration remains protected by another family's token even though the
+requester's own token list is empty. The response contains no token values,
+client secrets or other users' identities.
+
+`DELETE /api/admin/oauth/applications/<client_id>/` removes an eligible
+registration and expired/revoked OAuth history. It rechecks current eligibility
+and returns 409 when a connection now protects the registration. Revoking all
+tokens uses the separate `/applications/<client_id>/tokens/` endpoint and keeps
+the registration. Both operations remain staff-parent-only.
+
+`usage-family-observed.json`, `usage-deployment-observed.json`,
+`usage-family-child-chores.json` and `usage-family-empty.json` are real responses
+from the staff-only usage report. The producer makes synthetic chore submissions,
+an explicit parent approval and foreground visits through authenticated APIs.
+Household counts exclude another family's actions; deployment totals require a
+superuser. The filtered response covers child activity over seven days. The empty
+response distinguishes unavailable measurement history from observed zero counts
+and preserves null incomplete return cohorts. No report contains member names,
+source titles, notes or record identities. Producer:
+`config.tests.test_usage_api_contract_fixtures`; React consumer:
+`src/api/usageContractFixtures.test.js`. Both run in the required fixture check.
+See [usage definitions and retention](../../docs/operations/usage-monitoring.md).
+
 `pulse-activity-streak.json` is a real authenticated heartbeat response for a
 child with a four-day RPG activity streak, earned level 3 and no completed work timers. Its
 `header.streak_days` uses the saved `CharacterProfile.login_streak`, matching
@@ -313,6 +342,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy with 15 exact families and synthetic Base-only authored compatibility |
 | `pets-hatchery-discovery.json` | Same codex endpoint; exact guaranteed hatch pairs, an untimed Base offer and self-scoped active, expired/retryable and completed attempts, without read mutations |
+| `lorebook-child-baby-chick.json`, `lorebook-parent-reference.json` | `GET /api/lorebook/`; a child with a Baby Base Chick reads generic later Chick forms, while a parent reads the full reference |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with catalog availability flags and preserved growth |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
@@ -344,6 +374,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `auth-login-staff-parent.json`, `auth-me-staff-parent.json` | Password login and verified staff-parent identity, including read-only `is_staff: true` |
 | `auth-login-ordinary-parent.json`, `auth-me-ordinary-parent.json` | Password login and verified ordinary-parent identity, including read-only `is_staff: false` |
+| `auth-login-live-parent.json`, `auth-me-live-parent.json`, `auth-login-live-child.json`, `auth-me-live-child.json` | Synthetic receipt-backed observer household identities with read-only `usage_collection_enabled: false` |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
@@ -730,6 +761,16 @@ The real shared-auth producer covers staff, ordinary-parent and child identity,
 and the taxonomy retirement consumer opens the real Login/AuthProvider/Skills
 flow before exercising retire/restore. Self-profile PATCH and signup cannot
 change or grant staff status.
+
+These current-user responses also expose read-only `usage_collection_enabled`.
+It is `false` only for a household identified by a private `LiveTestFamily`
+ownership receipt, so its browser omits the optional usage visit POST during
+trusted read-only observation. Ordinary accounts receive `true`; matching
+names, family slugs, signup input and profile PATCH cannot create an exemption.
+The backend independently excludes receipt-backed families from telemetry.
+The synthetic observer parent/child login and identity fixtures preserve this
+contract without exposing receipt metadata. Nested `UserSerializer` responses
+retain their existing shape.
 
 Reversible taxonomy retirement uses `taxonomy-category-retired.json`,
 `taxonomy-category-restored.json`, `taxonomy-skills-active.json`,
@@ -1144,6 +1185,17 @@ and a rejected nonrepeatable restart cannot repay the campaign. The React
 consumer preserves that ordinary habit response and the restart error through
 `logHabitTap` and `startQuest`.
 
+## Guide copy under the child surprise rule
+
+`config.tests.test_lorebook_api_contract_fixtures` produces
+`lorebook-child-baby-chick.json` for a non-staff child who owns only a Baby
+Base Chick, and `lorebook-parent-reference.json` for a parent. Django withholds
+Base Chick's unreached form names (Fledgling, Bird) from a child's copy,
+including practice steps and parent notes, using the child's server-confirmed
+stages of that exact appearance; parents and staff read the full reference.
+`frontend/src/api/lorebookContractFixtures.test.jsx` renders both bodies
+through the Guide and the Manage Guide route without altering their text.
+
 ## Reading books and reflections
 
 `config.tests.test_reading_api_contract_fixtures` produces shelf, session,
@@ -1289,11 +1341,15 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all eight exact system
+`catalog-icons-elemental-challenges.json` exposes all twelve exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon and Mushroom while a deliberately broadly authored Bat remains Base only. The producer is
+Wolf, Dragon, Mushroom, Bee and Bat. Hive guarantees the natural Bee egg and
+selected global potion after five qualifying accomplishments; Cave guarantees
+the natural Bat egg and potion after ten. Both are one-time 180-day challenges,
+with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
+remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
 API responses, award nothing and do not establish publication or deployment.

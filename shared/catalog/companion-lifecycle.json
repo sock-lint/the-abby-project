@@ -40,7 +40,9 @@
       "species_slug": "meshtint-bat",
       "sprite_key": "meshtint-bat",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",
@@ -53,7 +55,9 @@
       "species_slug": "meshtint-bee",
       "sprite_key": "meshtint-bee",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",

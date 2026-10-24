@@ -101,6 +101,13 @@ async function fixture(page, { unavailableAdapter = false } = {}) {
     // No fixture traffic can reach another origin, including a proxy/API host.
     if (url.origin !== origin) return route.abort();
     if (!url.pathname.startsWith('/api/')) return route.continue();
+    if (url.pathname === '/api/usage/visit/' && request.method() === 'POST') {
+      // Allow only content-free foreground measurement; retain every saved
+      // appearance mutation in the recorder and validation below.
+      expect(url.search).toBe('');
+      expect(request.postDataJSON()).toEqual({});
+      return route.fulfill({ status: 204 });
+    }
     if (request.method() !== 'GET') {
       const body = request.postDataJSON();
       mutations.push({ path: url.pathname, method: request.method(), body });

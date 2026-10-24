@@ -100,10 +100,10 @@ class HatcheryDiscoveryTests(TestCase):
         with CaptureQueriesContext(connection) as queries:
             body = self.catalog()
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 23)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 27)
         for species in body["species"]:
             expected = {"base", "fire", "ice"} if species["slug"] in {
-                "chick", "meshtint-wolf", "meshtint-mushroom", "meshtint-dragon",
+                "chick", "meshtint-wolf", "meshtint-mushroom", "meshtint-dragon", "meshtint-bee", "meshtint-bat",
             } else {"base"}
             self.assertEqual({row["slug"] for row in species["available_potions"]}, expected)
             for potion in species["available_potions"]:
@@ -560,7 +560,9 @@ class HatcheryDiscoveryProductionTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Actual discovery catalog", children=[{"username": "actual-discovery"}]).children[0]
 
-    def test_all_eight_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
+    def test_all_twelve_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
+        from apps.rpg.catalog_icons import challenge_catalog_icon
+
         client = APIClient()
         client.force_authenticate(self.child)
         with CaptureQueriesContext(connection) as queries:
@@ -568,17 +570,28 @@ class HatcheryDiscoveryProductionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.data
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 23)
-        expected = {"chick": "Nest", "meshtint-wolf": "Trail", "meshtint-mushroom": "Grove", "meshtint-dragon": "Summit"}
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 27)
+        expected = {"chick": ("Nest", 5, 180), "meshtint-wolf": ("Trail", 20, 180),
+                    "meshtint-mushroom": ("Grove", 10, 180), "meshtint-dragon": ("Summit", 50, 365),
+                    "meshtint-bee": ("Hive", 5, 180), "meshtint-bat": ("Cave", 10, 180)}
+        checked = set()
         for species in body["species"]:
             for potion in species["available_potions"]:
                 if potion["slug"] == "base":
                     continue
                 with self.subTest(species=species["slug"], potion=potion["slug"]):
                     prefix = "Ember" if potion["slug"] == "fire" else "Frost"
+                    suffix, target, days = expected[species["slug"]]
                     self.assertEqual([row["name"] for row in potion["acquisition_challenges"]],
-                                     [f"{prefix} {expected[species['slug']]}"])
-                    self.assertTrue(potion["acquisition_challenges"][0]["offer_available"])
-                    self.assertIsNone(potion["acquisition_challenges"][0]["attempt"])
+                                     [f"{prefix} {suffix}"])
+                    path = potion["acquisition_challenges"][0]
+                    self.assertTrue(path["offer_available"])
+                    self.assertIsNone(path["attempt"])
+                    self.assertEqual((path["target"], path["duration_days"]), (str(target), days))
+                    icon = (f"review-{species['slug'].removeprefix('meshtint-')}-{potion['slug']}-acquisition-icon"
+                            if suffix in {"Hive", "Cave"} else f"challenge-{prefix.lower()}-{suffix.lower()}")
+                    self.assertEqual(challenge_catalog_icon(QuestDefinition.objects.get(pk=path["definition_id"])), icon)
+                    checked.add((species["slug"], potion["slug"]))
+        self.assertEqual(len(checked), 12)
         self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in queries))
         self.assertFalse(ChallengeGoal.objects.exists())

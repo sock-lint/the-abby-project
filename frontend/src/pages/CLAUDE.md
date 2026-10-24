@@ -7,6 +7,36 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Usage monitoring
+
+`/manage/usage` is a lazy staff-parent report linked from Manage → Admin. Its
+default is the current family; only the server's `can_view_deployment` capability
+offers all-family aggregates. Date, role and feature changes immediately remove
+the previous report. Account, family, role and credential changes also discard
+old state and abort pending reads. A failed same-filter refresh labels its
+retained snapshot stale; a permission denial removes it.
+
+Four summary cards, an accessible daily/weekly activity line and exact-count
+table, feature adoption, onboarding, observed returning-family cohorts, review
+queue and the latest seven-day summary present server counts. Coverage labels
+describe the sections whose filters differ. Incomplete history and immature
+return windows never become a zero-percent result or a complete comparison.
+The trend leaves precollection dates unplotted and unavailable in its exact
+table; first-day and mixed-week counts retain a partial-history label.
+
+The authenticated `UsageVisitCapture` sends only `{}` to `/api/usage/visit/`
+on visible foreground navigation or visibility resumption, at most once per
+credential/account UTC day in memory. Server uniqueness deduplicates across
+devices. StrictMode shares the attempted measurement; failed or uncertain POSTs
+are not replayed that day. No background timer, route, query, journal text,
+duration or session recording enters that request.
+The read-only authenticated identity field `usage_collection_enabled: false`
+suppresses the visit request for server-designated observer accounts; the
+backend also excludes them independently. Missing fields preserve collection
+for older ordinary-account responses.
+Synthetic fixtures exercise the Django/React response contract; see
+[`Usage monitoring`](../../../docs/operations/usage-monitoring.md).
+
 ## Progression lab
 
 Challenges expose up to three available one-time catalog goals under Explore
@@ -145,7 +175,7 @@ centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
-The Collection and Hatchery tabs advertise the 15 supported Base-potion families. Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
+The Collection tab and the staff-only Hatchery Explore companions section advertise the 15 supported Base-potion families; for children, Collection shows only owned appearances and reached forms (see the child surprise rule in `frontend/CLAUDE.md`). Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete stage path in companion previews and species details, naming a child only forms their exact appearance reached; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
 also render remaining unavailable/custom rows under Saved collection in their
 respective tabs, retaining feeding/evolution, activation, expedition
 launch/history/claim and recovery controls. The owner-approved prelaunch
@@ -519,7 +549,9 @@ response never becomes an empty-pin claim. Reflection follows work, then the
 since-last-visit recap, status shortcuts and collapsed Rewards & earnings.
 The automatic daily bonus uses the same challenge response inside that earnings
 disclosure; its closed summary acknowledges a confirmed award. Recent items,
-savings and badges follow. Saved accordion preferences remain honored.
+savings and badges follow. Recent items and badges share collapsed disclosures
+with counts, latest-earned summaries and horizontal card rails. Saved accordion
+preferences remain honored independently for each section.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 

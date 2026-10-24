@@ -98,6 +98,7 @@ class GoogleAuthApiContractFixtureTests(APITestCase):
         self.assertEqual(body["token"], self.credential.key)
         self.assertEqual(body["user"]["id"], self.parent.pk)
         self.assertIs(body["user"]["is_staff"], False)
+        self.assertIs(body["user"]["usage_collection_enabled"], True)
         self.assertNotIn("synthetic-private-provider-token", str(body))
         self.assertEqual(Token.objects.filter(user=self.parent).count(), 1)
 

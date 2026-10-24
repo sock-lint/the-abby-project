@@ -18,7 +18,7 @@
     "test:pwa": "playwright test",
     "test:live": "node scripts/run-live-checks.mjs",
     "test:live-config": "node --test scripts/live-checks-contract.check.mjs",
-    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs scripts/shared-assets.check.mjs scripts/build-hosted-web.check.mjs scripts/companion-supplementals.check.mjs",
+    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs scripts/shared-assets.check.mjs scripts/build-hosted-web.check.mjs scripts/companion-supplementals.check.mjs e2e/elemental-evaluation-server.check.mjs",
     "test:native-config": "node --test scripts/native-build-config.check.mjs",
     "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
     "test:asset-config": "node --test scripts/asset-checks-contract.check.mjs",
