@@ -38,7 +38,7 @@ class CollectorReadingChapterTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         with patch("django.utils.timezone.now", return_value=NOW):
-            call_command("loadrpgcontent", stdout=StringIO())
+            call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
             call_command("loadrpgcontent", pack=PACK, namespace=NAMESPACE, stdout=StringIO())
 
     def setUp(self):
