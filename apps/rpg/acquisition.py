@@ -126,7 +126,11 @@ def sources_for_request(request):
                 or not random_item_is_available(entry.item)):
             continue
         path = ACTION_PATHS.get(trigger, (None, "/quests?tab=trials"))[1]
-        item = resolve_random_pouch(entry.item, items_by_slug=replacements)
+        try:
+            item = resolve_random_pouch(entry.item, items_by_slug=replacements)
+        except ValueError:
+            # An unavailable replacement fails the award itself; reads omit the hint.
+            continue
         result[item.pk].append({"kind": "drop", "name": label, "path": path})
     # Keep previews compact; deterministic challenge paths take priority.
     request._rpg_acquisition_sources = {

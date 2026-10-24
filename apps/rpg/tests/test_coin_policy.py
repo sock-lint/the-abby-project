@@ -79,6 +79,17 @@ class NewRandomCoinPolicyTests(TestCase):
         self.assertEqual(result["coins_awarded"], 15)
         self.assertEqual(CoinService.get_balance(self.user), 15)
 
+    def test_inventory_hints_omit_an_unavailable_replacement_instead_of_failing(self):
+        DropTable.objects.create(item=self.old, trigger_type="clock_out", weight=1)
+        UserInventory.objects.create(user=self.user, item=self.old)
+        client = APIClient()
+        client.force_authenticate(self.user)
+        self.assertEqual(client.get("/api/inventory/").status_code, 200)
+        ItemDefinition.objects.filter(pk=self.new.pk).update(coin_value=99)
+        self.assertEqual(client.get("/api/inventory/").status_code, 200)
+        self.new.delete()
+        self.assertEqual(client.get("/api/inventory/").status_code, 200)
+
     def test_missing_replacement_fails_random_award_without_repricing_or_fallback(self):
         self.new.delete()
         UserInventory.objects.create(user=self.user, item=self.old, quantity=2)
