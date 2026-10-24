@@ -4,9 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, History, Settings, SlidersHorizontal } from 'lucide-react';
 import { DragonIcon } from './icons/JournalIcons';
 import { usePulse } from '../providers/pulseContext';
-import ProfilePortrait from './identity/ProfilePortrait';
-import CharacterTitle from './identity/CharacterTitle';
-import FeaturedBadge from './identity/FeaturedBadge';
+import IdentitySummary from './identity/IdentitySummary';
 import { identityForUser } from './identity/identity';
 
 /**
@@ -26,9 +24,13 @@ import { identityForUser } from './identity/identity';
  * separate from the kid-facing Lorebook at /lorebook, and "Codex" already
  * names the Bestiary hub's species tab.
  */
-export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
+export default function AvatarMenu({ user, compact = false, align = 'bottom', showRecognition = true }) {
   const { pulse } = usePulse();
   const identity = identityForUser(pulse?.identity, user);
+  const level = identity ? pulse?.header?.level : null;
+  const name = user?.display_name || user?.username || 'Member';
+  const role = user?.role ? `${user.role[0].toUpperCase()}${user.role.slice(1)}` : '';
+  const details = [role, user?.family?.name].filter(Boolean).join(' · ');
   const [open, setOpen] = useState(false);
   const [showRing] = useState(() => {
     const count = Number(localStorage.getItem('avatar_hint_count') || '0');
@@ -113,27 +115,17 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label="Open profile menu"
-        className={`flex items-center gap-2 min-w-11 min-h-11 max-w-full rounded-2xl transition-colors
-                    ${compact ? 'pr-2' : 'w-full px-2 py-1'}
+        aria-description={`${name}${Number.isInteger(level) && level >= 0 ? `, Level ${level}` : ''}`}
+        className={`flex items-center gap-2 min-h-11 max-w-full rounded-2xl transition-colors
+                    ${compact ? 'min-w-11 w-full py-1' : 'min-w-11 w-full px-2 py-1'}
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
       >
-        <ProfilePortrait name={user?.display_name || user?.username} avatar={user?.avatar}
-          frame={identity?.active_frame} size={compact ? 'sm' : 'xs'} imageAlt=""
-          className={showRing && compact && !identity?.active_frame ? 'rounded-full ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''} />
-        <span className="text-body font-body min-w-0 flex-1 text-left">
-          <span className="block text-ink-primary truncate leading-tight">
-            {user?.display_name || user?.username}
-          </span>
-          {identity?.active_title
-            ? <span className="flex min-w-0 items-center gap-1"><CharacterTitle title={identity.active_title} className={compact ? 'character-title--compact' : 'text-caption'} /><FeaturedBadge badge={identity.active_trophy_badge} compact /></span>
-            : <span className="flex items-center gap-1 text-caption"><span className="font-script text-ink-whisper capitalize leading-tight">{user?.role}</span><FeaturedBadge badge={identity?.active_trophy_badge} compact /></span>}
-          {user?.family?.name && (
-            <span className="block font-script text-ink-whisper text-tiny leading-tight truncate">
-              {user.family.name}
-            </span>
-          )}
-        </span>
+        <IdentitySummary name={name} avatar={user?.avatar} frame={identity?.active_frame}
+          title={identity?.active_title} badge={identity?.active_trophy_badge} level={level}
+          portraitSize="sm" details={compact ? null : details} showRecognition={showRecognition}
+          className={`text-left ${compact ? 'identity-summary--compact' : ''}`}
+          portraitClassName={showRing && compact && !identity?.active_frame ? 'rounded-full ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''} />
       </button>
 
       <AnimatePresence>
@@ -148,29 +140,16 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: menuInitialY, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className={`absolute ${menuPos} w-60 lg:w-full max-w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] bg-ink-page-aged border border-ink-page-shadow
+            className={`absolute ${menuPos} ${compact ? 'w-60' : 'w-60 lg:w-full'} max-w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] bg-ink-page-aged border border-ink-page-shadow
                         rounded-2xl shadow-xl overflow-y-auto overflow-x-hidden overscroll-contain z-50
                         max-h-[calc(100dvh-10rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-6rem)]
                         shadow-[0_0_0_1px_var(--color-sheikah-teal-deep)_inset,0_8px_24px_rgba(0,0,0,0.18)]`}
           >
-            {/* Menu header — reads as "you are …" so the menu feels like a profile drawer */}
+            {/* Saved appearance and level match the header and Profile. */}
             <div className="px-4 pt-3 pb-2 border-b border-ink-page-shadow/70 bg-ink-page/40">
-              <div className="font-script text-ink-whisper text-tiny uppercase tracking-[0.2em]">
-                you are
-              </div>
-              <div className="font-display italic text-base text-ink-primary leading-tight truncate">
-                {user?.display_name || user?.username || 'member'}
-              </div>
-              <div className="font-script text-sheikah-teal-deep text-caption capitalize leading-tight mt-0.5">
-                {user?.role || 'family member'}
-              </div>
-              <CharacterTitle title={identity?.active_title} className="mt-1" />
-              <FeaturedBadge badge={identity?.active_trophy_badge} className="mt-1" />
-              {user?.family?.name && (
-                <div className="font-script text-ink-whisper text-tiny leading-tight mt-0.5 truncate">
-                  {user.family.name}
-                </div>
-              )}
+              <IdentitySummary as="div" name={name} avatar={user?.avatar} frame={identity?.active_frame}
+                title={identity?.active_title} badge={identity?.active_trophy_badge} level={level}
+                details={details} />
             </div>
 
             <nav className="p-2" role="none">

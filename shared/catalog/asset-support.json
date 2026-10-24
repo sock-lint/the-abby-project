@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-elemental-dragon-mushroom-2026-10-21",
+  "policy_id": "owned-r3f-elemental-bee-bat-2026-10-23",
   "pets": [
     {
       "species_slug": "chick",
@@ -23,17 +23,23 @@
       "species_slug": "meshtint-bat",
       "sprite_key": "meshtint-bat",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-bee-bat", "ice": "abby-elemental-bee-bat"}
     },
     {
       "species_slug": "meshtint-bee",
       "sprite_key": "meshtint-bee",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-bee-bat", "ice": "abby-elemental-bee-bat"}
     },
     {
       "species_slug": "meshtint-shadow",
@@ -210,6 +216,16 @@
       "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
       "appearance_bindings_version": 1,
       "prepared_species": ["meshtint-dragon", "meshtint-mushroom"],
+      "prepared_potion_variants": ["fire", "ice"]
+    },
+    {
+      "id": "abby-elemental-bee-bat",
+      "publisher": "Meshtint Studio",
+      "pack": "Fire and Ice Bee / Bumble / Sting and Bat / Vampire Bat / Bat Lord derivatives",
+      "release_version": "1.0.0",
+      "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+      "appearance_bindings_version": 1,
+      "prepared_species": ["meshtint-bee", "meshtint-bat"],
       "prepared_potion_variants": ["fire", "ice"]
     }
   ],

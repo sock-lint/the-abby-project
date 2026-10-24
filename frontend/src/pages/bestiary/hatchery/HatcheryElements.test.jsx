@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Hatchery from './Hatchery';
@@ -25,7 +25,19 @@ const species = [
   { slug: 'meshtint-bat', name: 'Bat', sprite_key: 'meshtint-bat', available_potions: [base] },
   { slug: 'meshtint-mushroom', name: 'Mushroom', sprite_key: 'meshtint-mushroom', available_potions: [base, fire, ice] },
   { slug: 'meshtint-dragon', name: 'Dragon', sprite_key: 'meshtint-dragon', available_potions: [base, fire, ice] },
-];
+].map((family, familyIndex) => ({
+  ...family,
+  available_potions: family.available_potions.map((potion) => ({
+    ...potion,
+    acquisition_challenges: potion.slug === 'base' ? [] : [{
+      definition_id: 100 + familyIndex * 2 + (potion.slug === 'fire' ? 1 : 2),
+      name: (potion.slug === 'fire' ? 'Ember ' : 'Frost ')
+        + ({ chick: 'Nest', 'meshtint-wolf': 'Trail', 'meshtint-mushroom': 'Grove', 'meshtint-dragon': 'Summit' })[family.slug],
+      offer_available: true, target: String(({ chick: 5, 'meshtint-wolf': 20, 'meshtint-mushroom': 10, 'meshtint-dragon': 50 })[family.slug]),
+      duration_days: family.slug === 'meshtint-dragon' ? 365 : 180, attempt: null, path: '/quests?tab=trials',
+    }],
+  })),
+}));
 const eggs = species.map((entry, index) => ({ quantity: 1, item: {
   id: 10 + index, slug: `${entry.slug}-egg`, name: `${entry.name} Egg`,
   item_type: 'egg', catalog_available: true, pet_species_slug: entry.slug,
@@ -36,14 +48,14 @@ const potions = [base, fire, ice].map((entry) => ({ quantity: 1, item: {
   item_type: 'potion', catalog_available: true, metadata: { variant: entry.slug },
 } }));
 
-function page(extraHandlers = []) {
+function page(extraHandlers = [], { showDiscovery = true } = {}) {
   server.use(
     ...extraHandlers,
     http.get('*/api/pets/codex/', () => HttpResponse.json({ species })),
     http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
     http.get('*/api/inventory/', () => HttpResponse.json([...eggs, ...potions])),
   );
-  return render(<MemoryRouter><Hatchery /></MemoryRouter>);
+  return render(<MemoryRouter><Hatchery showDiscovery={showDiscovery} /></MemoryRouter>);
 }
 
 describe('Elemental Hatchery choices', () => {
@@ -56,7 +68,9 @@ describe('Elemental Hatchery choices', () => {
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(item.id));
     expect(screen.getByText(/Selected appearance:/)).toHaveTextContent(potion.name);
-    expect(screen.getByText(/each reward a .* egg and their matching potion/)).toHaveTextContent(`${({ 0: 5, 1: 20, 3: 10, 4: 50 })[index]} qualifying accomplishments`);
+    const discovery = within(screen.getByRole('region', { name: 'Explore companions' }));
+    expect(discovery.getByText(/Challenge target:/)).toHaveTextContent(String(({ 0: 5, 1: 20, 3: 10, 4: 50 })[index]));
+    expect(discovery.getByRole('button', { name: potion.name + ' appearance' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByRole('button', { name: 'Baby' }));
     expect(screen.getByText(`${potion.name} artwork is not available yet. You can still inspect the growth stages and choose your ingredients.`)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
@@ -64,6 +78,33 @@ describe('Elemental Hatchery choices', () => {
     await user.click(screen.getByRole('button', { name: 'Start incubation' }));
     await waitFor(() => expect(start.calls).toHaveLength(1));
     expect(start.calls[0].body).toEqual({ egg_item_id: String(egg.id), potion_item_id: String(item.id), request_id: expect.any(String) });
+  });
+
+  it.each([[0, fire], [1, ice], [4, fire]])('keeps the selected egg %i preview with its exact $slug potion when discovery is hidden and previews are unrestricted', async (index, potion) => {
+    page([], { showDiscovery: false });
+    const egg = eggs[index].item;
+    const item = potions.find((entry) => entry.item.metadata.variant === potion.slug).item;
+    const user = userEvent.setup();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(item.id));
+    expect(screen.queryByRole('region', { name: 'Explore companions' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Choose ingredients for incubation' })).toBeNull();
+    const preview = within(screen.getByRole('region', { name: 'Family artwork preview' }));
+    expect(preview.getByRole('group', { name: 'Preview growth stage' })).toBeInTheDocument();
+    await user.click(preview.getByRole('button', { name: 'Baby' }));
+    expect(preview.getByText(`${potion.name} artwork is not available yet. You can still inspect the growth stages and choose your ingredients.`)).toBeInTheDocument();
+    expect(preview.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start incubation' })).toBeEnabled();
+  });
+
+  it('shows one selected-family preview and the skip link when discovery is shown', async () => {
+    page();
+    const user = userEvent.setup();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '10');
+    expect(screen.getByRole('link', { name: 'Choose ingredients for incubation' })).toBeInTheDocument();
+    const previews = screen.getAllByRole('region', { name: 'Family artwork preview' });
+    expect(previews).toHaveLength(1);
+    expect(within(screen.getByRole('region', { name: 'Explore companions' })).getByRole('region', { name: 'Family artwork preview' })).toBe(previews[0]);
   });
 
   it('clears an incompatible potion after changing egg, and never offers its unsupported appearance', async () => {

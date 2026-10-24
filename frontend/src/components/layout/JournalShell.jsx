@@ -16,6 +16,9 @@ import PageTurnTransition from '../journal/PageTurnTransition';
 import HeaderStatusPips from './HeaderStatusPips';
 import HeaderProgressBand from './HeaderProgressBand';
 import { useAuth } from '../../hooks/useApi';
+import { usePulse } from '../../providers/pulseContext';
+import IdentityChips from '../identity/IdentityChips';
+import { identityForUser } from '../identity/identity';
 
 /**
  * JournalShell — the shared Meadow outer layout.
@@ -30,6 +33,8 @@ import { useAuth } from '../../hooks/useApi';
  */
 export default function JournalShell() {
   const { user, logout, offline } = useAuth();
+  const { pulse } = usePulse();
+  const identity = identityForUser(pulse?.identity, user);
   const { pathname } = useLocation();
   const customizingAvatar = pathname.toLowerCase().replace(/\/+$/, '') === '/profile/customize';
   // Capture the matched element for each transition. A retained <Outlet>
@@ -84,18 +89,15 @@ export default function JournalShell() {
             ~47px on the sensor-housing side. */}
         <div data-journal-sticky-header="true" className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
-            className="flex items-center gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-3 pt-3 lg:pt-4 pb-3 lg:pb-4
                        pl-[max(1rem,env(safe-area-inset-left))]
                        pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
           >
-            {/* min-w-0 + a width cap (NOT shrink-0) so AvatarMenu's own
-                truncate can fire — a long display name plus the family line
-                used to squeeze the status pips, and the coin count, off the
-                right edge at 360px. */}
-            <div className="lg:hidden min-w-0 max-w-[34vw]">
-              <AvatarMenu user={user} compact />
+            <div className="identity-header__account flex min-w-0 items-center gap-2">
+              <AvatarMenu user={user} compact showRecognition={false} />
+              <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge} compact />
             </div>
-            <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
+            <div className="identity-header__status flex justify-end">
               <HeaderStatusPips user={user} />
             </div>
             <div className="shrink-0 rounded-2xl bg-ink-page-aged/80">

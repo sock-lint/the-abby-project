@@ -54,7 +54,9 @@ class ClockView(APIView):
         elif action == "out":
             notes = request.data.get("notes", "")
             try:
-                entry = ClockService.clock_out(request.user, notes=notes)
+                entry = ClockService.clock_out(
+                    request.user, notes=notes, usage_actor=request.user,
+                )
                 return Response(TimeEntrySerializer(entry).data)
             except ValueError as e:
                 return Response(
@@ -116,7 +118,9 @@ class TimecardViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
     def approve(self, request, pk=None):
         timecard = self.get_object()
         notes = request.data.get("notes", "")
-        TimecardService.approve_timecard(timecard, request.user, notes)
+        TimecardService.approve_timecard(
+            timecard, request.user, notes, usage_actor=request.user,
+        )
         return Response(TimecardSerializer(timecard).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])

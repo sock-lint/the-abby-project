@@ -45,7 +45,7 @@ class PublicInformationPagesTests(SimpleTestCase):
     def test_privacy_discloses_permission_storage_and_disconnect_limits(self):
         response = self.client.get(reverse("public-privacy"))
         for disclosure in (
-            "October 17, 2026",
+            "October 23, 2026",
             "https://www.googleapis.com/auth/calendar.events.owned",
             "encrypted credentials",
             "does not revoke Google's authorization grant",
@@ -65,6 +65,11 @@ class PublicInformationPagesTests(SimpleTestCase):
             "remove or redact structurally linked activity",
             "a child's shared homework, chores and habits automatically pass to an active parent in their family",
             "If no active parent is available, that shared work must be resolved before self-deletion",
+            'id="usage"',
+            "at most once per UTC day",
+            "older than 90 days",
+            "deployment superuser",
+            "do not collect journal content",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)

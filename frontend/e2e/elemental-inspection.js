@@ -23,20 +23,28 @@ function snapshot(owned) {
   });
 }
 
-export async function inspectElementalMaterialIsolation() {
+export async function inspectElementalMaterialIsolation(evaluation) {
   const base = stagedRosterRelease(), elemental = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-dragon-mushroom');
   requireValue(base && elemental, 'Both exact private releases are required for isolation inspection.');
+  const candidate = evaluation ? stagedElementalRelease(
+    { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.release },
+    Object.fromEntries(Object.entries(evaluation.urls).map(([file, url]) => [`../avatar/shared/${evaluation.pin.directory}/${file}`, url])),
+    { schema_version: 1, releases: [evaluation.pin] },
+    { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
+  ) : stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
+  requireValue(!evaluation || candidate, 'Exact Bee/Bat evaluation binding is required.');
   const groups = [];
-  for (const species of ['meshtint-dragon', 'meshtint-mushroom']) {
+  for (const species of ['meshtint-dragon', 'meshtint-mushroom', ...(candidate ? ['meshtint-bee', 'meshtint-bat'] : [])]) {
+    const selected = ['meshtint-bee', 'meshtint-bat'].includes(species) ? candidate : elemental;
     const family = roster.families.find((entry) => entry.species_slug === species);
     for (const stage of ['baby', 'middle', 'grown']) {
       const instances = [];
       try {
         const binding = family.stages[stage];
         instances.push(await loadAsset(base.release, { asset_id: binding.asset_id, variant_id: binding.default_variant_id }, { resolveUrl: base.resolveUrl }));
-        for (const potion of ['fire', 'ice', 'fire']) instances.push(await loadCompanionAppearance(elemental.release,
-          { family_id: elemental.release.family_id, species_slug: species, potion_slug: potion, lifecycle_stage: stage, motion: 'idle' },
-          { resolveUrl: elemental.resolveUrl }));
+        for (const potion of ['fire', 'ice', 'fire']) instances.push(await loadCompanionAppearance(selected.release,
+          { family_id: selected.release.family_id, species_slug: species, potion_slug: potion, lifecycle_stage: stage, motion: 'idle' },
+          { resolveUrl: selected.resolveUrl }));
         const owned = instances.map(resources), counts = owned.map((entry) => Object.fromEntries(Object.entries(entry).map(([key, values]) => [key, values.size])));
         for (let a = 0; a < owned.length; a++) {
           for (const key of ['materials', 'textures', 'geometries']) {

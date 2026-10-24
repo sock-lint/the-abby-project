@@ -17,12 +17,15 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login
+from django.db import transaction
+from django.db.models import Exists, OuterRef
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from django.views import View
 from django.views.decorators.cache import cache_control
-from oauth2_provider.models import Application
+from oauth2_provider.models import AccessToken, Application, Grant, RefreshToken
 from oauth2_provider.views import AuthorizationView
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -306,8 +309,20 @@ class DynamicClientRegistrationView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# Admin REST surface — list/revoke applications + access tokens
+# Admin REST surface — list/revoke connections and remove unused registrations
 # ---------------------------------------------------------------------------
+
+
+def _applications_with_cleanup_eligibility():
+    """Protect live credentials for every user, including pending consent."""
+    now = timezone.now()
+    return Application.objects.annotate(
+        can_delete=(
+            ~Exists(AccessToken.objects.filter(application_id=OuterRef("pk"), expires__gt=now))
+            & ~Exists(RefreshToken.objects.filter(application_id=OuterRef("pk"), revoked__isnull=True))
+            & ~Exists(Grant.objects.filter(application_id=OuterRef("pk"), expires__gt=now))
+        ),
+    )
 
 
 class AdminApplicationListView(APIView):
@@ -316,10 +331,36 @@ class AdminApplicationListView(APIView):
     def get(self, request):
         if not _is_staff_parent(request.user):
             return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
-        rows = Application.objects.order_by("-created").values(
-            "client_id", "name", "client_type", "redirect_uris", "created",
+        rows = _applications_with_cleanup_eligibility().order_by("-created").values(
+            "client_id", "name", "client_type", "redirect_uris", "created", "can_delete",
         )
         return Response({"applications": list(rows)})
+
+
+class AdminApplicationDeleteView(APIView):
+    """Remove a registration only while it has no live OAuth connection."""
+
+    def delete(self, request, client_id: str):
+        if not _is_staff_parent(request.user):
+            return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
+        with transaction.atomic():
+            try:
+                app = Application.objects.select_for_update().get(client_id=client_id)
+            except Application.DoesNotExist:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            # Use a new query after acquiring the lock so concurrent authorization
+            # that finished while we waited is included in the eligibility check.
+            can_delete = _applications_with_cleanup_eligibility().filter(pk=app.pk).values_list(
+                "can_delete", flat=True,
+            ).get()
+            if not can_delete:
+                return Response({
+                    "code": "application_in_use",
+                    "detail": "This client has active access, a refresh token, or a sign-in in progress. "
+                              "Revoke its tokens or finish sign-in before removing the registration.",
+                }, status=status.HTTP_409_CONFLICT)
+            app.delete()
+        return Response({"ok": True})
 
 
 class AdminApplicationRevokeTokensView(APIView):

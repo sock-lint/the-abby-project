@@ -386,6 +386,19 @@ CATALOG_TOOLS = CATALOG_TOOLS | {"get_content_workbench", "get_progression_lab",
 AUTHOR_TOOLS = AUTHOR_TOOLS | {"list_content_drafts", "get_content_draft", "create_content_draft", "save_content_draft", "preview_content_draft", "simulate_content_draft", "create_editorial_draft", "save_editorial_draft", "get_editorial_draft", "list_editorial_drafts", "preview_editorial_draft"}
 PUBLISH_TOOLS = PUBLISH_TOOLS | {"publish_content_draft", "publish_editorial_draft"}
 READ_TOOLS = READ_TOOLS | {"get_reading_book", "get_reading_session", "list_reading_sessions", "list_expeditions", "get_expedition", "list_reward_redemptions", "get_reward_redemption"}
+READ_TOOLS = READ_TOOLS | {"get_challenge", "get_progression_observations"}
+AUTHOR_TOOLS = AUTHOR_TOOLS | {
+    "list_progression_experiments", "get_progression_experiment",
+    "create_progression_experiment", "save_progression_experiment",
+    "compare_progression_experiment", "get_progression_comparison",
+    "record_progression_decision", "capture_progression_observation",
+}
+DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | {"save_progression_experiment"}
+IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | {
+    "create_progression_experiment", "save_progression_experiment",
+    "compare_progression_experiment", "record_progression_decision",
+    "capture_progression_observation",
+}
 WRITE_TOOLS = WRITE_TOOLS | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
 DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "save_content_draft", "publish_content_draft", "save_editorial_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
 IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "publish_content_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
@@ -403,6 +416,11 @@ class ToolPolicy:
     destructive: bool
     idempotent: bool
     open_world: bool
+    additional_scopes: frozenset[str] = frozenset()
+
+    @property
+    def required_scopes(self) -> frozenset[str]:
+        return frozenset({self.scope}) | self.additional_scopes
 
 
 def policy_for(name: str) -> ToolPolicy:
@@ -422,6 +440,7 @@ def policy_for(name: str) -> ToolPolicy:
         "list_asset_proposals", "get_asset_proposal", "export_asset_proposal",
         "get_content_pack", "list_content_packs", "read_pack_file",
         "get_content_draft", "list_content_drafts", "get_editorial_draft", "list_editorial_drafts",
+        "list_progression_experiments", "get_progression_experiment", "get_progression_comparison",
         "get_challenge_reconciliation",
     }
     return ToolPolicy(
@@ -430,4 +449,5 @@ def policy_for(name: str) -> ToolPolicy:
         destructive=name in DESTRUCTIVE_TOOLS,
         idempotent=read_only or name in IDEMPOTENT_WRITES,
         open_world=name in OPEN_WORLD_TOOLS,
+        additional_scopes=frozenset({READ_SCOPE}) if name == "capture_progression_observation" else frozenset(),
     )

@@ -4,11 +4,17 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
+import { captureFlameEvidence, imageDocumentMetadata, privateFlames } from './streak-flame-helpers.js';
 
 test.setTimeout(45_000);
+// Private SVG image documents must not leak into public failure traces.
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
 let devServer;
 let origin;
+const inactiveStreakBonus = { active_today: false, check_in_multiplier: 1, check_in_coins: 0, drop_bonus: 0, intensity: 0 };
+const kindledStreakBonus = { active_today: true, check_in_multiplier: 1.5, check_in_coins: 7, drop_bonus: 0.25, intensity: 0.25 };
+const blazingStreakBonus = { active_today: true, check_in_multiplier: 3, check_in_coins: 15, drop_bonus: 0.5, intensity: 1 };
 test.beforeAll(async () => {
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
@@ -45,8 +51,8 @@ test.beforeEach(async ({ page }) => {
     const payloads = {
       '/api/auth/me/': { id: 2, username: 'fixture', display_name: 'Fixture', role: parent ? 'parent' : 'child', theme: 'hyrule', family: { id: 1, name: 'Synthetic family' } },
       '/api/clock/': { active: null },
-      '/api/dashboard/': { next_actions: [{ kind: 'project', id: 3, title: 'Synthetic next task', subtitle: 'A local fixture', icon: 'Play', tone: 'moss', action_url: '/clock' }], active_projects: [], recent_badges: [], savings_goals: [], chores_today: [], this_week: { hours_worked: 0, earnings: 0 }, rpg: { login_streak: 0, longest_login_streak: 0 }, coin_balance: 0 },
-      '/api/pulse/': { notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [], header: { active_timer: null, coin_balance: 0, streak_days: 0 } },
+      '/api/dashboard/': { next_actions: [{ kind: 'project', id: 3, title: 'Synthetic next task', subtitle: 'A local fixture', icon: 'Play', tone: 'moss', action_url: '/clock' }], active_projects: [], recent_badges: [], savings_goals: [], chores_today: [], this_week: { hours_worked: 0, earnings: 0 }, rpg: { login_streak: 0, longest_login_streak: 0, streak_bonus: inactiveStreakBonus }, coin_balance: 0 },
+      '/api/pulse/': { notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [], header: { active_timer: null, coin_balance: 0, streak_days: 0, streak_bonus: inactiveStreakBonus } },
       '/api/balance/': { balance: 0, breakdown: {}, recent_transactions: [] },
       '/api/coins/': { balance: 0, recent: [] },
       '/api/coins/exchange/rate/': { coins_per_dollar: 10 },
@@ -67,6 +73,301 @@ test.beforeEach(async ({ page }) => {
 });
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
+
+for (const width of [320, 390]) {
+  for (const theme of ['hyrule', 'vigil']) {
+    test(`the notification count remains legible in Today's ${width}px ${theme} header`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+        id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme,
+        family: { id: 1, name: 'Synthetic family' },
+      } }));
+      await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+        unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [],
+        companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+        identity: { id: 2, active_frame: null, active_title: { name: 'Chore Hero', metadata: { text: 'Chore Hero' } }, active_trophy_badge: null },
+        header: { active_timer: null, coin_balance: 729, streak_days: 5 },
+      } }));
+      await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+      const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+      const bell = header.getByRole('button', { name: 'Notifications (42 unread)', exact: true });
+      const badge = bell.getByText('9+', { exact: true });
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveAttribute('aria-hidden', 'true');
+      await page.evaluate(() => document.fonts.ready);
+      // Wait out the existing entrance animation before measuring the badge.
+      await expect.poll(() => badge.evaluate((node) => getComputedStyle(node).transform))
+        .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+      const metrics = await badge.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        const clippedByAncestor = (axis) => {
+          for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+            const ancestorStyle = getComputedStyle(ancestor);
+            if (!/(hidden|clip|auto|scroll)/.test(ancestorStyle[axis === 'x' ? 'overflowX' : 'overflowY'])) continue;
+            const bounds = ancestor.getBoundingClientRect();
+            if (axis === 'x' && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) return true;
+            if (axis === 'y' && (box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1)) return true;
+          }
+          return false;
+        };
+        return {
+          width: box.width, height: box.height, fontSize: parseFloat(style.fontSize), fontWeight: Number(style.fontWeight),
+          textFits: text.left >= box.left && text.right <= box.right && text.top >= box.top && text.bottom <= box.bottom,
+          clipped: clippedByAncestor('x') || clippedByAncestor('y'),
+          withinViewport: box.left >= 0 && box.right <= window.innerWidth && box.top >= 0,
+        };
+      });
+      await page.screenshot({ path: testInfo.outputPath('notification-header.png') });
+      expect(metrics.width).toBeGreaterThanOrEqual(20);
+      expect(metrics.height).toBeGreaterThanOrEqual(20);
+      expect(metrics.fontSize).toBeGreaterThanOrEqual(12);
+      expect(metrics.fontWeight).toBeGreaterThanOrEqual(700);
+      expect(metrics.textFits).toBe(true);
+      expect(metrics.clipped).toBe(false);
+      expect(metrics.withinViewport).toBe(true);
+      const target = await bell.boundingBox();
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+      expect(target.x + target.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  }
+}
+
+for (const { width, title, busy, zoom = 1 } of [
+  { width: 305, title: 'Chore Hero' },
+  { width: 320, title: 'Chore Hero' },
+  { width: 390, title: 'Chore Hero' },
+  { width: 305, title: 'Extraordinary Chore Champion', busy: true },
+  { width: 320, title: 'Extraordinary Chore Champion', busy: true },
+  { width: 390, title: 'Extraordinary Chore Champion', busy: true },
+  // 200% CSS zoom on a viewport just under the 640px breakpoint, where the
+  // compact phone header still applies to the effectively 319px-wide layout.
+  { width: 638, title: 'Extraordinary Chore Champion', busy: true, zoom: 2 },
+  // Real catalog titles, including the longest seeded word, at common phone
+  // widths with and without a running timer and large counts.
+  ...[305, 320, 360, 390].flatMap((width) => ['Perfectionist', 'Legendary Forgemaster'].flatMap((title) => [
+    { width, title }, { width, title, busy: true },
+  ])),
+]) {
+  test(`Today keeps title and badge icons for "${title}" on one phone header row at ${width}px${busy ? ' with a running timer' : ''}${zoom > 1 ? ' at 200% zoom' : ''}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: {
+        id: 2, active_frame: { name: 'Synthetic frame', slug: 'frame-steampunk' },
+        active_title: { name: title, metadata: { text: title }, icon: '🏆' },
+        active_trophy_badge: { name: 'First Dollar', icon: '💰' },
+      },
+      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5, level: 3, streak_bonus: busy ? blazingStreakBonus : kindledStreakBonus },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    // Browser-style enlargement leaves a 320px layout viewport inside the
+    // 640px window while doubling visible text and controls.
+    if (zoom > 1) await page.evaluate((scale) => { document.documentElement.style.zoom = scale; }, zoom);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const identity = page.locator('[data-journal-sticky-header]');
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    await expect(header).toBeVisible();
+    expect((await header.boundingBox()).height, 'The phone identity must fit on one header row.').toBeLessThanOrEqual(96 * zoom);
+    const titleIcon = identity.getByRole('img', { name: `Title: ${title}`, exact: true });
+    const badgeIcon = identity.getByRole('img', { name: 'Featured badge: First Dollar', exact: true });
+    for (const [icon, label] of [[titleIcon, title], [badgeIcon, 'First Dollar']]) {
+      await expect(icon).toBeVisible();
+      await expect(icon).toHaveAttribute('title', label);
+      const iconBox = await icon.boundingBox();
+      const bellBox = await header.getByRole('button', { name: /notification/i }).boundingBox();
+      expect(Math.abs(iconBox.y + iconBox.height / 2 - (bellBox.y + bellBox.height / 2))).toBeLessThanOrEqual(2 * zoom);
+      expect(iconBox.x).toBeGreaterThanOrEqual(0);
+      expect(iconBox.x + iconBox.width).toBeLessThanOrEqual(width);
+    }
+    await expect(identity.getByText(title, { exact: true })).toHaveCount(0);
+    await expect(identity.getByText('First Dollar', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('Fixture', { exact: true })).toBeHidden();
+    await expect(profile).toHaveAccessibleDescription('Fixture, Level 3');
+    await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('child', { exact: true })).toHaveCount(0);
+    await expect(profile.getByLabel('Level 3', { exact: true })).toHaveText('Lv. 3');
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Synthetic next task', exact: true }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const profileBox = await profile.boundingBox();
+    const status = header.getByRole('group', { name: 'Status shortcuts' });
+    const statusBox = await status.boundingBox();
+    expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
+    const notifications = header.getByRole('button', { name: 'Notifications (42 unread)', exact: true });
+    const badge = notifications.getByText('9+', { exact: true });
+    await expect(badge).toBeVisible();
+    const badgeBox = await badge.boundingBox();
+    expect(badgeBox.x).toBeGreaterThanOrEqual(0);
+    expect(badgeBox.y).toBeGreaterThanOrEqual(0);
+    expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(width);
+    expect(await badge.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    for (const button of [profile, notifications]) {
+      const box = await button.boundingBox();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+    await captureFlameEvidence(page, testInfo, 'today-header.png', { fullPage: true });
+    for (const pip of await status.getByRole('button').all()) {
+      await pip.focus();
+      const box = await pip.boundingBox();
+      const scroll = await status.locator('.overflow-x-auto').evaluate((node) => ({ left: node.scrollLeft, content: node.scrollWidth, visible: node.clientWidth }));
+      const geometry = `${await pip.getAttribute('aria-label')}: ${JSON.stringify({ box, rail: statusBox, scroll })}`;
+      expect(box.x, geometry).toBeGreaterThanOrEqual(statusBox.x - 1);
+      expect(box.x + box.width, geometry).toBeLessThanOrEqual(statusBox.x + statusBox.width + 1);
+    }
+    await profile.click();
+    await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText('First Dollar', { exact: true })).toBeVisible();
+    await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText(title, { exact: true })).toBeVisible();
+  });
+}
+
+for (const { days, state, bonus, description } of [
+  { days: 5, state: 'dormant-ember', bonus: inactiveStreakBonus, description: 'Streak bonus is inactive. Complete an activity to start today’s check-in.' },
+  { days: 5, state: 'small-flame', bonus: kindledStreakBonus, description: 'Daily check-in: 7 Coins at 1.5×. Streak drop chance: +25 percentage points.' },
+  { days: 9, state: 'small-flame', bonus: { active_today: true, check_in_multiplier: 1.9, check_in_coins: 9, drop_bonus: 0.45, intensity: 0.45 }, description: 'Daily check-in: 9 Coins at 1.9×. Streak drop chance: +45 percentage points.' },
+  { days: 10, state: 'strong-flame', bonus: { active_today: true, check_in_multiplier: 2, check_in_coins: 10, drop_bonus: 0.5, intensity: 0.5 }, description: 'Daily check-in: 10 Coins at 2×. Streak drop chance: +50 percentage points.' },
+  { days: 19, state: 'strong-flame', bonus: { active_today: true, check_in_multiplier: 2.9, check_in_coins: 14, drop_bonus: 0.5, intensity: 0.95 }, description: 'Daily check-in: 14 Coins at 2.9×. Streak drop chance: +50 percentage points.' },
+  { days: 20, state: 'maximum-blaze', bonus: blazingStreakBonus, description: 'Daily check-in: 15 Coins at 3×. Streak drop chance: +50 percentage points.' },
+  { days: 20, state: 'unknown', description: 'Streak bonus is unavailable.' },
+]) {
+  test(`the phone header shows the server-confirmed ${days}-day ${state} streak bonus without motion`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    if (state === 'strong-flame') await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme: 'vigil', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: { id: 2, active_title: { name: 'Chore Hero', metadata: { text: 'Chore Hero' }, icon: '🏆' } },
+      header: { active_timer: null, coin_balance: 729, streak_days: days, streak_bonus: bonus },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const streak = page.getByRole('button', { name: `${days}-day streak`, exact: true });
+    await expect(streak).toHaveAccessibleDescription(description);
+    const flame = streak.locator('[data-header-streak-flame]');
+    await expect(flame).toBeVisible();
+    await expect(flame).toHaveAttribute('data-state', state);
+    await expect(streak).toHaveAttribute('title', description);
+    if (privateFlames && state !== 'unknown') {
+      await expect(flame).toHaveAttribute('data-artwork-status', 'ready');
+      const image = flame.locator('img');
+      await expect(image).toBeVisible();
+      expect(await imageDocumentMetadata(image)).toMatchObject({
+        width: '24', height: '24', viewBox: '0 0 24 24', naturalWidth: 24, naturalHeight: 24,
+        sha256: privateFlames.stages[state].sha256, idCount: 1, uniqueIdCount: 1, activeElements: 0,
+      });
+    } else {
+      await expect(flame).toHaveAttribute('data-artwork-status', 'unavailable');
+      await expect(flame.locator('img')).toHaveCount(0);
+      await expect(flame.locator('.lucide-circle-question-mark')).toBeVisible();
+      testInfo.annotations.push({ type: 'private-artwork', description: state === 'unknown'
+        ? 'Unknown bonus explicitly uses the neutral placeholder.'
+        : 'Exact private family is not installed; artwork acceptance is skipped, not replaced with an ember.' });
+    }
+    await expect(flame).toHaveCSS('animation-name', 'none');
+    await expect(flame).toHaveCSS('transform', 'none');
+    const header = page.locator('header').filter({ has: streak });
+    await captureFlameEvidence(header, testInfo, `streak-${state}.png`);
+    expect(await header.evaluate((node) => node.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await streak.click();
+    await expect(page).toHaveURL(/\/sigil$/);
+  });
+}
+
+test('an unbroken authored title stays accessible through its icon beside the status shortcuts', async ({ page }) => {
+  const title = 'Supercalifragilisticexpialidociousness';
+  await page.setViewportSize({ width: 305, height: 844 });
+  await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+    notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+    identity: { id: 2, active_frame: null, active_title: { name: title, metadata: { text: title } }, active_trophy_badge: null },
+    header: { active_timer: { project_title: 'Synthetic next task', elapsed_minutes: 165 }, coin_balance: 999999, streak_days: 365 },
+  } }));
+  await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+  const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+  const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+  await expect(header.getByRole('img', { name: `Title: ${title}`, exact: true })).toBeVisible();
+  await expect(header.getByText(title, { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const profileBox = await profile.boundingBox();
+  const status = header.getByRole('group', { name: 'Status shortcuts' });
+  const statusBox = await status.boundingBox();
+  expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
+  expect(statusBox.width).toBeGreaterThanOrEqual(44);
+  const bell = await header.getByRole('button', { name: /notification/i }).boundingBox();
+  expect(bell.x + bell.width).toBeLessThanOrEqual(305);
+});
+
+for (const width of [320, 390]) {
+  test(`the phone profile trigger stays a full target when the pulse fails at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ status: 503, json: { detail: 'Unavailable' } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    await expect(profile).toBeVisible();
+    const target = await profile.boundingBox();
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
+  });
+}
+
+for (const role of ['child', 'parent']) {
+  test(`the desktop header profile menu keeps its full width for a short ${role} name`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'abby', display_name: 'Abby', role, theme: 'hyrule', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: { id: 2, active_frame: null, active_title: { name: 'Legendary Forgemaster', metadata: { text: 'Legendary Forgemaster' } }, active_trophy_badge: null },
+      header: { active_timer: null, coin_balance: 12, streak_days: 3, level: 4 },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    await header.getByRole('button', { name: 'Open profile menu', exact: true }).click();
+    const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+    await expect(menu).toBeVisible();
+    const box = await menu.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(239);
+    for (const item of await menu.getByRole('menuitem').all()) {
+      expect(await item.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    }
+  });
+}
+
+for (const role of ['child', 'parent']) {
+  test(`the phone profile fallback stays readable without an earned title for a ${role}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'fixture', display_name: 'Fixture', role, theme: 'hyrule', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-clock`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    await expect(profile.getByText('Fixture', { exact: true })).toBeHidden();
+    await expect(profile).toHaveAccessibleDescription(/Fixture/);
+    await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText(role, { exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Without a confirmed level the portrait alone must still be a full target.
+    const target = await profile.boundingBox();
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
+    await profile.click();
+    const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+    await expect(menu.getByText('Fixture', { exact: true })).toBeVisible();
+    await expect(menu.getByText('Synthetic family')).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: /Settings/ })).toBeVisible();
+    if (role === 'parent') await expect(menu.getByRole('menuitem', { name: /Manage/ })).toBeVisible();
+  });
+}
 
 for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]) {
   test(`materials can be ready without a purchase at ${width}px on ${theme}`, async ({ page }, testInfo) => {

@@ -108,3 +108,28 @@ class MCPMutationReceipt(CreatedAtModel):
                 condition=models.Q(operation="log_movement_session"),
             ),
         ]
+
+
+class MCPExperimentMutationReceipt(CreatedAtModel):
+    """Actor-owned UUID evidence without a copy of private notebook results.
+
+    Removing the experiment preserves a request tombstone. Removing its actor
+    or family removes these private identities with the native notebook.
+    """
+
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    experiment = models.ForeignKey("rpg.ProgressionExperiment", on_delete=models.SET_NULL, null=True)
+    operation = models.CharField(max_length=60)
+    request_id = models.UUIDField()
+    request_digest = models.CharField(max_length=64)
+    result_kind = models.CharField(max_length=16, choices=[
+        ("experiment", "Experiment"), ("comparison", "Comparison"),
+        ("decision", "Decision"), ("observation", "Observation"),
+    ])
+    result_id = models.UUIDField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["actor", "operation", "request_id"], name="mcp_experiment_actor_request",
+        )]

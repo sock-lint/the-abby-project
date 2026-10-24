@@ -86,7 +86,7 @@ class ProjectStatusChangeTests(_Fixture):
         project.save()
         mock_gl.assert_called_once_with(
             self.child, "project_complete",
-            {"project_id": project.pk},
+            {"project_id": project.pk, "payment_kind": "required"},
         )
 
     @patch("apps.rpg.services.GameLoopService.on_task_completed")

@@ -41,16 +41,19 @@ function setup({ pets = [], inventory = [] } = {}) {
 }
 
 describe('Pet care journey', () => {
-  it.each([[], [egg]])('connects missing hatching supplies to challenge rewards without spending ingredients: %j', async (inventory) => {
+  it.each([{ name: 'empty inventory', inventory: [] }, { name: 'egg without potion', inventory: [egg] }])('connects missing hatching supplies to challenge rewards without spending ingredients: $name', async ({ inventory }) => {
     setup({ inventory });
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, {});
-    server.use(hatch.handler);
+    const mutation = spyHandler('post', /\/api\/pets\//, {});
+    server.use(mutation.handler);
     const { user } = renderWithProviders(<><Hatchery /><Location /></>, { withAuth: false });
     const guide = await screen.findByRole('region', { name: 'Find hatching supplies' });
-    expect(within(guide).getByText(/Companion Trail challenges/)).toBeInTheDocument();
+    expect(within(guide).getByText(/matching egg and potion bundle/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Explore companions' })).toBeNull();
+    expect(within(guide).queryByText(/Explore companions in the Hatchery/)).toBeNull();
+    if (inventory.length) expect(screen.getByRole('button', { name: 'Select Bat Egg' })).toBeInTheDocument();
     await user.click(within(guide).getByRole('link', { name: 'View challenge rewards' }));
     expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/quests?tab=trials');
-    expect(hatch.calls).toHaveLength(0);
+    expect(mutation.calls).toHaveLength(0);
   });
 
   it('shows food acquisition actions in the care panel without feeding on navigation', async () => {

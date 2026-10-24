@@ -98,6 +98,25 @@ npm run test:pwa -- e2e/design-gallery.pw.js e2e/design-foundations.pw.js
 Use these focused checks during composition; the full frontend coverage,
 web/native builds and required hosted checks still validate the integrated PR.
 
+### Header status
+
+`layout/HeaderStatusPips` presents the server's `streak_bonus` from the latest
+pulse header, falling back to the dashboard only before a heartbeat arrives.
+`HeaderStreakFlame` uses its normalized intensity for a 24px ember, small flame,
+strong flame or maximum-bonus blaze. It preserves the exact private SVG canvas
+and artwork, with static playback for every motion preference. Saved streak days
+never determine whether today's bonus is active. Missing or invalid bonus data
+uses a separate unknown icon. The button's description identifies the daily
+check-in Coin amount/rate and additive drop chance, keeping these separate from
+other rewards. Missing private artwork retains the text and a neutral icon;
+it does not masquerade as a dormant ember. See the private delivery and
+publication prerequisites in [streak flames](../../../docs/operations/streak-flames.md).
+
+`NotificationBell` keeps a 44px target and a 20px minimum count badge with 12px
+bold tabular numerals. The badge caps at `9+`; the button's accessible name keeps
+the exact unread count. Its semantic ember/page color pair and page-colored ring
+remain readable across covers.
+
 ### Token-first styling
 
 - Color, font, and font-size values come from CSS custom properties declared in [`../index.css`](../index.css)'s `@theme` block.
@@ -126,7 +145,7 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 - `components/layout/` — page chrome (JournalShell, ChapterNav, QuickActionsFab)
 - `components/modal/` — modal building blocks (ModalBackdrop, SealCloseButton, SealPulseRing)
 - `components/dashboard/` — Today-page composites (HeroPrimaryCard, ApprovalQueueList)
-- `components/identity/` — shared saved-look presentation: bounded `ProfilePortrait` with six pinned private PNG frames and distinct vector fallbacks, live `CharacterTitle`, `FeaturedBadge`, and the Today/project `IdentitySignature`. Callers supply server-confirmed selections; these components neither acquire nor equip items. The image kit uses 32/40/64/96px canvases, density-specific artwork and a circular photo underlay; unknown saved frames keep a plain custom ring, and broken pictures keep their initial. See [portrait-frame-kit integration](../../../docs/operations/portrait-frame-kit.md).
+- `components/identity/` — shared saved-look presentation: `IdentitySummary` composes the framed `IdentityPortrait` with a docked confirmed level and `IdentityChips` for the title and featured badge. The header uses only their artwork icons beside the portrait, with accessible names and hover labels; menus and Profile keep full soft chips. Phone headers omit account-name text while retaining the full menu-trigger description. Existing `ProfilePortrait`, `CharacterTitle` and `FeaturedBadge` keep their exact artwork and fallbacks, while project `IdentitySignature` remains appearance-only. Callers supply server-confirmed selections; these components neither acquire nor equip items. Level zero is valid; unknown levels render no dock. The image kit uses 32/40/64/96px canvases, density-specific artwork and a circular photo underlay; unknown saved frames keep a plain custom ring, and broken pictures keep their initial. See [portrait-frame-kit integration](../../../docs/operations/portrait-frame-kit.md).
 - `components/cards/` — promoted page-card components (added when a `*Card` from `pages/` is reused twice)
 - `components/icons/` — `JournalIcons` exports rounded Meadow SVGs with current-color outlines and soft cover-token fills; names and `size`/`className` props remain compatible. Share these chapter icons across navigation and `CoinIcon` across progression currency; money keeps its dollar icon.
 

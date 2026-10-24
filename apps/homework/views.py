@@ -9,6 +9,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 
 from config.permissions import IsParent
+from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
@@ -140,6 +141,10 @@ class HomeworkAssignmentViewSet(
             )
         except HomeworkError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        record_action(
+            request.user, "homework", "submitted",
+            source="homework.homeworksubmission", source_id=submission.pk,
+        )
         return Response(
             HomeworkSubmissionSerializer(submission).data,
             status=status.HTTP_201_CREATED,
@@ -210,6 +215,7 @@ class HomeworkSubmissionViewSet(
     approval_service = HomeworkService
     approval_approve_method = "approve_submission"
     approval_reject_method = "reject_submission"
+    usage_feature = "homework"
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())

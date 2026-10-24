@@ -33,13 +33,20 @@ class AbbyOAuth2Validator(OAuth2Validator):
         return super().client_authentication_required(request, *args, **kwargs)
 
     def save_authorization_code(self, client_id, code, request, *args, **kwargs):
-        from oauth2_provider.models import Grant
+        from oauth2_provider.models import Application, Grant
         from apps.mcp_server.models import MCPAuthorizationResource
 
         resource = self._extract_resource(request)
         if not resource or resource != settings.MCP_RESOURCE_URL or not _authorized_user(request.user):
             raise InvalidRequestError(description="An authorized staff parent and exact MCP resource are required.")
         with transaction.atomic():
+            # Consent may already have validated and cached a registration that
+            # cleanup is removing. Serialize grant creation with that removal.
+            if not Application.objects.select_for_update().filter(pk=request.client.pk).exists():
+                raise InvalidRequestError(
+                    description="This client registration was removed. Register again to connect.",
+                    state=getattr(request, "state", None),
+                )
             super().save_authorization_code(client_id, code, request, *args, **kwargs)
             grant = Grant.objects.get(code=code["code"], application=request.client)
             MCPAuthorizationResource.objects.create(grant=grant, resource=resource)
@@ -84,7 +91,7 @@ class AbbyOAuth2Validator(OAuth2Validator):
 
     def _save_bearer_token(self, token: dict, request: Any, *args, **kwargs) -> None:
         """DOT calls this inside its token transaction; binding failures roll it back."""
-        from oauth2_provider.models import AccessToken
+        from oauth2_provider.models import AccessToken, Application
         from apps.mcp_server.models import MCPTokenResource
 
         resource = getattr(request, "abby_mcp_resource", None)
@@ -94,6 +101,11 @@ class AbbyOAuth2Validator(OAuth2Validator):
             or not _valid_scopes(token.get("scope", ""))
         ):
             raise InvalidGrantError(description="Reconnect to authorize scoped access to this MCP resource.")
+        # DOT has opened the token transaction. Lock the registration before
+        # its token rows, matching cleanup and consent's lock order. A grant
+        # can expire after validation while cleanup removes its registration.
+        if not Application.objects.select_for_update().filter(pk=request.client.pk).exists():
+            raise InvalidGrantError(description="This client registration was removed. Register again to connect.")
         super()._save_bearer_token(token, request, *args, **kwargs)
         access_token = AccessToken.objects.get(token=token["access_token"])
         MCPTokenResource.objects.update_or_create(

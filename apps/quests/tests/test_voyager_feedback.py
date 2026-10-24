@@ -289,6 +289,33 @@ class VoyagerFeedbackTests(TestCase):
         self.assertEqual(group["unknown_windows"], 1)
         self.assertEqual(group["mature_denominator"], 0)
 
+    def test_null_deadline_in_retry_chain_is_unknown_without_writes_or_crashing(self):
+        root = self.occurrence(days=45, gated=False, status="expired")
+        successor = ChallengeOccurrence.objects.create(
+            goal=root.goal, retry_of=root, starts_at=self.now - timedelta(days=10),
+            ends_at=self.now + timedelta(days=35), progress=2,
+            snapshot={**root.snapshot, "_retry_after_activity_id": 1},
+        )
+        ChallengeOccurrence.objects.filter(pk=successor.pk).update(created_at=successor.starts_at)
+        for position in ("root", "successor"):
+            with self.subTest(position=position):
+                ChallengeGoal.objects.filter(pk=root.goal_id).update(
+                    ends_at=None if position == "root" else root.ends_at,
+                )
+                ChallengeOccurrence.objects.filter(pk=root.pk).update(
+                    ends_at=None if position == "root" else root.ends_at,
+                )
+                ChallengeOccurrence.objects.filter(pk=successor.pk).update(
+                    ends_at=None if position == "successor" else successor.ends_at,
+                )
+                before = self.saved_state()
+                response = self.report()
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["current_states"]["unknown"], 1)
+                self.assertEqual(sum(group["accepted_windows"] for group in response.data["policy_groups"]), 2)
+                self.assertEqual(sum(group["mature_denominator"] for group in response.data["policy_groups"]), 0)
+                self.assertEqual(before, self.saved_state())
+
     def test_changed_current_definition_never_relabels_saved_policy(self):
         self.occurrence(days=45, gated=False, status="completed")
         QuestDefinition.objects.filter(pk=self.voyager.pk).update(target_value=7, duration_days=63)

@@ -17,7 +17,9 @@ from django.test import override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from apps.achievements.models import Skill, SkillCategory, SkillProgress
+from apps.achievements.models import Skill, SkillCategory, SkillProgress, XP_THRESHOLDS
+from apps.achievements.services import SkillService
+from apps.families.models import LiveTestFamily
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
 from apps.pets.models import PetIncubation, MountExpedition, PetSpecies, PotionType, UserMount, UserPet
@@ -169,15 +171,26 @@ class SharedApiResponseFixtureTests(APITestCase):
             )
         CharacterProfile.objects.filter(user=self.sibling).update(login_streak=9)
         CharacterProfile.objects.filter(user=self.outsider).update(login_streak=12)
+        SkillService.award_xp(self.child, self.skill, XP_THRESHOLDS[3])
         self.assertFalse(TimeEntry.objects.filter(user=self.child).exists())
         dashboard = self.client.get("/api/dashboard/")
         self.assertEqual(dashboard.status_code, 200)
         self.assertEqual(dashboard.json()["rpg"]["login_streak"], 4)
+        self.assertEqual(dashboard.json()["rpg"]["level"], 3)
         response = self.client.get("/api/pulse/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["header"]["streak_days"], 4)
+        self.assertEqual(response.json()["header"]["level"], 3)
         body = self.assert_response_fixture(response, "pulse-activity-streak.json")
         self.assertIsNone(body["header"]["active_timer"])
+        self.assertEqual(body["header"]["streak_bonus"], {
+            "active_today": True,
+            "check_in_multiplier": 1.4,
+            "check_in_coins": 7,
+            "drop_bonus": 0.2,
+            "intensity": 0.2,
+        })
+        self.assertEqual(dashboard.json()["rpg"]["streak_bonus"], body["header"]["streak_bonus"])
 
     def seed_companion_care(self):
         """Synthetic ownership and typed food inputs; production services stay real."""
@@ -973,6 +986,7 @@ class SharedApiResponseFixtureTests(APITestCase):
                 "action": "login", "username": self.child.username, "password": "synthetic-password",
             }, format="json")
         self.assertIs(login.json()["is_staff"], False)
+        self.assertIs(login.json()["usage_collection_enabled"], True)
         body = self.assert_response_fixture(login, "auth-login-child.json")
         self.assertEqual(body["token"], Token.objects.get(user=self.child).key)
         self.assertFalse(Token.objects.filter(key=self.auth_token.key).exists())
@@ -999,6 +1013,29 @@ class SharedApiResponseFixtureTests(APITestCase):
                     self.client.get("/api/auth/me/"), f"auth-me-{label}.json",
                 )
                 self.assertIs(identity["is_staff"], is_staff)
+                self.assertIs(identity["usage_collection_enabled"], True)
+                self.assertEqual({key: value for key, value in body.items() if key != "token"}, identity)
+
+    def test_live_observer_login_and_me_disable_collection_from_private_family_receipt(self):
+        household = make_family(
+            "Synthetic Observer Fixture Family", family_id=3,
+            parents=[{"id": 101, "username": "fixture-observer-parent", "password": "synthetic-password"}],
+            children=[{"id": 102, "username": "fixture-observer-child", "password": "synthetic-password"}],
+        )
+        parent, child = household.parents[0], household.children[0]
+        LiveTestFamily.objects.create(namespace="synthetic-contract-observer", family=household.family, parent=parent, child=child)
+        for actor, label, token in ((parent, "parent", "1" * 40), (child, "child", "2" * 40)):
+            with self.subTest(role=label):
+                self.client.credentials()
+                with patch("rest_framework.authtoken.models.Token.generate_key", return_value=token):
+                    response = self.client.post("/api/auth/", {
+                        "action": "login", "username": actor.username, "password": "synthetic-password",
+                    }, format="json")
+                body = self.assert_response_fixture(response, f"auth-login-live-{label}.json")
+                self.assertIs(body["usage_collection_enabled"], False)
+                self.client.credentials(HTTP_AUTHORIZATION=f"Token {body['token']}")
+                identity = self.assert_response_fixture(self.client.get("/api/auth/me/"), f"auth-me-live-{label}.json")
+                self.assertIs(identity["usage_collection_enabled"], False)
                 self.assertEqual({key: value for key, value in body.items() if key != "token"}, identity)
 
     def test_paginated_habits_preserve_scope_and_safety_fields(self):

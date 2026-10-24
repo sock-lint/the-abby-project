@@ -217,6 +217,16 @@ award receipts, daily-bonus evidence and retained legacy history. It does not
 enroll missing goals, advance recurrence or award rewards. Its saved-state
 view can therefore differ from the app's materializing Challenges page.
 
+Read `pages.modern` and `pages.legacy` for bounded continuation metadata. Follow
+a page's `next_cursor` using `source="modern"` or `source="legacy"`; default
+`source="all"` keeps the existing mixed recent view and cannot take a cursor.
+Cursors expire after 24 hours and bind caller, family, target and source. An
+initial maximum ID excludes newer inserts, including backdated rows; edits and
+deletions can change matching totals. `get_challenge` reads an exact saved
+`goal:<id>` or `legacy:<id>` once discovered, including old retryable attempts.
+Parents explicitly select a same-family child for details; child callers are
+self-scoped. Neither lookup creates progress or changes rewards.
+
 Use `preview_challenge_goal` with a same-family child, activity trigger, metric
 (`count`, `minutes`, `distance`), target, matching unit, period and reward/skill
 tags. It shares the app's `GoalWriteSerializer` and writes nothing. Weekly
@@ -546,6 +556,58 @@ omitted retains edges; an explicit list replaces the owned skill's edges,
 including an empty list. Direct prerequisite overrides take precedence over YAML.
 Structured badge/quest/shop merges use stable IDs when supplied. Pack items use
 the same bounded runtime metadata validation as the database workbench.
+
+## Saved progression experiments
+
+The native Lab notebook is available through MCP without changing installed
+rules or rewards. All tools require a current staff parent. Private notebooks
+belong to the exact author and family; another parent in the same family cannot
+read or mutate them. They accept no child/family selector or client-supplied
+reports, observations or catalog/rules bindings.
+
+1. Use `list_progression_experiments` and `get_progression_experiment` to resume
+   saved assumptions. Lists have at most 20 summaries per page; continue with
+   `next_after` as `after` in stable UUID order.
+2. Create a hypothesis using `create_progression_experiment` with a stable
+   `request_id`, name, hypothesis, bounded scenario config, candidate policy,
+   daily Coins/budget where applicable, and feedback targets. Use
+   `save_progression_experiment` with the current revision and confirmation to
+   revise it; omitted optional policy fields preserve existing selections.
+3. Call `compare_progression_experiment` with the experiment ID, revision and a
+   new operation UUID. Both control and candidate use the same seed and detached
+   catalog. Read immutable evidence with `get_progression_comparison` rather than
+   simulating again. The native shared comparison quota is five per minute.
+4. Append rationale, next action and review date using
+   `record_progression_decision` against a saved current comparison. Revisions,
+   installed rules/catalog and evaluator drift make evidence stale. Stale or
+   unavailable current bindings cannot authorize a new decision. Ready for design
+   needs configured passing targets and does not approve publication or a live
+   experiment.
+5. With the independent read grant, inspect current-family accounting through
+   `get_progression_observations` or use `capture_progression_observation` to save
+   a checkpoint against the notebook's revision and an operation UUID. Installed
+   accounting is distinct from a hypothetical forecast and never validates an
+   undeployed policy.
+
+Notebook tools require `mcp:author`. Author-only results explicitly set
+`observations_redacted=true` and do not query checkpoint payloads. Household
+observation reads require `mcp:read`; checkpoint capture requires **both** author
+and read grants for discovery and invocation. No existing grant is upgraded.
+
+Each mutating operation uses a stable `request_id`. Reuse the exact arguments
+and UUID after uncertain responses. An identical retry rereads current saved
+notebook state, or its specific immutable comparison, without another revision,
+comparison, decision, checkpoint or quota charge. Changed details conflict.
+Deletion leaves a request tombstone, so the original UUID cannot recreate a
+notebook or evidence result. Receipts store digests and UUID identities, without
+copying hypothesis prose or household observations; actor/family deletion removes
+those identities. Apply MCP migration `0005` first.
+
+Native limits remain 20 experiments per author/family, 20 comparisons and
+20 observation checkpoints per experiment, 100 decisions, bounded paired work,
+and a 4 MiB stored-evidence cap. Large native reports are not reduced to the
+older generic MCP receipt's 256 KiB response cap. Historical evidence remains
+readable with explicit freshness even when today's catalog is unavailable.
 
 ## Household RPG management
 

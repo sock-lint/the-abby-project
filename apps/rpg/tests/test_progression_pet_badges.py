@@ -72,8 +72,8 @@ class ProgressionPetBadgeParityTests(TestCase):
         self.assertNotIn(self.coin_badge.pk, actual)
 
     def test_hatch_alone_matches_live_hatch_species_meta_coins_and_xp_once(self):
-        # The live evaluator makes one ordered pass. An earlier meta badge
-        # waits for a later real hook rather than recursively earning itself.
+        # The pet pass skips this earlier meta badge. First-hatch recognition
+        # then runs the next scoped pass, without replaying the hatch.
         earlier_meta = Badge.objects.create(name="00 earlier collector", criteria_type="badges_earned_count",
             criteria_value={"count": 1}, xp_bonus=0, award_coins=False)
         trial = self.trial(feed_strategy="none")
@@ -90,8 +90,8 @@ class ProgressionPetBadgeParityTests(TestCase):
         trial.day = 2
         trial.claim_incubation()
 
-        self.assert_parity(trial, [self.hatch_badge, self.species_badge, self.meta_badge])
-        self.assertNotIn(earlier_meta.pk, trial.badges)
+        expected = [earlier_meta, self.hatch_badge, self.species_badge, self.meta_badge]
+        self.assert_parity(trial, expected)
         self.assertEqual((trial.coins, trial.total_xp), (21, 145))
         before = (trial.coins, trial.total_xp, trial.event_count)
         trial.feed_and_hatch()
@@ -99,9 +99,11 @@ class ProgressionPetBadgeParityTests(TestCase):
         with self.assertRaisesRegex(ValueError, "already have"):
             PetService.start_incubation(self.child, self.egg.pk, self.potion.pk, uuid4())
         self.assertEqual((trial.coins, trial.total_xp, trial.event_count), before)
-        self.assert_parity(trial, [self.hatch_badge, self.species_badge, self.meta_badge])
+        self.assert_parity(trial, expected)
 
     def test_evolution_alone_matches_live_feed_badge_coins_and_xp_once(self):
+        earlier_meta = Badge.objects.create(name="00 earlier evolution collector", criteria_type="badges_earned_count",
+            criteria_value={"count": 4}, xp_bonus=0, award_coins=False)
         pet = UserPet.objects.create(user=self.child, species=self.species, potion=self.potion_type, growth_points=85)
         BadgeService.evaluate_badges(self.child, scopes={"pet", "badges"})
         trial = self.trial()
@@ -114,7 +116,7 @@ class ProgressionPetBadgeParityTests(TestCase):
         self.assertTrue(PetService.feed_pet(self.child, pet.pk, self.food.pk)["evolved"])
         trial.feed_and_hatch()
 
-        expected = [self.hatch_badge, self.species_badge, self.mount_badge, self.meta_badge]
+        expected = [earlier_meta, self.hatch_badge, self.species_badge, self.mount_badge, self.meta_badge]
         self.assert_parity(trial, expected)
         self.assertEqual((trial.coins, trial.total_xp), (28, 180))
         before = (trial.coins, trial.total_xp, trial.event_count)

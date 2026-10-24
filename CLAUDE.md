@@ -187,6 +187,10 @@ apps/
                      Category choices: approval|award|ledger|rpg|quest|habit|
                      timecard|system. JSONField context carries breakdown math.
                      Parent-only ReadOnlyModelViewSet with cursor pagination.
+  usage/             Content-free human-action and daily foreground-visit
+                     measurements. Staff parents see their own family;
+                     deployment aggregates require a superuser. See
+                     docs/operations/usage-monitoring.md.
   lorebook/          Lorebook content + parity gate. Kid- and parent-facing
                      explainers authored in content/lorebook/entries.yaml.
                      Parity test in test_parity.py enforces that every trigger

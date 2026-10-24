@@ -225,11 +225,21 @@ availability without presenting unreachable unlocks. See the
 [asset boundary](../content/rpg/react-three-fiber-assets.md) and
 [shared contract checks](../contracts/api/README.md) before extending offers.
 
-**Earned identity:** navigation wears the current account's frame, title and
-featured badge from the existing account-bound pulse. Today also carries the
-saved look, with dashboard `rpg.identity` as its initial source. Successful
-Profile equip/unequip/trophy writes refresh the pulse; failed writes do not
-change navigation. Project-detail `maker_signature` represents the assigned
+**Earned identity:** navigation uses the current account's saved look from the
+existing account-bound pulse. The header, account menu, sidebar and Profile
+share `IdentitySummary`, `IdentityPortrait` and `IdentityChips`: the equipped
+frame surrounds the picture, a confirmed level docks beneath it, and soft chips
+show the full title and featured badge with their existing catalog artwork.
+The header uses only the title and badge icons beside the portrait on the existing row,
+with accessible title/badge names and hover labels. Phone headers omit the
+account-name text; the profile-menu trigger retains its full accessible
+description, and the menu and Profile keep full name/title/badge labels.
+`pulse.header.level`
+comes from the signed-in account; zero is valid and missing levels stay hidden.
+Only a pulse identity matching the current user may supply navigation's saved
+look or level. Today leads with task guidance below its
+heading. Successful Profile equip/unequip/trophy writes refresh the pulse;
+failed writes do not change navigation. Project-detail `maker_signature` represents the assigned
 child, with the same family access checks as the project, and is read-only.
 Shared `components/identity` portraits draw distinct vector ornaments inside
 their layout footprint, with a protected photo opening and an initial fallback.
@@ -284,6 +294,56 @@ read failures show retry controls and preserve loaded rows during refresh.
 - **Z-index stack** is three tiers: `z-30` (sticky shell), `z-40` (modal backdrop), `z-50` (modal surface + popover + toast + lightbox — shared; toasts under open modals ARE intentionally hideable). Don't introduce new z values without updating the README table.
 - **Card placement rule:** page-specific `*Card` / `*Verse` / `*Sigil` components (AssignmentCard, CatalogCard, SkillVerse, RewardCard, CoinBalanceCard, ProjectOverridesCard, StepCard) live as sibling files in their owning `pages/<area>/` subfolder. Promote to the shared layer when a second page imports them; reusable `TomeShelf` and `TomeSpine` already live in `components/atlas/`. The now-deleted `components/Card.jsx` was a back-compat shim for `ParchmentCard`; all 17 call sites were migrated.
 - **Per-area shared constants** between a parent component and extracted sibling cards should live in `<area>/<name>.constants.js` — `react-refresh/only-export-components` forbids non-component exports from `.jsx`. Examples: [`pages/achievements/skillTree.constants.js`](src/pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve); [`components/atlas/mastery.constants.js`](src/components/atlas/mastery.constants.js) holds the atlas vocabulary — `PROGRESS_TIER` / `RARITY_HALO` / `CHAPTER_NUMERALS` / `RARITY_KEYS` / `RARITY_ORDER` maps + `tierForProgress` / `chapterMark` / `countIlluminated` / `isRecentlyEarned` helpers (see Atlas cohort below); [`pages/achievements/collections.constants.js`](src/pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy (`COLLECTIONS`, `collectionForCriterion`, `groupBadgesByCollection`, `unlockHint`, `ladderSiblings`) scoped to the Badges page.
+
+### Hatchery discovery
+
+Hatchery's Explore companions section is visible only to staff users and browses
+their supported codex independently of inventory. BestiaryHub enables this
+presentation only when the authenticated user's `is_staff` is `true`; Hatchery
+hides it by default. All users retain their owned eggs, compatible potion choices,
+incubation, and hatching controls. With the section, the recipe shows the egg
+icon, recipe selections focus the section's single preview, and a skip link
+passes over the section. Without it, parents see the selected owned egg's
+family preview with its chosen potion; children follow the surprise rule below.
+Only server-returned available potion pairs
+are offered. A typed, presentation-only natural egg projects exact registered
+family artwork; it never supplies inventory IDs to incubation. Recipe selections
+can focus that preview, while browsing never changes the recipe or makes a write.
+The single family preview is portrait-first and supports Egg/Baby/Middle/Grown;
+optional 3D keeps the existing exact bindings, motion controls and reduced motion.
+
+**Child surprise previews:** `companion/previewAccess.js` applies the owner's
+rule to non-staff children (`useSurpriseRestricted`). Companion art, 3D and form
+names appear only for an exact species/potion appearance in the child's stable,
+up to its server-confirmed stage (`ownedAppearanceStages`); growth counters,
+codex discovery, a null/blank legacy potion slug and missing or failed stable
+reads unlock nothing. `FamilyStagePreview` takes a `stages` allowance and clamps
+its selection every render; `PetEvolutionGuide` keeps generic stages and
+thresholds but withholds unreached form names (`revealedStages`, or a
+creature's own stages). Collection draws only an exact owned appearance
+(`SpeciesPortrait`) and locks unowned grown forms without loading their art.
+Challenge cards, detail sheets and Today's pinned card use
+`useChallengeSurprise`: an elemental challenge illustration (it depicts the
+Baby) appears only once that exact appearance hatched, and a catalog
+description clause naming a later or elemental form (Shadow Trail, Ember/Frost
+Summit) is dropped until reached. `useSurpriseOwnership` shares one stable read
+across surfaces that mount together and reveals nothing until it loads. Django
+applies the same rule to Guide copy (`apps/lorebook/services.py`), so the Guide,
+practice trials and the Manage Guide route all receive the child's text.
+See `docs/operations/companion-lifecycle.md`.
+
+Each codex potion's additive acquisition_challenges lists current guaranteed
+bundles separately from saved attempts. Automatic attempts freeze their name,
+target and reward items; historical legacy quests freeze reward items only and
+retain the existing Trials name/target behavior. Show the returned attempt's name,
+target and progress; follow its server path rather than inventing goal IDs. No saved
+attempt means unknown progress, not zero. Discovery must not call the materializing
+GET /api/challenges/ merely to browse. Owned and incubating states come from the
+existing stable/incubation responses; failed reads stay explicitly unknown.
+Accepted ready hatches remain usable while the discovery catalog loads or fails.
+The owner-accepted Bee/Bat adoption adds their four exact elemental pairs and
+one-time Hive/Cave guarantees through the server policy. Runtime delivery still
+requires canonical publication/readback and the ordinary MAIN release gates.
 
 ### Collection navigation (October 2026)
 
@@ -483,3 +543,17 @@ and preserve labelled unavailable presentation when its exact art is absent.
 Hatchery hints require server-confirmed compatible variants. The private art
 and physical-phone acceptance work is recorded separately in
 [the preparation runbook](../docs/operations/elemental-dragon-mushroom.md).
+
+Bee/Bat Fire/Ice uses `shared/catalog/elemental-bee-bat.json` and the accepted
+`abby-elemental-bee-bat` 1.0.0 manifest
+`7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5`.
+Canonical publication/readback precedes adding its active pin alongside all
+twelve earlier pins. The server policy enables 27 exact pairs; Bee's one-time
+Hive guarantees require five qualifying accomplishments, Bat's Cave guarantees
+ten, each within 180 days with a natural egg and global potion. The immutable
+`review-...-acquisition-icon` handles remain distinct from quest identity.
+The evaluation lock and loopback path remain explicit historical review inputs;
+canonical acceptance exercises ordinary component defaults. Missing exact
+artwork stays unavailable. Publication evidence, source drift, validation,
+rollback and separate physical-phone acceptance are recorded in
+[the Bee/Bat runbook](../docs/operations/elemental-bee-bat.md).

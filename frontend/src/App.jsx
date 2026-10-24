@@ -18,6 +18,7 @@ import UpdateBanner from './pwa/UpdateBanner';
 import OfflineReadyToast from './pwa/OfflineReadyToast';
 import RouteAnnouncer from './components/RouteAnnouncer';
 import ScrollToTop from './components/ScrollToTop';
+import UsageVisitCapture from './components/UsageVisitCapture';
 // Landing views stay eager: Login/Signup are the first paint for logged-out
 // users and Dashboard is the first paint for logged-in ones — lazy-loading
 // them would just add a skeleton flash to every cold start.
@@ -37,6 +38,7 @@ const ClockPage = lazy(() => import('./pages/ClockPage'));
 const Manage = lazy(() => import('./pages/Manage'));
 const ProgressionLab = lazy(() => import('./pages/manage/ProgressionLab'));
 const ContentWorkbench = lazy(() => import('./pages/manage/ContentWorkbench'));
+const UsageDashboard = lazy(() => import('./pages/manage/UsageDashboard'));
 const CodexPage = lazy(() => import('./pages/CodexPage'));
 const ActivityPage = lazy(() => import('./pages/activity/ActivityPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -211,6 +213,7 @@ function AppContent() {
         <PulseProvider>
         <ParentReviewProvider>
           <BrowserRouter>
+            <UsageVisitCapture />
             <RouteAnnouncer />
             <ScrollToTop />
             <Routes>
@@ -258,6 +261,7 @@ function AppContent() {
               <Route path="/manage" element={<Manage />} />
               <Route path="/manage/progression-lab" element={<ProgressionLab />} />
               <Route path="/manage/rpg-content" element={<ContentWorkbench />} />
+              <Route path="/manage/usage" element={<UsageDashboard />} />
               <Route path="/codex" element={<CodexPage />} />
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
