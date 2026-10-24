@@ -111,6 +111,19 @@ class RepeatedHourFirstPassTests(UnsavedRepeatWindowTests):
     zone = "America/Denver"
 
 
+    def test_second_pass_visit_cannot_displace_the_first_cycle(self):
+        original = self.definition()
+        goal = self.enroll_without_window(original)
+        visit = goal.starts_at + timedelta(minutes=40)  # 01:10 MST after a 01:30 MDT anchor
+        with patch("django.utils.timezone.now", return_value=visit):
+            list_goals(self.child)
+        self.assertEqual(list(goal.occurrences.values_list("starts_at", flat=True)), [goal.starts_at])
+        self.definition()
+        self.fact("visit-1", goal.starts_at + timedelta(days=2))
+        self.fact("visit-2", goal.starts_at + timedelta(days=2, minutes=5))
+        self.assertEqual(self.coins(), [10])
+
+
 class RepeatedHourSecondPassTests(UnsavedRepeatWindowTests):
     anchor = datetime(2026, 11, 1, 8, 30, tzinfo=ZoneInfo("UTC"))
     zone = "America/Denver"

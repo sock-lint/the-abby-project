@@ -317,7 +317,9 @@ def _occurrence_window(goal, at):
         # Calendar-day arithmetic retains the household clock across DST changes.
         local_start, local_at = start.astimezone(zone), at.astimezone(zone)
         elapsed = (local_at.replace(tzinfo=None) - local_start.replace(tzinfo=None)).total_seconds()
-        cycle = int(elapsed // (goal.repeat_days * 86400))
+        # A later instant in a DST-repeated hour can have an earlier wall time;
+        # it still belongs to the cycle containing the anchor or a later one.
+        cycle = max(0, int(elapsed // (goal.repeat_days * 86400)))
         start = local_start + timedelta(days=cycle * goal.repeat_days)
         end = start + timedelta(days=goal.repeat_days)
     return start, end
