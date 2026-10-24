@@ -1,13 +1,15 @@
 {
   "schema_version": 1,
   "preparation": {
-    "state": "awaiting_private_assets",
-    "acquisition_active": false
+    "state": "private_evaluation",
+    "acquisition_active": false,
+    "artwork_accepted": false,
+    "application_ids_agreed": true
   },
   "release": {
     "family_id": "abby-elemental-snake-hermit-crab",
     "release_version": "1.0.0",
-    "manifest_sha256": null
+    "manifest_sha256": "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3"
   },
   "families": [
     {

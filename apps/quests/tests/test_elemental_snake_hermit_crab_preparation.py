@@ -132,7 +132,10 @@ class SnakeHermitCrabPreparationBoundaryTests(TestCase):
     def test_descriptor_handles_bind_only_system_collection_definitions(self):
         descriptor = json.loads(POLICY_PATH.with_name("elemental-snake-hermit-crab.json").read_text())
         self.assertFalse(descriptor["preparation"]["acquisition_active"])
-        self.assertIsNone(descriptor["release"]["manifest_sha256"])
+        self.assertFalse(descriptor["preparation"]["artwork_accepted"])
+        self.assertEqual(descriptor["preparation"]["state"], "private_evaluation")
+        self.assertEqual(descriptor["release"]["manifest_sha256"],
+                         "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3")
         for name, (_species, _potion, icon) in PATHS.items():
             with self.subTest(name=name):
                 definition = QuestDefinition(name=name, quest_type="collection", is_system=True)

@@ -1,6 +1,6 @@
-// Entirely synthetic contract data, not the pending artwork or native-take
+// Entirely synthetic contract data, not the verified artwork or native-take
 // inventory. Numbered fake files and deliberately different logical/native
-// identities exercise the adapter before the asset session returns.
+// identities stress the adapter independently of the real supplied takes.
 export const SNAKE_CRAB_FAMILY = 'abby-elemental-snake-hermit-crab';
 export const SNAKE_CRAB_SPECIES = ['meshtint-snake', 'meshtint-hermit-crab'];
 export const SNAKE_CRAB_REVIEW_ICONS = ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon',

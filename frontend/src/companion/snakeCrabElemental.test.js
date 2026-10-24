@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveCompanionAppearance, validateAssetPackManifest } from '@abby-assets/contracts';
 import activeLock from '../../assets.lock.json';
+import evaluationLock from '../../assets.snake-hermit-crab.evaluation.lock.json';
 import support from '../../../shared/catalog/asset-support.json';
 import preparation from '../../../shared/catalog/elemental-snake-hermit-crab.json';
 import { companionLifecycle } from './lifecycle';
@@ -61,9 +62,10 @@ describe('prepared Snake/Hermit Crab elemental presentation', () => {
     expect(resolveElementalCatalogIcon(id)).toBeNull();
   });
 
-  it('keeps normal delivery and acquisition disabled without an adopted digest, regardless of staged metadata or a fake pin', () => {
-    expect(preparation.preparation).toEqual({ state: 'awaiting_private_assets', acquisition_active: false });
-    expect(preparation.release.manifest_sha256).toBeNull();
+  it('keeps normal delivery and acquisition disabled while the exact verified candidate is private and unaccepted', () => {
+    expect(preparation.preparation).toEqual({ state: 'private_evaluation', acquisition_active: false,
+      artwork_accepted: false, application_ids_agreed: true });
+    expect(preparation.release.manifest_sha256).toBe('2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3');
     expect(activeLock.releases).toHaveLength(13);
     expect(activeLock.releases.some(({ family_id }) => family_id === SNAKE_CRAB_FAMILY)).toBe(false);
     expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(27);
@@ -84,6 +86,25 @@ describe('prepared Snake/Hermit Crab elemental presentation', () => {
         expect(resolveElementalPreviewAppearance(snakeCrabEgg(species), stage, creature.potion)).toBeNull();
         expect(resolveElementalPortrait(`${species}${spriteSuffix[stage]}`, potion)).toBeNull();
       }
+    }
+  });
+
+  it('requires the exact separate private pin, all declared files and v1 bindings before explicit review staging', () => {
+    const staged = stagedSnakeCrabFixture(), pin = evaluationLock.releases[0];
+    expect(evaluationLock.releases).toHaveLength(1);
+    expect(pin).toEqual({ ...preparation.release,
+      directory: `${SNAKE_CRAB_FAMILY}/1.0.0/${preparation.release.manifest_sha256}` });
+    const prefix = `../avatar/shared/${pin.directory}/`, manifests = { [`${prefix}manifest.json`]: staged.release };
+    const urls = Object.fromEntries(staged.release.files.map(({ path }) => [`${prefix}${path}`, staged.resolveUrl(path)]));
+    const indexes = { [`${prefix}manifest.json`]: staged.manifestUrl };
+    expect(stagedElementalRelease(manifests, urls, evaluationLock, indexes, SNAKE_CRAB_FAMILY)?.release).toBe(staged.release);
+    expect(stagedElementalRelease(manifests, urls, activeLock, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
+    expect(stagedElementalRelease(manifests, {}, evaluationLock, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
+    expect(stagedElementalRelease(manifests, urls, evaluationLock, {}, SNAKE_CRAB_FAMILY)).toBeNull();
+    expect(stagedElementalRelease({ [`${prefix}manifest.json`]: { ...staged.release, appearance_bindings: null } }, urls,
+      evaluationLock, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
+    for (const field of ['manifest_sha256', 'release_version', 'directory']) {
+      expect(stagedElementalRelease(manifests, urls, { releases: [{ ...pin, [field]: 'wrong' }] }, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
     }
   });
 
