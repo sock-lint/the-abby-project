@@ -28,6 +28,11 @@ def _call(function, *args, **kwargs):
         raise MCPValidationError(str(exc), code="challenge_reconciliation_conflict") from None
     except ContentPackError as exc:
         raise MCPValidationError(str(exc)) from None
+    # Old immutable receipts predate policy transitions. Normalize only the
+    # returned copy so saved previews, bindings and replay evidence stay intact.
+    if isinstance(result, dict):
+        result.setdefault("requires_policy_acknowledgement", False)
+        result.setdefault("acknowledged_policy_transition", False)
     try:
         return ChallengeReconciliationOut.model_validate(result).model_dump(mode="json", exclude_unset=True)
     except ValidationError:
@@ -42,8 +47,8 @@ def preview_challenge_reconciliation(params: PreviewChallengeReconciliationIn) -
 
     Reuse client_request_id after an uncertain response. The private receipt
     contains global definitions and preserves accepted history and creator
-    provenance. Cooperation differences are displayed for acknowledgement at
-    publication; no household usage records or counts are returned.
+    provenance. Cooperation and supported policy differences require separate
+    acknowledgement at publication; no household usage records or counts return.
     """
     return _call(
         reconciliation.preview_reconciliation, require_staff_parent(),
@@ -68,12 +73,15 @@ def publish_challenge_reconciliation(params: PublishChallengeReconciliationIn) -
     """Publish the exact reviewed identity mapping with explicit transport confirmation.
 
     If the preview requires cooperation acknowledgement, also set
-    acknowledge_cooperative_transition=true. Saved windows, rewards and creator
-    provenance remain intact. Reuse the same receipt, digest and acknowledgement
-    after an uncertain response; exact completed retries do not apply again.
+    acknowledge_cooperative_transition=true. A supported policy transition also
+    requires acknowledge_policy_transition=true when the preview says so.
+    Saved windows, rewards and creator provenance remain intact. Reuse the same
+    receipt, digest and acknowledgements after an uncertain response; exact
+    completed retries do not apply again.
     """
     return _call(
         reconciliation.publish_reconciliation, require_staff_parent(),
         params.preview_id, params.content_digest,
         acknowledge_cooperative_transition=params.acknowledge_cooperative_transition,
+        acknowledge_policy_transition=params.acknowledge_policy_transition,
     )

@@ -154,10 +154,18 @@ Runtime maintenance uses `reconciliation.py` and dedicated native/MCP
 preview/get/publish receipts, with explicit source/canonical IDs. It retains
 creator provenance and accepted history; a sole alias catalog goal can change
 only its definition FK to continue its existing repeat cadence. Publication
-first saves the only window of an enrolled one-time source goal that has not
-opened yet, so retirement cannot cancel it. Conflicting
-rules/rewards and unsupported ownership, alias or dependency states fail
-closed. A one-time cooperative difference needs explicit publication
+first saves a source goal's unopened accepted initial window at its original
+anchor, including repeating goals with unrelated pre-anchor history. It opens
+no unsaved later cycle. Conflicting rules/rewards and unsupported ownership,
+alias or dependency states fail closed. The two reviewed v1-to-v2 exceptions
+are Daily Rituals (10 Coins and one small pouch to 2 Coins without a pouch)
+and Comeback Kid (40 Coins for three taps to 10 Coins for three distinct days,
+retaining its Streak Freeze). Their exact rules, cadence, XP and links are
+checked; other changes cannot use the version marker as authorization.
+Preview displays every difference; publication and replay require separate
+`acknowledge_policy_transition: true`. Accepted initial/saved windows retain
+their terms; only later canonical windows adopt v2 on the same anchor/cadence.
+A one-time cooperative difference needs explicit publication
 acknowledgment; repeating personal-to-cooperative conversions are refused.
 The reconciliation admission mutex precedes sorted family/member locks, then
 catalog/definition admission; never acquire another account lock after the

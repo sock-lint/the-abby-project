@@ -47,9 +47,27 @@ After reviewing the exact preview, `publish_challenge_reconciliation` requires
 `confirmation: true`. A one-time personal/cooperative difference also requires
 `acknowledge_cooperative_transition: true`. That acknowledgment applies to the
 reviewed pair: existing personal windows keep their promises, while future
-offers use the selected canonical assignment rules. Other behavioral
-differences, including a repeating personal-to-cooperative conversion, require
-a separate content decision and are not merged here.
+offers use the selected canonical assignment rules.
+
+Two exact reviewed v1-to-v2 profiles additionally permit
+`acknowledge_policy_transition: true` when the preview reports
+`requires_policy_acknowledgement`:
+
+- Daily Rituals keeps three habit actions in a one-day repeating window and
+  20 XP, changing 10 Coins plus one Small Coin Pouch to 2 Coins without a pouch.
+- Comeback Kid keeps its seven-day cadence, target of three, 60 XP and exact
+  Streak Freeze reward, changing three habit taps and 40 Coins to three distinct
+  habit days and 10 Coins, with the reviewed description explaining the days.
+
+The source filters, canonical v2 filters, Coin amounts and item identities are
+checked against those profiles. Other fields must match, including skill IDs
+and weights; target, cadence, eligibility or arbitrary reward edits are refused.
+The policy acknowledgement must be repeated when recovering a completed publish.
+Existing accepted initial/saved windows keep their old terms. Only later
+canonical windows use the reviewed v2 offer on the saved anchor and cadence;
+overlapping aliases open no future cycles. Other behavioral differences,
+including a repeating personal-to-cooperative conversion, need a separate
+content decision and are not merged here.
 
 Expired or changed catalog/ownership/history bindings require a new preview
 UUID. Current account and family authority is checked on reads and replays.
@@ -60,9 +78,11 @@ Publication retains both definitions and their creator/source provenance.
 Where no canonical goal already exists, it moves only a catalog goal's
 definition link, preserving that goal's ID, cadence, timestamps and promises.
 Additional accepted alias windows remain payable but cannot open another
-repeat cycle. An enrolled one-time source goal whose only window has not
-opened yet (enrollment can precede its start) has that window saved first, so
-retirement cannot cancel it. A shared account/catalog admission order and a fresh definition
+repeat cycle. An enrolled source goal whose initial window has not opened yet
+has that window saved at its original anchor first, including repeating goals
+with unrelated pre-anchor history. Publication never creates an unsaved later
+cycle, replays facts or pays rewards. One-time retry chains keep their saved
+authoritative window. A shared account/catalog admission order and a fresh definition
 check prevent stale first enrollment from recreating an alias goal during
 publication. See `apps/quests/reconciliation.py` and its PostgreSQL tests.
 

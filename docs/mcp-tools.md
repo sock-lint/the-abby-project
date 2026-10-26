@@ -231,7 +231,7 @@ default; `include_archived=true` includes retained history. See the
 | --- | --- | --- | --- | --- |
 | `get_challenge_reconciliation` | `mcp:author` | Yes | — | Read this author's saved reconciliation preview or publication receipt without household identities or usage. |
 | `preview_challenge_reconciliation` | `mcp:author` | No | — | Preview one explicit unresolved source/canonical pair using a stable request UUID; change no live offers or accepted promises. |
-| `publish_challenge_reconciliation` | `mcp:publish` | No | Required | Publish the exact reviewed pair and digest once; separately acknowledge a cooperative difference when required. |
+| `publish_challenge_reconciliation` | `mcp:publish` | No | Required | Publish the exact reviewed pair and digest once; separately acknowledge cooperative or supported v1-to-v2 policy differences when required. |
 
 See [canonical reconciliation](operations/mcp-authoring.md#canonical-challenge-reconciliation)
 for source ownership, stale-plan checks, retained history and repeat cadence.
