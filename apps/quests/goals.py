@@ -621,13 +621,26 @@ def _lock_reward_skills(tags, *, retained_ids=()):
     admit_references(Skill, ids, retained_ids=retained_ids)
 
 
-@transaction.atomic
-def create_goal(parent, child, data):
-    if parent.role != "parent" or child.role != "child" or child.family_id != parent.family_id:
+def _lock_parent_goal_members(parent, child):
+    """Native callers share Family -> sorted account admission with MCP."""
+    from apps.families.models import Family
+
+    family = Family.objects.select_for_update(no_key=True).filter(pk=parent.family_id).first()
+    if family is None:
         raise ValueError("Child not found")
-    # Parent serializes request UUIDs; deterministic order also covers two targets.
-    for member in sorted([parent, child], key=lambda member: member.pk):
-        lock_user(member)
+    members = {member.pk: member for member in get_user_model().objects.select_for_update(no_key=True)
+               .filter(pk__in={parent.pk, child.pk}, family=family).order_by("pk")}
+    fresh_parent, fresh_child = members.get(parent.pk), members.get(child.pk)
+    if (fresh_parent is None or not fresh_parent.is_active or fresh_parent.role != "parent"
+            or fresh_child is None or not fresh_child.is_active or fresh_child.role != "child"):
+        raise ValueError("Child not found")
+    fresh_parent.family = fresh_child.family = family
+    return fresh_parent, fresh_child
+
+
+@transaction.atomic
+def create_goal(parent, child, data, *, validate_current=False):
+    parent, child = _lock_parent_goal_members(parent, child)
     fingerprint = hashlib.sha256(json.dumps(
         {key: value for key, value in data.items() if key != "request_id"}, sort_keys=True, default=str,
     ).encode()).hexdigest()
@@ -635,9 +648,20 @@ def create_goal(parent, child, data):
     if request_id:
         previous = ChallengeGoal.objects.filter(created_by=parent, request_id=request_id).first()
         if previous:
-            if previous.request_fingerprint != fingerprint:
+            from rest_framework.exceptions import NotFound
+
+            if previous.family_id != parent.family_id:
+                raise NotFound("Challenge not found")
+            if previous.user_id != child.pk or previous.request_fingerprint != fingerprint:
                 raise ValueError("request_id was already used for different goal details")
-            return previous.occurrences.order_by("starts_at").first()
+            occurrence = previous.occurrences.order_by("starts_at").first()
+            if occurrence is None:
+                raise NotFound("Challenge not found")
+            return occurrence
+    if validate_current:
+        from .goal_serializers import GoalWriteSerializer
+
+        GoalWriteSerializer(context={"request": SimpleNamespace(user=parent)}).validate_current_eligibility(data)
     _lock_reward_skills(data.get("skill_tags", []))
     zone, today = family_zone(child), timezone.localtime(timezone.now(), family_zone(child)).date()
     if data["period"] == "this_week":
@@ -939,7 +963,10 @@ def list_goals(user):
 
 @transaction.atomic
 def set_pin(user, goal_id, clear=False):
-    lock_user(user)
+    family_id = user.family_id
+    user = lock_user(user)
+    if not user.is_active or user.family_id != family_id:
+        raise ValueError("Challenge not found")
     try:
         kind, raw_id = goal_id.split(":", 1)
         pk = int(raw_id)

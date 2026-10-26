@@ -261,6 +261,42 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_custom_goal_request_recovers_its_saved_promise_after_deadline(self):
+        from apps.quests.models import (
+            ChallengeActivity, ChallengeContribution, ChallengeGoal, ChallengeOccurrence, DailyBonus,
+        )
+
+        payload = {
+            **self.goal_payload, "name": "Run two miles on the saved day", "period": "custom",
+            "start_date": "2026-10-14", "end_date": "2026-10-14", "repeat_weekly": False,
+        }
+        created = self.client.post("/api/challenges/goals/", payload, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        original = created.json()
+        self.authenticate(self.child)
+        self.assertEqual(self.log_run("2").status_code, 201)
+        earned = next(row for row in self.client.get("/api/challenges/").json()["results"]
+                      if row["id"] == original["id"])
+        self.assertEqual(earned["reward_receipt"]["status"], "awarded")
+        self.assertEqual(earned["reward_receipt"]["coins_awarded"], 7)
+        models = (ChallengeGoal, ChallengeOccurrence, ChallengeActivity, ChallengeContribution,
+                  DailyBonus, CoinLedger, SkillProgress, UserInventory, CharacterProfile)
+        before = {model._meta.label: list(model.objects.order_by("pk").values()) for model in models}
+        self.authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=2)):
+            recovered = self.client.post("/api/challenges/goals/", payload, format="json")
+            self.assertEqual(recovered.status_code, 201, recovered.data)
+            body = recovered.json()
+            self.assertEqual(body["id"], original["id"])
+            for field in ("starts_at", "ends_at"):
+                self.assertEqual(datetime.fromisoformat(body[field]), datetime.fromisoformat(original[field]))
+            self.assertEqual(body["reward_receipt"], earned["reward_receipt"])
+            self.assertEqual((body["status"], body["progress"]), ("completed", "2"))
+            self.assertEqual(before, {
+                model._meta.label: list(model.objects.order_by("pk").values()) for model in models
+            })
+            self.assert_response_fixture(recovered, "challenge-custom-goal-recovered.json", status=201)
+
     def test_new_retry_requires_the_saved_item_reward_to_remain_available(self):
         from apps.quests.models import ChallengeOccurrence
 

@@ -51,16 +51,13 @@ class GoalWriteSerializer(serializers.Serializer):
         if data.get("movement_type_id"):
             if trigger != "movement_session":
                 raise serializers.ValidationError({"movement_type_id": "Activity type requires movement."})
-            if not MovementType.objects.filter(pk=data["movement_type_id"], is_active=True).exists():
-                raise serializers.ValidationError({"movement_type_id": "Choose an available activity type."})
         if data["repeat_weekly"] and data["period"] != "this_week":
             raise serializers.ValidationError({"repeat_weekly": "Weekly repeats require a calendar-week goal."})
         if data["period"] == "custom":
             if "start_date" not in data or "end_date" not in data:
                 raise serializers.ValidationError({"period": "Custom goals require both dates."})
             start, end = data["start_date"], data["end_date"]
-            today = timezone.localtime(timezone.now(), family_zone(self.context["request"].user)).date()
-            if end < start or end < today or (end - start).days > 365 or (end - today).days > 365:
+            if end < start or (end - start).days > 365:
                 raise serializers.ValidationError({"end_date": "Use an end date on or after today/start, within one year."})
         elif "start_date" in data or "end_date" in data:
             raise serializers.ValidationError({"period": "Dates are only accepted for custom goals."})
@@ -68,10 +65,25 @@ class GoalWriteSerializer(serializers.Serializer):
         ids = [tag["skill_id"] for tag in tags]
         if len(ids) != len(set(ids)) or len(ids) > 3:
             raise serializers.ValidationError({"skill_tags": "Choose up to three different skills."})
-        if Skill.objects.filter(pk__in=ids).count() != len(ids):
-            raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
         if data["xp_reward"] and not tags:
             raise serializers.ValidationError({"skill_tags": "Choose a skill to receive the XP reward."})
+        if not self.context.get("defer_current_eligibility", False):
+            self.validate_current_eligibility(data)
+        return data
+
+    def validate_current_eligibility(self, data):
+        """Check new promises after exact saved-request recovery has been tried."""
+        if data.get("movement_type_id"):
+            if not MovementType.objects.filter(pk=data["movement_type_id"], is_active=True).exists():
+                raise serializers.ValidationError({"movement_type_id": "Choose an available activity type."})
+        if data["period"] == "custom":
+            today = timezone.localtime(timezone.now(), family_zone(self.context["request"].user)).date()
+            end = data["end_date"]
+            if end < today or (end - today).days > 365:
+                raise serializers.ValidationError({"end_date": "Use an end date on or after today/start, within one year."})
+        ids = {tag["skill_id"] for tag in data.get("skill_tags", [])}
+        if Skill.objects.filter(pk__in=ids).count() != len(ids):
+            raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
         return data
 
 

@@ -92,6 +92,11 @@ active after ninety elapsed days. Null means no deadline; absent timing in
 older payloads is not inferred to be untimed. The existing challenge producer
 and React consumer check this shape.
 
+`challenge-custom-goal-recovered.json` is a real parent creation-request replay
+after the custom goal's original end date. It retains the original goal ID,
+window and actual paid receipt without repeating activity or rewards. The
+existing challenge producer and React consumer check the same saved UUID/body.
+
 `challenge-family-assigned.json` and `challenges-family-completed.json` bind
 parent assignment to a real shared campaign. The producer checks the parent's
 catalog `is_cooperative` flag, assigns two same-family children, and approves ten

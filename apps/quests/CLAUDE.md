@@ -242,6 +242,14 @@ continue to apply to the bonus roll.
 
 ### Explicit attempts and future weekly setup
 
+Parent goal creation rechecks active parent/child membership under Family then
+sorted account locks. REST and MCP normalize creation inputs before recovering
+an exact saved request UUID; the original family, child and fingerprint must
+still match. Recovery retains the saved occurrence, dates and reward receipt
+after its end date or reference retirement, without another backfill or payout.
+Only new requests pass current date/reference eligibility. This is separate
+from the explicit catalog retry below, which starts a newly accepted attempt.
+
 `POST /api/challenges/goal:<occurrence_id>/retry/` accepts only `{}` from the
 owning child or a same-family parent. An expired unpaid personal one-time
 catalog goal receives a fresh saved occurrence with `retry_of`; replaying that
