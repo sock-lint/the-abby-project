@@ -289,6 +289,7 @@ class AwardService:
         coins=0,
         coin_reason=None,
         coin_description="",
+        coin_source="",
         money=0,
         money_entry_type=None,
         money_description="",
@@ -313,6 +314,9 @@ class AwardService:
         award paths (clock-out hourly, chore reward, project/milestone bonus)
         that credit both ``PaymentLedger`` and ``CoinLedger`` in one breath.
         Badge-only and quest-only callers leave them off.
+
+        ``coin_source`` optionally attributes a positive Coin award without
+        changing its reason, amount or boost eligibility.
 
         Activity-log contract: inner ``CoinService``/``PaymentService`` calls
         stay silent inside this block; this method emits consolidated
@@ -359,6 +363,7 @@ class AwardService:
                     coin_reason,
                     description=coin_description,
                     created_by=created_by,
+                    source=coin_source,
                 )
                 ActivityLogService.record(
                     category="award",

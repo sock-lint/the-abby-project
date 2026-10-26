@@ -498,6 +498,7 @@ class QuestService:
             CoinService.award_coins(
                 user, definition.coin_reward, CoinLedger.Reason.ADJUSTMENT,
                 description=f"Quest complete: {definition.name}",
+                source=CoinLedger.Source.LEGACY_QUEST,
             )
             rewards["coins"] = definition.coin_reward
 
@@ -547,6 +548,7 @@ class QuestService:
                 CoinService.award_coins(
                     user, salvage, CoinLedger.Reason.ADJUSTMENT,
                     description=f"Quest egg salvage: {item.display_name}",
+                    source=CoinLedger.Source.LEGACY_QUEST,
                 )
                 rewards["coins"] += salvage
                 rewards["items"].append({

@@ -198,6 +198,8 @@ class WellbeingService:
                     user, GRATITUDE_FIRST_OF_DAY_COINS,
                     CoinLedger.Reason.ADJUSTMENT,
                     description="Journal — first save of day",
+                    source=(CoinLedger.Source.WRITING if GRATITUDE_FIRST_OF_DAY_COINS > 0
+                            else CoinLedger.Source.UNKNOWN),
                 )
                 if ledger is not None:
                     entry.coin_paid_at = timezone.now()

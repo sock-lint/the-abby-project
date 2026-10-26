@@ -52,22 +52,60 @@ The separate payout envelope does not simulate that issuance policy.
 
 ## Observe the installed economy
 
-The separate observations panel uses a fixed last-30-day period in the
-family's current timezone. It includes currently active, nonstaff children
-registered within the last 90 inclusive days, excludes provisioned live-check
-families and accepts no household or child selectors. It reports ledger-active
-children and child-days alongside all eligible child-days. A Coin transaction
-is evidence of ledger activity, not retention or a visit without an award.
+The **Observed family coin economy** panel uses a fixed last-30-day period in
+the family's current timezone. It includes all currently active, nonstaff
+children in your family, including accounts older than 90 days. Provisioned
+live-check families are excluded. It accepts no household or child selectors.
 
-New expedition direct, expedition salvage and opened-pouch awards receive
-internal typed attribution without changing their amounts, boosts or timing.
-Historical rows are not rewritten. Mixed unclassified positive adjustments
-remain unknown and make the measured automatic totals a lower bound. The
-panel reconciles opening balance + credits - debits = closing balance;
-activity events and overlapping reward receipts are never added to it.
-No eligible children or ledger entries means insufficient evidence. More than
-100 eligible children or 100,000 ledger rows returns a capacity state with
-unavailable totals, rather than a partial or zero sample.
+**Active child-days with saved work** counts one day per child with surviving
+reading, positive-duration movement, a creation, a positive habit check-in,
+completed project time, or a pending or approved chore/homework submission.
+Several activities by the same child on the same day count once; activities
+can count even when they earn no Coins. Reading, movement and creations use
+their saved work dates; habit and submission timestamps and project close
+times use the family's current local calendar. Rejected submissions, voided
+time, deleted records, visits, purchases and reward cascades do not establish
+activity. Private journals and grades are not read or counted. This measures
+selected saved work, including records maintained by a parent, rather than
+attention, app visits or retention. Ledger-active days remain a separate count
+of any Coin transaction, including spending and transfers.
+
+The source table separates regular earnings, occasional bonuses, money
+exchanges, refunds, manual grants and unknown credits. New check-in,
+challenge, Perfect Day, writing, savings, birthday, quest and salvage awards
+receive internal source tags alongside the existing expedition/pouch tags.
+Amounts, eligibility, boosts, timing and replay guards stay unchanged. Blank
+historical adjustments remain unknown; descriptions never establish a source.
+Check-ins, Perfect Day, writing and daily challenge bonuses share the broad
+**Daily activity bonuses** group: the report does not disclose which private
+writing activity occurred or show its dates.
+The panel reconciles opening balance + credits - debits = closing balance.
+Activity events and overlapping reward receipts are never added to the ledger.
+
+**Shop earning estimates** divide identified regular Coin credits by active
+child-days with saved work. Occasional bonuses, manual grants, exchanges,
+refunds and unknown credits are excluded from this pace. Regular credits
+include variable drops and delayed approvals, even when credited on a day
+without selected saved work. The result is the family's average per active
+child-day, not a personalized or guaranteed daily allowance. Fewer than seven
+active child-days is marked provisional; zero activity or zero regular
+earnings leaves the estimate unavailable. Unknown historical earnings can
+make the measured pace lower and earning times longer.
+
+Each active shop offer shows its current price and the whole active child-days
+needed to earn that full price from zero, rounded up using the unrounded pace.
+For example, 25 identified regular Coins across two active child-days gives
+12.5 Coins per active child-day; a 51-Coin reward takes an estimated five active
+child-days. Existing balances and spending do not enter that calculation.
+Out-of-stock offers remain identified; unsupported digital items are marked
+unavailable and have no earning estimate. No prices, payouts, exchange rates,
+balances, accepted redemptions or promised rewards change when reading or
+saving this report. Money exchange remains 10 Coins per dollar.
+
+No eligible children, saved work or ledger entries means insufficient
+evidence. More than 100 children, 100,000 historical ledger rows, 100,000
+selected activity rows or 200 active shop offers returns a capacity state
+with unavailable estimates rather than a partial or zero sample.
 
 These observations measure today's installed rules, including the
 [smaller new expedition and random-pouch payouts](coin-economy.md). Those
@@ -84,7 +122,8 @@ coverage and installed-rule binding. Each experiment permits 20 immutable
 checkpoints. Save a baseline before taking an action and another at review;
 empty samples remain insufficient evidence. Checkpoints never accept posted
 client totals, enroll users in a live treatment or imply that changing cohorts
-form a causal test. The recent-child window does not establish annual retention.
+form a causal test. Earlier checkpoints retain their original recent-child
+cohort and do not acquire measurements that were unavailable when saved.
 
 ## Follow Reading Voyager outcomes
 

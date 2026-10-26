@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button';
 import SectionHeader from '../../components/SectionHeader';
-import ParchmentCard from '../../components/journal/ParchmentCard';
 import ProgressionRewardBudgetReport from './ProgressionRewardBudgetReport';
 import ProgressionEconomyReport from './ProgressionEconomyReport';
 import PetIncubationPolicy from './PetIncubationPolicy';
@@ -49,17 +48,4 @@ export function RewardProposal({ proposal }) {
     <p className="text-caption text-ink-secondary">Expedition policy and reservation rules need a reviewed code change. Recording a decision here cannot publish content or approve live changes.</p>
   </section>;
 }
-export function ProgressionObservations({ observations, loading }) {
-  const available = observations?.status === 'observations_available';
-  return <ParchmentCard as="section" aria-label="Observed new-user economy" className="space-y-3">
-    <SectionHeader as="h3" title="Observed new-user economy">Family-scoped Coin ledger evidence is separate from anonymous simulation results.</SectionHeader>
-    {loading && <p role="status">Loading observed Coin evidence…</p>}
-    {observations && <>
-      <p className="text-caption text-ink-secondary">{observations.period.since} through {observations.period.until} · {observations.period.timezone} · accounts registered within {observations.cohort.registered_within_days} days.</p>
-      {!available ? <p role="status">{observations.status === 'insufficient_evidence' ? 'No eligible new-user Coin observations yet.' : 'Observation limits were reached. This bounded read cannot support a conclusion.'}</p> : <><h4 className="font-semibold">Observed installed-economy Coins</h4><dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[['Eligible children', observations.cohort.eligible_children], ['Children with Coin entries', observations.activity.ledger_active_children], ['Child-days with Coin entries', observations.activity.ledger_active_child_days], ['Coin credits', observations.ledger.credits], ['Coin debits', observations.ledger.debits], ['Typed automatic-source Coins', observations.automatic_sources.coins], ['Typed-source child-days above 100', observations.automatic_sources.child_days_over_100]].map(([label, value]) => <div key={label}><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold">{number(value)}</dd></div>)}</dl>
-      {!observations.automatic_sources.attribution_complete && <p role="status" className="text-ember-deep">Attribution is incomplete. Typed automatic-source Coins are a lower bound; unattributed adjustments cannot establish the full source mix.</p>}</>}
-      <p className="text-body text-ink-secondary">The 100-Coin policy is not live. Observations describe the installed economy and cannot validate the proposed policy. Coin-entry counts do not measure engagement or retention.</p>
-      <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Observation coverage and accounting</summary><ul className="list-disc pl-5 space-y-2 text-caption text-ink-secondary">{observations.notes.map((note) => <li key={note}>{note}</li>)}</ul><pre className="overflow-auto max-h-80 text-caption mt-3">{JSON.stringify({ ledger: observations.ledger, automatic_sources: observations.automatic_sources, cohort: observations.cohort, policy: observations.policy }, null, 2)}</pre></details>
-    </>}
-  </ParchmentCard>;
-}
+export { default as ProgressionObservations } from './ProgressionObservedEconomy';

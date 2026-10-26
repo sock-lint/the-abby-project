@@ -449,6 +449,7 @@ class DropService:
                     CoinService.award_coins(
                         user, salvage_coins, CoinLedger.Reason.ADJUSTMENT,
                         description=f"Salvaged duplicate: {item.display_name}",
+                        source=CoinLedger.Source.COSMETIC_SALVAGE,
                     )
 
         if not was_salvaged:
@@ -707,6 +708,7 @@ def _step_check_in_bonus(user, trigger_type, context, result):
             bonus,
             CoinLedger.Reason.ADJUSTMENT,
             description="Daily check-in bonus",
+            source=CoinLedger.Source.DAILY_CHECK_IN,
         )
     ActivityLogService.record(
         category="rpg",
@@ -1211,6 +1213,7 @@ class ConsumableService:
                     CoinService.award_coins(
                         profile.user, granted.coin_value, CoinLedger.Reason.ADJUSTMENT,
                         description=f"Lucky Dip salvage: {granted.display_name}",
+                        source=CoinLedger.Source.CONSUMABLE_SALVAGE,
                     )
             else:
                 from apps.rpg.inventory import grant_item

@@ -9,16 +9,19 @@
     "ends_before": "2026-10-19T00:00:00-07:00"
   },
   "cohort": {
-    "registered_within_days": 90,
+    "registered_within_days": null,
     "eligible_children": 0,
     "eligible_child_days": 0,
     "max_children": 100,
     "truncated": false,
-    "observer_family_excluded": false
+    "observer_family_excluded": false,
+    "scope": "active_family_children"
   },
   "activity": {
     "ledger_active_children": 0,
-    "ledger_active_child_days": 0
+    "ledger_active_child_days": 0,
+    "meaningful_active_children": 0,
+    "meaningful_active_child_days": 0
   },
   "ledger": {
     "opening_balance": 0,
@@ -43,17 +46,34 @@
   "policy": {
     "installed_daily_automatic_coin_cap": null,
     "selected_lab_daily_coins": 100,
-    "is_live_experiment": false
+    "is_live_experiment": false,
+    "coins_per_dollar": 10
   },
   "notes": [
     "Observed amounts use the installed uncapped economy. The 100-Coin Lab hypothesis is not live and these observations cannot validate an undeployed policy.",
-    "The cohort contains only currently active, nonstaff children in your family registered within 90 inclusive days ending on the observation period's last day. Trusted provisioned test families are excluded.",
+    "The cohort contains all currently active, nonstaff children in your family registered by the period's end. Trusted provisioned test families are excluded.",
     "Ledger-active children and child-days count any persisted Coin transaction. They are not an engagement or retention measure and do not count visits without a Coin transaction.",
     "Eligible child-days count calendar days from registration or the start of the period, whichever is later; no transaction is required. Account activity and family membership are their current values, not reconstructed historical states.",
-    "Typed attribution is recorded for new expedition, expedition-salvage and pouch awards only. Blank source is unknown or another source. Positive mixed adjustments can include check-ins, challenges, manual grants and historical pouch or salvage awards; their text is never used to guess a source.",
+    "Meaningful child-days count surviving selected reading, movement, creation, positive habit, completed positive work-session, homework submission and chore submission records, including activities that earn no Coins. They exclude visits, private writing, assignments, savings events, expeditions and reward cascades. This is a selected saved-work measure, not complete app engagement or proof of who entered a child's work.",
+    "Reading, movement and creation use their saved work dates. Habits, work-session closes and chore/homework submissions use the family's current local date of the saved timestamp; an approval does not create another active day. Corrections and removal change this work history without changing reward receipts.",
+    "Typed attribution identifies new adjustment awards. Blank historical adjustments remain unknown; their text and receipt subtotals are never used to guess a source or reconstruct past payouts.",
+    "Daily acknowledgments and bonuses share one accounting bucket, without identifying a private writing action or adding private work to meaningful-day counts.",
     "Automatic-source totals are a measured lower bound when attribution is incomplete. Child-days over 100 compare credited typed-source amounts within the current family calendar, not launch-day commitments or withheld rewards.",
     "Amounts are actual CoinLedger entries including applied boosts. Refunds and exchanges stay separate by reason; no activity-log deltas or receipt subtotals are added to the ledger.",
     "All dates use the family's current timezone, with an inclusive last date and exclusive next local midnight. This does not reconstruct past timezone settings. An ID ceiling excludes later inserts but is not a repeatable-read database snapshot.",
-    "Observations available means ledger evidence exists, not that sample size is sufficient to approve an economy or predict retention. No family-cost or purchase-timing conclusion is inferred from these Coin totals."
-  ]
+    "Earning pace divides identified recurring Coin credits in the period by meaningful child-days in that same period. Credits may arrive on a later approval or expedition day. Occasional bonuses, exchanges, refunds, manual grants and unknown adjustments are excluded. Actual boosts and old promised payouts remain in their recorded amounts; this is not an unboosted or future-policy forecast.",
+    "Shop estimates round up the full current offer price at the observed family earning pace, starting from zero and assuming all those earnings are saved. Existing balances, spending, promised redemption prices and other purchases do not change the estimate. A stocked offer is not a delivery guarantee; an estimate with fewer than seven meaningful child-days is provisional.",
+    "Observations available means selected work or ledger evidence exists, not that sample size is sufficient to approve an economy or predict retention. Unknown attribution makes the identified earning pace incomplete. No family-cost or purchase-timing guarantee is inferred."
+  ],
+  "earning_sources": [],
+  "earning_pace": {
+    "status": "insufficient_evidence",
+    "recurring_coins": 0,
+    "active_child_days": 0,
+    "coins_per_active_day": null,
+    "excluded_credits": 0,
+    "attribution_complete": false,
+    "provisional": true
+  },
+  "shop_rewards": []
 }

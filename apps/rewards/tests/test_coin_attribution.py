@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.achievements.services import AwardService
 from apps.pets.expeditions import ExpeditionService
 from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount
 from apps.rewards.models import CoinLedger
@@ -37,6 +38,44 @@ class CoinAttributionTests(TestCase):
                 with self.assertRaises(ValueError):
                     CoinService.award_coins(self.child, amount, reason, source=source)
         self.assertFalse(CoinLedger.objects.exists())
+
+    def test_new_adjustment_sources_preserve_exact_credit_under_lucky_coin(self):
+        profile = CharacterProfile.objects.get(user=self.child)
+        profile.coin_boost_expires_at = timezone.now() + timedelta(hours=1)
+        profile.save(update_fields=["coin_boost_expires_at"])
+        sources = (
+            "daily_check_in", "automatic_challenge", "perfect_day", "writing", "savings",
+            "birthday", "legacy_quest", "cosmetic_salvage", "consumable_salvage", "manual_grant",
+        )
+        for source in sources:
+            with self.subTest(source=source):
+                entry = CoinService.award_coins(self.child, 7, CoinLedger.Reason.ADJUSTMENT, source=source)
+                self.assertEqual((entry.amount, entry.reason, entry.source), (7, "adjustment", source))
+                for amount, reason in ((0, "adjustment"), (-7, "adjustment"), (7, "reading")):
+                    with self.assertRaises(ValueError):
+                        CoinService.award_coins(self.child, amount, reason, source=source)
+        self.assertEqual(CoinService.get_balance(self.child), 70)
+
+    def test_optional_award_source_preserves_positive_and_zero_award_behavior(self):
+        AwardService.grant(
+            self.child, coins=9, coin_reason="adjustment", coin_source="automatic_challenge",
+            badge_scopes=set(),
+        )
+        entry = CoinLedger.objects.get(user=self.child)
+        self.assertEqual((entry.amount, entry.reason, entry.source), (9, "adjustment", "automatic_challenge"))
+        AwardService.grant(
+            self.child, coins=0, coin_reason="adjustment", coin_source="automatic_challenge",
+            badge_scopes=set(),
+        )
+        self.assertEqual(CoinLedger.objects.count(), 1)
+        self.assertEqual(CoinService.get_balance(self.child), 9)
+
+    def test_untyped_zero_and_negative_adjustments_keep_existing_behavior(self):
+        CoinService.award_coins(self.child, 17, CoinLedger.Reason.ADJUSTMENT)
+        self.assertIsNone(CoinService.award_coins(self.child, 0, CoinLedger.Reason.ADJUSTMENT))
+        entry = CoinService.award_coins(self.child, -3, CoinLedger.Reason.ADJUSTMENT)
+        self.assertEqual((entry.amount, entry.reason, entry.source), (-3, "adjustment", ""))
+        self.assertEqual(CoinService.get_balance(self.child), 14)
 
     def test_pouch_attribution_does_not_cap_or_boost_existing_promise(self):
         profile = CharacterProfile.objects.get(user=self.child)

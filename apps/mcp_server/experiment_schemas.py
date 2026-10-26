@@ -126,6 +126,11 @@ class ProgressionObservationsOut(WorkbenchResult):
     automatic_sources: dict[str, Any]
     policy: dict[str, Any]
     notes: list[str]
+    # Old immutable checkpoints predate these measurements. Missing evidence
+    # must remain unavailable rather than becoming a made-up zero estimate.
+    earning_sources: list[dict[str, Any]] | None = None
+    earning_pace: dict[str, Any] | None = None
+    shop_rewards: list[dict[str, Any]] | None = None
 
 
 class ProgressionObservationOut(WorkbenchResult):

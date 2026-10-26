@@ -85,6 +85,7 @@ def _award_birthday_coins(user, amount: int) -> None:
         amount=amount,
         reason=CoinLedger.Reason.ADJUSTMENT,
         description="birthday_gift",
+        source=CoinLedger.Source.BIRTHDAY if amount > 0 else CoinLedger.Source.UNKNOWN,
     )
 
 

@@ -79,6 +79,7 @@ def force_drop(
             CoinService.award_coins(
                 user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
                 description=f"[dev_tools] Salvaged duplicate: {item.display_name}",
+                source=CoinLedger.Source.MANUAL_GRANT,
             )
 
         DropLog.objects.create(

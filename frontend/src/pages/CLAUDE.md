@@ -39,6 +39,16 @@ Synthetic fixtures exercise the Django/React response contract; see
 
 ## Progression lab
 
+`ProgressionObservedEconomy` presents the staff parent's current-family Coin
+report alongside the notebook. Selected saved-work child-days stay separate
+from ledger-active days. Source totals reconcile all credits; only identified
+regular earnings enter the mean pace. Active shop offers show full-price
+earning days from zero, with unavailable/provisional and stock states. The
+server owns classification, rounding and estimates; React never reprices an
+offer or subtracts existing balances. New reads include all active children;
+historical checkpoints retain their recorded recent-child scope and omit
+measurements they never contained. See the progression guide for coverage.
+
 Challenges expose up to three available one-time catalog goals under Explore
 challenges, with the same shortcut on child Today. Opening a child's own catalog
 details records a server-confirmed first opening separately from automatic

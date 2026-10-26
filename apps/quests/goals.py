@@ -453,6 +453,7 @@ def _award(occurrence, user):
     from apps.achievements.services import AwardService
     from apps.rpg.models import ItemDefinition
     from apps.rpg.inventory import grant_item
+    from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
     from .reward_items import egg_reward_is_duplicate, reward_item_details
     snapshot = occurrence.snapshot
@@ -468,6 +469,7 @@ def _award(occurrence, user):
     grant = AwardService.grant(
         user, xp_tags=tags, xp=xp, coins=snapshot["coins"], coin_reason="adjustment",
         coin_description=f"Challenge complete: {snapshot['name']}",
+        coin_source=CoinLedger.Source.AUTOMATIC_CHALLENGE,
         xp_source_label=f"Challenge: {snapshot['name']}", badge_scopes={"quest", "coin", "skill_xp", "badges"},
     )
     actual_xp = grant["xp_awarded"]
@@ -484,7 +486,8 @@ def _award(occurrence, user):
         details = {"item_id": item.pk, **reward_item_details(item, snapshot=row), "quantity": quantity}
         if item.coin_value > 0 and egg_reward_is_duplicate(user, item, catalog.values()):
             salvage = item.coin_value * quantity
-            CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}")
+            CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}",
+                                    source=CoinLedger.Source.AUTOMATIC_CHALLENGE)
             coins += salvage
             items.append({**details, "salvaged_to_coins": salvage})
         else:
