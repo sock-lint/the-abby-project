@@ -250,4 +250,3 @@ class CategoryBadgeIdentityTests(TestCase):
         self.badge("category_projects", category="any")
         self.rename()
         self.assertEqual(self.evaluate(scope="project"), [])
-
