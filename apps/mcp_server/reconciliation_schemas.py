@@ -1,8 +1,8 @@
 """Strict inputs and global-only results for native challenge reconciliation."""
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictBool, StrictInt, model_validator
 from typing_extensions import TypedDict
 
 from .schemas import _Base
@@ -30,10 +30,18 @@ class GetChallengeReconciliationIn(_Base):
 class PublishChallengeReconciliationIn(GetChallengeReconciliationIn):
     content_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     acknowledge_cooperative_transition: StrictBool = False
+    acknowledge_policy_transition: StrictBool = False
 
 
 class ReconciliationResult(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
+
+
+def _policy_version(value):
+    # Literal integers otherwise accept equal float values, even in strict mode.
+    if type(value) is not int:
+        raise ValueError("The reward policy version must be the integer 2.")
+    return value
 
 
 class ReconciliationFilterOut(TypedDict, total=False):
@@ -42,6 +50,8 @@ class ReconciliationFilterOut(TypedDict, total=False):
     allowed_triggers: list[str]
     skill_category_id: int
     on_time: bool
+    distinct_active_days: bool
+    reward_policy_version: Annotated[Literal[2], BeforeValidator(_policy_version)]
 
 
 class ReconciliationRewardOut(ReconciliationResult):
@@ -79,10 +89,41 @@ class ReconciliationDefinitionOut(ReconciliationResult):
     creator_provenance: Literal["same_family_parent", "creatorless_global"]
 
 
-class ReconciliationDifferenceOut(ReconciliationResult):
+class ReconciliationCooperativeDifferenceOut(ReconciliationResult):
     field: Literal["is_cooperative"]
     source: bool
     canonical: bool
+
+
+class ReconciliationDescriptionDifferenceOut(ReconciliationResult):
+    field: Literal["description"]
+    source: str
+    canonical: str
+
+
+class ReconciliationFilterDifferenceOut(ReconciliationResult):
+    field: Literal["trigger_filter"]
+    source: ReconciliationFilterOut
+    canonical: ReconciliationFilterOut
+
+
+class ReconciliationCoinDifferenceOut(ReconciliationResult):
+    field: Literal["coin_reward"]
+    source: int
+    canonical: int
+
+
+class ReconciliationRewardsDifferenceOut(ReconciliationResult):
+    field: Literal["reward_items"]
+    source: list[ReconciliationRewardOut]
+    canonical: list[ReconciliationRewardOut]
+
+
+ReconciliationDifferenceOut = Annotated[
+    ReconciliationCooperativeDifferenceOut | ReconciliationDescriptionDifferenceOut
+    | ReconciliationFilterDifferenceOut | ReconciliationCoinDifferenceOut | ReconciliationRewardsDifferenceOut,
+    Field(discriminator="field"),
+]
 
 
 class ChallengeReconciliationOut(ReconciliationResult):
@@ -95,5 +136,7 @@ class ChallengeReconciliationOut(ReconciliationResult):
     canonical_definition: ReconciliationDefinitionOut
     differences: list[ReconciliationDifferenceOut]
     requires_cooperative_acknowledgement: bool
+    requires_policy_acknowledgement: bool
     preservation: list[str]
     acknowledged_cooperative_transition: bool
+    acknowledged_policy_transition: bool

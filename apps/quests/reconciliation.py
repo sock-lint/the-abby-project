@@ -120,12 +120,18 @@ def _receipt(actor, preview_id, *, lock=True):
 def _filter(value):
     # Global previews must not disclose household-specific project/chore/savings IDs.
     if (not isinstance(value, dict)
-            or set(value) - {"allowed_triggers", "skill_category_id", "on_time"}):
+            or set(value) - {"allowed_triggers", "skill_category_id", "on_time",
+                             "reward_policy_version", "distinct_active_days"}):
         raise ContentPackError("Reconciliation supports global activity filters only.")
     if "skill_category_id" in value:
         _id(value["skill_category_id"])
     if "on_time" in value and type(value["on_time"]) is not bool:
         raise ContentPackError("The saved on-time activity filter must be a boolean.")
+    if "distinct_active_days" in value and type(value["distinct_active_days"]) is not bool:
+        raise ContentPackError("The saved distinct-active-days filter must be a boolean.")
+    if "reward_policy_version" in value and (
+            type(value["reward_policy_version"]) is not int or value["reward_policy_version"] != 2):
+        raise ContentPackError("The saved reward policy version must be the integer 2.")
     if "allowed_triggers" in value and (not isinstance(value["allowed_triggers"], list)
             or any(not isinstance(trigger, str) for trigger in value["allowed_triggers"])):
         raise ContentPackError("The saved activity triggers must be a list of trigger strings.")
@@ -139,6 +145,48 @@ def _definition(row):
             "skill_tags": sorted(({"skill_id": tag.skill_id, "xp_weight": tag.xp_weight}
                                   for tag in row.skill_tags.all()), key=lambda tag: tag["skill_id"]),
             "creator_provenance": "same_family_parent" if row.created_by_id else "creatorless_global"}
+
+
+def _reviewed_policy_transition(source, canonical, before, target, differences):
+    """Only the two owner-reviewed v1→v2 offers, never arbitrary content edits.
+
+    The full projections and state digest still bind all fields and exact link
+    identities. These finite profiles admit the separately reviewed future
+    terms from PR335 without changing an accepted goal or source definition.
+    """
+    profiles = {"Daily Rituals": (1, 20, 10, 2), "Comeback Kid": (7, 60, 40, 10)}
+    profile = profiles.get(source.name)
+    if profile is None:
+        return False
+    days, xp, old_coins, new_coins = profile
+    for row in (source, canonical):
+        if (row.quest_type != "collection" or row.target_value != 3 or row.duration_days != days
+                or not row.is_repeatable or row.is_cooperative or row.xp_reward != xp
+                or row.required_badge_id or row.required_skill_id or row.required_skill_level):
+            return False
+    if (source.coin_reward != old_coins or canonical.coin_reward != new_coins
+            or source.trigger_filter != {"allowed_triggers": ["habit_log"]}):
+        return False
+    expected_filter = {"allowed_triggers": ["habit_log"], "reward_policy_version": 2}
+    allowed = {"trigger_filter", "coin_reward"}
+    if source.name == "Daily Rituals":
+        allowed.add("reward_items")
+        source_rewards = list(source.reward_items.values_list("item__slug", "quantity"))
+        if source_rewards != [("pouch-small", 1)] or target["reward_items"]:
+            return False
+    else:
+        allowed.add("description")
+        expected_filter["distinct_active_days"] = True
+        if (source.description != "Rebuild momentum with 3 positive habit taps during this seven-day challenge. "
+                                  "Available even without a streak reset."
+                or canonical.description != "Rebuild momentum with a positive habit on 3 different days in this seven-day window. "
+                                            "Available even without a streak reset."):
+            return False
+        if (list(source.reward_items.values_list("item__slug", "quantity")) != [("streak-freeze", 1)]
+                or before["reward_items"] != target["reward_items"]):
+            return False
+    return (canonical.trigger_filter == expected_filter
+            and all(row["field"] in allowed for row in differences))
 
 
 def _plan(actor, source_id, canonical_id, original_bindings, members, families):
@@ -189,15 +237,19 @@ def _plan(actor, source_id, canonical_id, original_bindings, members, families):
     differences = [{"field": field, "source": before[field], "canonical": target[field]}
                    for field in (*FIELDS, "reward_items", "skill_tags") if before[field] != target[field]]
     cooperative = differences == [{"field": "is_cooperative", "source": False, "canonical": True}]
+    policy = bool(differences and _reviewed_policy_transition(source, canonical, before, target, differences))
     if cooperative and source.is_repeatable:
         raise ContentPackError("A repeating personal promise cannot transition to cooperative offers in this workflow.")
-    if differences and not cooperative:
+    if differences and not cooperative and not policy:
         raise ContentPackError("The definitions differ in saved rules, rewards or presentation; reconcile only equivalent promises.")
     preservation = list(PRESERVATION)
     if cooperative:
         preservation.append("Future offers require parent assignment to at least two children. Saved personal one-time versions remain individual promises and cannot receive a second shared reward.")
+    if policy:
+        preservation.append("The accepted initial window and every saved window retain their original rules and rewards. Only later canonical repeat windows adopt the reviewed v2 terms, on the saved anchor and cadence; overlapping aliases open no future cycles.")
     global_plan = {"source_definition": before, "canonical_definition": target, "differences": differences,
-                   "requires_cooperative_acknowledgement": cooperative, "preservation": preservation}
+                   "requires_cooperative_acknowledgement": cooperative,
+                   "requires_policy_acknowledgement": policy, "preservation": preservation}
     state = _digest({"definitions": list(QuestDefinition.objects.filter(pk__in=ids).order_by("pk").values()),
                      "global_plan": global_plan, "claims": claims, "overrides": overrides,
                      "binding": _digest(bindings)})
@@ -232,7 +284,8 @@ def preview_reconciliation(actor, source_definition_id, canonical_definition_id,
         expires = timezone.now() + timedelta(minutes=30)
         projection = {"preview_id": str(request_id), "content_digest": content, "state_digest": state,
                       "expires_at": expires.isoformat(), "published_at": None,
-                      "acknowledged_cooperative_transition": False, **plan}
+                      "acknowledged_cooperative_transition": False,
+                      "acknowledged_policy_transition": False, **plan}
         ContentPackPublication.objects.create(pk=request_id, pack=f"qa-{request_id.hex}", actor=fresh,
             family_id=fresh.family_id, content_digest=content, state_digest=state, changes=[],
             stats={"operation": OPERATION, "preview_response": projection}, expires_at=expires)
@@ -247,25 +300,28 @@ def get_reconciliation(actor, preview_id):
         return deepcopy(receipt.stats.get("published_response", receipt.stats["preview_response"]))
 
 
-def _open_saved_one_time_windows(source_id, bindings):
-    # Enrollment can precede a one-time goal's start (an earlier non-matching
-    # activity), leaving its accepted window unopened. Retirement opens no new
-    # windows, so save each source window before linking or superseding, as
-    # list_goals would; an ended one remains available to repaired facts.
+def _open_saved_accepted_windows(source_id, bindings):
+    # Enrollment can precede the first window being saved. Preserve cycle zero
+    # at its accepted anchor before changing identity, even if it ended or an
+    # old pre-anchor row exists. Never open an unaccepted later cycle at now.
+    # One-time retry chains retain their existing authoritative window.
     from .goals import _occurrence
-    now = timezone.now()
-    goals = (ChallengeGoal.objects.filter(pk__in=[row[0] for row in bindings if row[3] == source_id],
-                                          repeat_weekly=False, repeat_days=0)
-             .exclude(occurrences__isnull=False).order_by("pk"))
+    goals = ChallengeGoal.objects.filter(
+        pk__in=[row[0] for row in bindings if row[3] == source_id],
+    ).order_by("pk")
     for goal in goals:
-        _occurrence(goal, max(goal.starts_at, now))
+        if goal.repeat_weekly or goal.repeat_days or not goal.occurrences.exists():
+            _occurrence(goal, goal.starts_at)
 
 
 @transaction.atomic
-def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooperative_transition=False):
+def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooperative_transition=False,
+                           acknowledge_policy_transition=False):
     preview_id = _uuid(preview_id)
     if type(acknowledge_cooperative_transition) is not bool:
         raise ContentPackError("Cooperative transition acknowledgement must be an explicit boolean.")
+    if type(acknowledge_policy_transition) is not bool:
+        raise ContentPackError("Policy transition acknowledgement must be an explicit boolean.")
     _mutex()
     # Only read the stored global selections here; all authority is checked
     # again under family/user locks before using or returning this receipt.
@@ -285,6 +341,8 @@ def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooper
         original = receipt.stats["preview_response"]
         if original["requires_cooperative_acknowledgement"] and not acknowledge_cooperative_transition:
             raise ContentPackError("Explicitly acknowledge the transition from personal to cooperative future offers.")
+        if original.get("requires_policy_acknowledgement", False) and not acknowledge_policy_transition:
+            raise ContentPackError("Explicitly acknowledge the reviewed rules and rewards for future v2 offers.")
         if receipt.published_at:
             return deepcopy(receipt.stats["published_response"])
         if receipt.expires_at <= timezone.now():
@@ -296,14 +354,14 @@ def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooper
                 or receipt.stats["preview_response"] != original):
             raise ReconciliationConflict("Reviewed reconciliation changed; retrieve or preview it again.")
         current, state, bindings = _plan(fresh, *ids, bindings, members, families)
-        if state != receipt.state_digest or any(current[key] != original[key] for key in current):
+        if state != receipt.state_digest or any(current[key] != original.get(key) for key in current):
             raise ReconciliationConflict("Catalog or saved identities changed; preview this reconciliation again.")
         # All relevant users precede this point in the lock order. Never add
         # an unanticipated account lock while holding the catalog prefix.
         list(ChallengeGoal.objects.select_for_update(no_key=True).filter(pk__in=[row[0] for row in bindings])
              .order_by("pk").values_list("pk", flat=True))
         source_id, canonical_id = ids
-        _open_saved_one_time_windows(source_id, bindings)
+        _open_saved_accepted_windows(source_id, bindings)
         canonical_users = {row[1] for row in bindings if row[3] == canonical_id}
         for pk, user_id, _, definition_id, _, _ in bindings:
             if definition_id == source_id and user_id not in canonical_users:
@@ -314,7 +372,8 @@ def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooper
         result = deepcopy(original)
         result["source_definition"]["superseded_by_id"] = canonical_id
         result.update(published_at=published_at.isoformat(),
-                      acknowledged_cooperative_transition=acknowledge_cooperative_transition)
+                      acknowledged_cooperative_transition=acknowledge_cooperative_transition,
+                      acknowledged_policy_transition=acknowledge_policy_transition)
         receipt.published_at = published_at
         receipt.stats = {**receipt.stats, "published_response": result}
         receipt.save(update_fields=["stats", "published_at", "updated_at"])
