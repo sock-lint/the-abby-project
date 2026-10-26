@@ -914,7 +914,7 @@ class ContentPack:
                 family = FAMILIES.get(slug)
                 if family is None:
                     raise ContentPackError(f"Unknown prepared companion identity {slug!r}")
-                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat"}
+                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab"}
                 # Additional prepared families may be authored only after their
                 # exact identity has positive support for all three variants.
                 # Preserve existing authoring under narrowed rollback policies.

@@ -8,11 +8,12 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and exact namespaced Wolf,
-Dragon, Mushroom, Bee and Bat accept Base, Fire and Ice; the other nine prepared
-families accept Base only (27 exact pairs). Fire/Ice potions remain excluded
-from random pools. Twelve one-time challenges guarantee exact egg/potion
-bundles. The Bee/Bat artwork is owner-accepted; this branch prepares its
-activation, held for canonical publication/readback and ordinary MAIN gates.
+Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab accept Base, Fire and Ice;
+the other seven prepared families accept Base only (31 exact pairs). Fire/Ice
+potions remain excluded from random pools. Sixteen one-time challenges guarantee
+exact egg/potion bundles. The Snake/Hermit Crab artwork is owner-accepted and
+its exact canonical release has passed application readback; application rollout
+still requires the ordinary MAIN gates.
 Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
@@ -46,12 +47,13 @@ Coverage lives in `tests/test_catalog_support.py`,
 the asset preparation/license boundary is
 [`content/rpg/react-three-fiber-assets.md`](../../content/rpg/react-three-fiber-assets.md).
 
-Snake/Hermit Crab Fire/Ice preparation lives in the unregistered
-`content/rpg/prepared/elemental-snake-hermit-crab` pack. Default startup does
-not load it or expose its four proposed challenges. Its existing natural eggs
-and Uncommon species tiers stay intact. Explicit loading under the production
-27-pair policy fails atomically; tests exercise future integration through a
-scoped synthetic 31-pair policy. Additional registered families may author full
+Snake/Hermit Crab Fire/Ice compatibility and the four guaranteed Coil/Shore
+challenges load from the initial pack. The earlier
+`content/rpg/prepared/elemental-snake-hermit-crab` pack remains unregistered and
+does not duplicate those offers. Existing natural eggs and Uncommon species
+tiers stay intact. Explicit loading under a narrowed policy fails atomically;
+tests withdraw the new pairs explicitly to exercise rollback. Additional
+registered families may author full
 Base/Fire/Ice compatibility only when their exact species/sprite identity has
 positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
@@ -340,8 +342,8 @@ multiplier for all Coins or XP.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus Chick.
-The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom/Bee/Bat elemental
-pairs; the other nine families remain Base only. The content loader rejects
+The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom/Bee/Bat/Snake/Hermit
+Crab elemental pairs; the other seven families remain Base only. The content loader rejects
 existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward

@@ -18,7 +18,7 @@ const appearances = SNAKE_CRAB_SPECIES.flatMap((species) => ['fire', 'ice'].flat
   ['baby', 'middle', 'grown'].map((stage) => [species, potion, stage])));
 const spriteSuffix = { baby: '', middle: '-middle', grown: '-mount' };
 
-describe('prepared Snake/Hermit Crab elemental presentation', () => {
+describe('canonical Snake/Hermit Crab elemental presentation', () => {
   it('resolves twelve exact appearances from explicitly isolated synthetic bindings, keeping native identities separate', () => {
     const staged = stagedSnakeCrabFixture();
     expect(validateAssetPackManifest(staged.release)).toBe(staged.release);
@@ -56,19 +56,19 @@ describe('prepared Snake/Hermit Crab elemental presentation', () => {
     expect(resolveElementalPortrait(`${species}${spriteSuffix[stage]}`, potion, stagedElementalFixture())).toBeNull();
   });
 
-  it.each(SNAKE_CRAB_REVIEW_ICONS)('resolves the %s planned review handle only in explicit synthetic staging', (id) => {
+  it.each(SNAKE_CRAB_REVIEW_ICONS)('resolves the exact %s image from its supplied release', (id) => {
     expect(resolveElementalCatalogIcon(id, stagedSnakeCrabFixture())).toMatchObject({ frames: 1, label: `Synthetic ${id}` });
     expect(resolveElementalCatalogIcon(id, stagedElementalFixture())).toBeNull();
-    expect(resolveElementalCatalogIcon(id)).toBeNull();
+    expect(resolveElementalCatalogIcon(id, null)).toBeNull();
   });
 
-  it('keeps normal delivery and acquisition disabled while the exact verified candidate is private and unaccepted', () => {
-    expect(preparation.preparation).toEqual({ state: 'private_evaluation', acquisition_active: false,
-      artwork_accepted: false, application_ids_agreed: true });
+  it('activates only the accepted canonical pin and four exact receiving pairs while missing files remain unavailable', () => {
+    expect(preparation.preparation).toEqual({ state: 'active', acquisition_active: true,
+      artwork_accepted: true, application_ids_agreed: true });
     expect(preparation.release.manifest_sha256).toBe('2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3');
-    expect(activeLock.releases).toHaveLength(13);
-    expect(activeLock.releases.some(({ family_id }) => family_id === SNAKE_CRAB_FAMILY)).toBe(false);
-    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(27);
+    expect(activeLock.releases).toHaveLength(14);
+    expect(activeLock.releases.find(({ family_id }) => family_id === SNAKE_CRAB_FAMILY)).toEqual(evaluationLock.releases[0]);
+    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(31);
     const staged = stagedSnakeCrabFixture(), fakeSha = staged.manifestSha256;
     const pin = { family_id: SNAKE_CRAB_FAMILY, release_version: '1.0.0', manifest_sha256: fakeSha,
       directory: `${SNAKE_CRAB_FAMILY}/1.0.0/${fakeSha}` };
@@ -77,19 +77,23 @@ describe('prepared Snake/Hermit Crab elemental presentation', () => {
     const indexes = { [`${prefix}manifest.json`]: staged.manifestUrl };
     expect(stagedElementalRelease(manifests, urls, undefined, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
     expect(stagedElementalRelease(manifests, urls, { releases: [pin] }, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
+    const absent = stagedElementalRelease({}, {}, undefined, {}, SNAKE_CRAB_FAMILY);
+    expect(absent).toBeNull();
     for (const species of SNAKE_CRAB_SPECIES) {
-      expect(support.pets.find(({ species_slug }) => species_slug === species).potion_slugs).toEqual(['base']);
+      expect(support.pets.find(({ species_slug }) => species_slug === species)).toMatchObject({
+        potion_slugs: ['base', 'fire', 'ice'], potion_sources: { fire: SNAKE_CRAB_FAMILY, ice: SNAKE_CRAB_FAMILY },
+      });
       for (const potion of ['fire', 'ice']) for (const stage of ['baby', 'middle', 'grown']) {
         const creature = snakeCrabCreature(species, potion, stage);
-        expect(resolveElementalAppearance(creature)).toBeNull();
-        expect(resolveAppearance(creature)).toBeNull();
-        expect(resolveElementalPreviewAppearance(snakeCrabEgg(species), stage, creature.potion)).toBeNull();
-        expect(resolveElementalPortrait(`${species}${spriteSuffix[stage]}`, potion)).toBeNull();
+        expect(resolveElementalAppearance(creature, 'pet', absent)).toBeNull();
+        expect(resolveAppearance(creature, 'pet', undefined, undefined, undefined, undefined, absent)).toBeNull();
+        expect(resolveElementalPreviewAppearance(snakeCrabEgg(species), stage, creature.potion, absent)).toBeNull();
+        expect(resolveElementalPortrait(`${species}${spriteSuffix[stage]}`, potion, absent)).toBeNull();
       }
     }
   });
 
-  it('requires the exact separate private pin, all declared files and v1 bindings before explicit review staging', () => {
+  it('uses the canonical active lock for all twelve appearances and keeps the exact review pin independently usable', () => {
     const staged = stagedSnakeCrabFixture(), pin = evaluationLock.releases[0];
     expect(evaluationLock.releases).toHaveLength(1);
     expect(pin).toEqual({ ...preparation.release,
@@ -98,7 +102,16 @@ describe('prepared Snake/Hermit Crab elemental presentation', () => {
     const urls = Object.fromEntries(staged.release.files.map(({ path }) => [`${prefix}${path}`, staged.resolveUrl(path)]));
     const indexes = { [`${prefix}manifest.json`]: staged.manifestUrl };
     expect(stagedElementalRelease(manifests, urls, evaluationLock, indexes, SNAKE_CRAB_FAMILY)?.release).toBe(staged.release);
-    expect(stagedElementalRelease(manifests, urls, activeLock, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
+    const canonical = stagedElementalRelease(manifests, urls, undefined, indexes, SNAKE_CRAB_FAMILY);
+    expect(canonical?.release).toBe(staged.release);
+    for (const [species, potion, stage] of appearances) {
+      const creature = snakeCrabCreature(species, potion, stage);
+      expect(resolveElementalAppearance(creature, 'pet', canonical)?.key).toBe(`${species}-${potion}-${stage}`);
+      expect(resolveElementalPreviewAppearance(snakeCrabEgg(species), stage, creature.potion, canonical)?.key).toBe(`${species}-${potion}-${stage}`);
+      expect(resolveElementalPortrait(`${species}${spriteSuffix[stage]}`, potion, canonical)).toMatchObject({ frames: 1 });
+    }
+    expect(stagedElementalRelease(manifests, urls, { releases: activeLock.releases.filter(({ family_id }) => family_id !== SNAKE_CRAB_FAMILY) },
+      indexes, SNAKE_CRAB_FAMILY)).toBeNull();
     expect(stagedElementalRelease(manifests, {}, evaluationLock, indexes, SNAKE_CRAB_FAMILY)).toBeNull();
     expect(stagedElementalRelease(manifests, urls, evaluationLock, {}, SNAKE_CRAB_FAMILY)).toBeNull();
     expect(stagedElementalRelease({ [`${prefix}manifest.json`]: { ...staged.release, appearance_bindings: null } }, urls,

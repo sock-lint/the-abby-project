@@ -1,4 +1,4 @@
-"""Unregistered elemental preparation never activates unaccepted artwork."""
+"""Activated Snake/Crab paths preserve exact offers and accepted promises."""
 from copy import deepcopy
 from io import StringIO
 import json
@@ -43,8 +43,11 @@ TRIGGERS = {
 
 
 def future_policy(*pairs):
-    """Synthetic exact art support, never a production manifest or release pin."""
+    """Select only this batch while retaining earlier approved families."""
     policy = deepcopy(json.loads(POLICY_PATH.read_text()))
+    for row in policy["pets"]:
+        if row["species_slug"] in SPECIES:
+            row["potion_slugs"] = ["base"]
     for species, potion in pairs:
         row = next(row for row in policy["pets"] if row["species_slug"] == species)
         if potion not in row["potion_slugs"]:
@@ -53,54 +56,53 @@ def future_policy(*pairs):
 
 
 FUTURE_POLICY = future_policy(*[(species, potion) for species in SPECIES for potion in ("fire", "ice")])
+PREACTIVATION_POLICY = future_policy()
 
 
 @override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
-class SnakeHermitCrabPreparationBoundaryTests(TestCase):
+class SnakeHermitCrabActivationBoundaryTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loadrpgcontent", stdout=StringIO())
 
-    def test_default_load_keeps_existing_pairs_offers_and_natural_egg_identities(self):
-        self.assertEqual(len(available_pet_pairs()), 27)
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
-        self.assertTrue((settings.BASE_DIR / PACK).is_dir())
-        before = list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "metadata"))
+    def test_default_load_registers_only_four_more_pairs_and_preserves_natural_eggs(self):
+        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
+        before = list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata"))
         for species_slug in SPECIES:
             species = PetSpecies.objects.get(slug=species_slug)
             egg = ItemDefinition.objects.get(slug=f"{species_slug}-egg")
-            self.assertEqual((species.sprite_key, species.rarity), (species_slug, "uncommon"))
-            self.assertEqual(list(species.available_potions.values_list("slug", flat=True)), ["base"])
+            self.assertEqual((species.sprite_key, species.rarity, egg.rarity, egg.coin_value), (species_slug, "uncommon", "uncommon", 3))
+            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
             self.assertEqual((egg.pet_species_id, egg.metadata), (species.pk, {"species": species_slug}))
         call_command("loadrpgcontent", stdout=StringIO())
-        self.assertEqual(list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "metadata")), before)
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
-        child = make_family("Preparation boundary", children=[{"username": "preparation-child"}]).children[0]
-        client = APIClient()
-        client.force_authenticate(child)
-        for endpoint in ("/api/quests/available/", "/api/quests/catalog/"):
-            response = client.get(endpoint)
-            if response.status_code == 200:
-                self.assertFalse(set(PATHS) & {row["name"] for row in response.data})
-        codex = client.get("/api/pets/codex/").data
-        for species in codex["species"]:
-            if species["slug"] in SPECIES:
-                self.assertEqual([row["slug"] for row in species["available_potions"]], ["base"])
+        self.assertEqual(list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata")), before)
         self.assertFalse(ChallengeGoal.objects.exists())
 
-    def test_explicit_prepared_pack_is_rejected_atomically_under_production_policy(self):
-        species_before = list(PetSpecies.objects.order_by("pk").values())
-        compatibility_before = list(PetSpecies.available_potions.through.objects.order_by("pk").values())
-        items_before = list(ItemDefinition.objects.order_by("pk").values())
-        quests_before = list(QuestDefinition.objects.order_by("pk").values())
-        with self.assertRaisesRegex(CommandError, "compatibility|artwork|Fire and Ice"):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertEqual(list(PetSpecies.objects.order_by("pk").values()), species_before)
-        self.assertEqual(list(PetSpecies.available_potions.through.objects.order_by("pk").values()), compatibility_before)
-        self.assertEqual(list(ItemDefinition.objects.order_by("pk").values()), items_before)
-        self.assertEqual(list(QuestDefinition.objects.order_by("pk").values()), quests_before)
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+    def test_active_policy_records_exact_source_and_retains_all_previous_families(self):
+        policy = json.loads(POLICY_PATH.read_text())
+        elemental = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", *SPECIES}
+        self.assertEqual(len(policy["pets"]), 15)
+        for row in policy["pets"]:
+            self.assertEqual(set(row["potion_slugs"]), {"base", "fire", "ice"} if row["species_slug"] in elemental else {"base"})
+            if row["species_slug"] in SPECIES:
+                self.assertEqual(row["sprite_key"], row["species_slug"])
+                self.assertEqual(row["potion_sources"], {"fire": "abby-elemental-snake-hermit-crab", "ice": "abby-elemental-snake-hermit-crab"})
+        source = next(row for row in policy["sources"] if row["id"] == "abby-elemental-snake-hermit-crab")
+        self.assertEqual(source["manifest_sha256"], "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3")
+        self.assertEqual(source["appearance_bindings_version"], 1)
+        self.assertEqual(set(source["prepared_species"]), SPECIES)
+
+    def test_narrow_rollback_policy_preserves_authoring_but_hides_new_whole_offers(self):
+        items_before = list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata"))
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
+            call_command("loadrpgcontent", stdout=StringIO())
+            self.assertEqual(len(available_pet_pairs()), 27)
+            for definition in QuestDefinition.objects.filter(name__in=PATHS):
+                self.assertFalse(definition_is_available(definition))
+        self.assertEqual(list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata")), items_before)
+        self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
 
     @override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY)
     def test_scoped_full_policy_allows_explicit_pack_without_registering_it(self):
@@ -125,15 +127,15 @@ class SnakeHermitCrabPreparationBoundaryTests(TestCase):
                     call_command("loadrpgcontent", pack=directory, stdout=StringIO())
                 self.assertEqual(list(PetSpecies.available_potions.through.objects.order_by("pk").values()), before)
         with override_settings(RPG_ASSET_SUPPORT_POLICY=future_policy(("meshtint-snake", "fire"))):
-            with self.assertRaisesRegex(CommandError, "compatibility"):
-                call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
+            self.assertEqual(len(available_pet_pairs()), 28)
+            self.assertEqual({row.name for row in QuestDefinition.objects.filter(name__in=PATHS) if definition_is_available(row)}, {"Ember Coil"})
 
     def test_descriptor_handles_bind_only_system_collection_definitions(self):
         descriptor = json.loads(POLICY_PATH.with_name("elemental-snake-hermit-crab.json").read_text())
-        self.assertFalse(descriptor["preparation"]["acquisition_active"])
-        self.assertFalse(descriptor["preparation"]["artwork_accepted"])
-        self.assertEqual(descriptor["preparation"]["state"], "private_evaluation")
+        self.assertTrue(descriptor["preparation"]["acquisition_active"])
+        self.assertTrue(descriptor["preparation"]["artwork_accepted"])
+        self.assertEqual(descriptor["preparation"]["state"], "active")
         self.assertEqual(descriptor["release"]["manifest_sha256"],
                          "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3")
         for name, (_species, _potion, icon) in PATHS.items():
@@ -147,23 +149,24 @@ class SnakeHermitCrabPreparationBoundaryTests(TestCase):
 
     def test_previously_processed_facts_are_not_replayed_into_future_prepared_goals(self):
         child = make_family("Before elemental preparation", children=[{"username": "before-preparation"}]).children[0]
-        ingest_activity(child, "chore_complete", "before-prepared-pack", "chore_complete")
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-            rows = [row for row in list_goals(child)["results"] if row["name"] in PATHS]
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
+            QuestDefinition.objects.filter(name__in=PATHS).delete()
+            ingest_activity(child, "chore_complete", "before-prepared-pack", "chore_complete")
+        call_command("loadrpgcontent", stdout=StringIO())
+        rows = [row for row in list_goals(child)["results"] if row["name"] in PATHS]
         self.assertEqual({row["name"] for row in rows}, set(PATHS))
         self.assertEqual({row["progress"] for row in rows}, {"0"})
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
-class PreparedSnakeHermitCrabPathTests(TestCase):
+class ApprovedSnakeHermitCrabPathTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.original_eggs = dict(ItemDefinition.objects.filter(
             slug__in=[f"{species}-egg" for species in SPECIES]).values_list("slug", "pk"))
-        call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
+        call_command("loadrpgcontent", stdout=StringIO())
 
     def setUp(self):
         household = make_family("Prepared Snake/Crab", parents=[{"username": "prepared-parent"}],
@@ -247,7 +250,7 @@ class PreparedSnakeHermitCrabPathTests(TestCase):
         for name, (species, potion, _icon) in PATHS.items():
             with self.subTest(name=name), override_settings(RPG_ASSET_SUPPORT_POLICY=future_policy((species, potion))):
                 self.assertEqual({row.name for row in definitions.values() if definition_is_available(row)}, {name})
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=None):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
             self.assertEqual(list_goals(self.child)["results"], [])
             self.assertEqual(self.client.get("/api/quests/available/").data, [])
             for definition in definitions.values():
@@ -266,7 +269,7 @@ class PreparedSnakeHermitCrabPathTests(TestCase):
         accepted = {row.pk: deepcopy(row.snapshot) for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}
         QuestDefinition.objects.filter(pk__in=[row.pk for row in definitions.values()]).update(target_value=99, duration_days=3, coin_reward=7, xp_reward=11)
         QuestRewardItem.objects.filter(quest_definition__in=definitions.values()).delete()
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=None):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
             for index in range(10):
                 ingest_activity(self.child, "chore_complete", f"saved-preparation-{index}", "chore_complete")
         occurrences = list(ChallengeOccurrence.objects.filter(goal__user=self.child))

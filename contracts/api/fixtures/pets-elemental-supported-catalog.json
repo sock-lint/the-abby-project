@@ -241,6 +241,102 @@
       ]
     },
     {
+      "id": 68,
+      "slug": "meshtint-hermit-crab",
+      "name": "Shell",
+      "icon": "S",
+      "sprite_key": "meshtint-hermit-crab",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "hermit-crab-baby-portrait",
+      "grown_catalog_icon": "hermit-crab-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 67,
+      "slug": "meshtint-snake",
+      "name": "Snakelet",
+      "icon": "S",
+      "sprite_key": "meshtint-snake",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "snake-baby-portrait",
+      "grown_catalog_icon": "snake-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
       "id": 62,
       "slug": "meshtint-wolf",
       "name": "Wolf",
@@ -322,9 +418,9 @@
     }
   ],
   "totals": {
-    "species": 6,
+    "species": 8,
     "discovered_species": 0,
-    "mounts_possible": 18,
+    "mounts_possible": 24,
     "mounts_owned": 0
   }
 }

@@ -1,31 +1,42 @@
-# Fire and Ice Snake and Hermit Crab preparation
+# Fire and Ice Snake and Hermit Crab
 
 The owner accepted all twelve Fire/Ice Snake and Hermit Crab appearances shown
 at application revision `d4c34c5d` and authorized exact runtime publication,
 guaranteed challenge activation, and PR #336 through the ordinary MAIN merge,
 deployment and live verification process. No repeat artwork approval or
-regeneration is needed. Canonical publication/readback and application activation
-remain pending. Pet stats remain deferred. The six released elemental families
-and saved data remain supported.
+regeneration is needed. Canonical publication and independent application
+readback completed on October 26, 2026. This activation adds only the accepted
+release and four acquisition paths. Pet stats remain deferred. The six earlier
+elemental families and saved data remain supported.
 
 The established scoped publisher and permanent write coordinator are in
-**Prepare Fire and Ice assets**. This application retains its GET-only reader;
-the exact publication handoff is prepared for the owner to copy to that
-workshop. The application's canonical version-index read returned `NoSuchKey` / HTTP 404 on
-October 24 before publication. That is historical probe evidence, not a claim
-about every possible partial object or coordinator reservation. A returned
-canonical receipt and fresh readback must precede normal delivery/activation.
+**Prepare Fire and Ice assets**. This application retains its GET-only reader.
+The returned publication receipt records manifest-last completion, all 236
+permanent claims and no unresolved publication/access holds. Fresh application
+GET-only verification independently checked every canonical SHA-256 and size,
+matched all approved runtime bytes, and confirmed HTTP 403 for all 236 anonymous
+reads. The October 24 and earlier October 26 `NoSuchKey` / HTTP 404 probes remain
+historical evidence from before publication.
+
+The canonical version index is
+`s3://abby-assets-releases/releases/versions/abby-elemental-snake-hermit-crab/1.0.0.json`:
+173 bytes, SHA-256
+`59eb9bf9f8a90af6577942db96ea2d00f6a80fe819f96423d5fc1299a744f2a7`.
+The canonical manifest is beneath
+`releases/abby-elemental-snake-hermit-crab/1.0.0/2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3/manifest.json`
+in that private bucket: 458,013 bytes at the digest below. The 234 runtime files,
+manifest and index total 236 objects / 89,056,029 bytes. Only runtime delivery
+was published; source backup and physical-phone acceptance remain separate.
 
 ## Prepared identities and acquisition
 
-`shared/catalog/elemental-snake-hermit-crab.json` records proposed receiving
-handles agreed with the application and the exact verified candidate digest.
-Preparation state is `private_evaluation`; `artwork_accepted` and
-`acquisition_active` are false. A verified digest and ID agreement are not artwork
-acceptance or canonical delivery. The later owner acceptance above supersedes
-historical pending-artwork labels; these delivery flags stay inactive until
-canonical readback. The positive server policy and registered
-content packs remain the acquisition authority. Presentation metadata grants no
+`shared/catalog/elemental-snake-hermit-crab.json` records the agreed presentation
+handles and exact canonically verified release digest. Its preparation state is
+`active`; `artwork_accepted`, `application_ids_agreed` and `acquisition_active`
+are true after the owner acceptance and canonical readback. Historical workshop
+pending-artwork labels remain evidence of the earlier snapshot. The positive
+server policy and ordinary initial content remain the acquisition authority.
+Presentation metadata grants no
 ownership, progress, stage access or reward eligibility.
 
 | Species and sprite | Existing egg | Baby → Middle → Grown |
@@ -33,7 +44,7 @@ ownership, progress, stage access or reward eligibility.
 | `meshtint-snake` | `meshtint-snake-egg` | Snakelet → Snake → Snake Naga |
 | `meshtint-hermit-crab` | `meshtint-hermit-crab-egg` | Shell → Spike → Hermit King |
 
-Both existing species are Uncommon. Each proposed path requires ten qualifying
+Both existing species are Uncommon. Each path requires ten qualifying
 accomplishments within 180 days, pays once, and authors zero Coins/XP:
 
 | Challenge | Guaranteed bundle |
@@ -49,32 +60,41 @@ projects/milestones, eligible creations and earned daily reading receipts count
 under the existing rules. Browsing a challenge does not earn progress. Existing
 activity rewards and completion hooks retain their behavior.
 
-The two compatibility entries and four challenges live in the unregistered
-`content/rpg/prepared/elemental-snake-hermit-crab` pack. Normal startup/default
-`loadrpgcontent` does not load it. The current 27-pair policy rejects its full
-compatibility update atomically. Tests exercise future activation only with an
-explicit synthetic 31-pair policy. Do not run this prepared pack in production
-before the receiving, artwork acceptance and canonical delivery gates below.
+The two compatibility updates and four challenges are part of ordinary
+`content/rpg/initial` content. Normal startup/default `loadrpgcontent` installs
+them under the 31-pair policy: fifteen species, including eight with Base/Fire/Ice,
+and sixteen exact elemental guarantees. The historical
+`content/rpg/prepared/elemental-snake-hermit-crab` pack remains unregistered;
+do not register a duplicate acquisition pack. Existing accepted promises retain
+their frozen rewards when ordinary content is reloaded.
 
 The loader retains existing elemental-family compatibility authoring and permits
 an additional registered family only when the positive policy approves its exact
 species, sprite and all three Base/Fire/Ice pairs. Identity-collision checks
-remain in force. This does not change `asset-support.json`, the initial content,
-default pack registration, potion drop pools or any inventory identity.
+remain in force. Activation updates the positive support policy and initial
+content together, preserving all prior entries, the existing pack registration,
+potion drop pools and inventory identities. Inventory source hints remain
+bounded to four; the natural egg/codex exposes the other exact guarantees.
 
 Base, Fire and Ice share each species' existing daily expedition allowance,
 including pending and unclaimed trips. Snake and Hermit Crab retain independent
-species allowances. No elemental egg or new potion identity is introduced;
+species allowances. The existing two-expeditions-per-child local-day cap also
+remains unchanged, including competing trips across these two species.
+No elemental egg or new potion identity is introduced;
 potion presentation begins with incubation and persists through hatch/growth.
 
 ## Application presentation
 
 The resolver, portrait registry and child challenge-art access rules recognize
-the candidate `abby-elemental-snake-hermit-crab` 1.0.0. Its separate evaluation
-lock is absent from ordinary delivery, so normal resolution fails closed. Missing artwork
+the canonical `abby-elemental-snake-hermit-crab` 1.0.0. It is the fourteenth pin
+in `frontend/assets.lock.json`; all thirteen prior pins remain unchanged.
+Normal `npm run assets:import` / `npm run assets:verify` verifies every byte and
+retains the seven supplemental portraits. The resulting fourteen-release tree
+contains 2,333 runtime payloads. Its separate historical evaluation lock is
+unused by ordinary application delivery. Missing artwork
 uses explicit unavailable presentation while companion controls remain usable;
 neither a Base substitution nor a CSS recolor represents the missing appearance.
-All thirteen approved runtime pins remain unchanged.
+Earlier approved families retain their original pins.
 
 Receiving must preserve `appearance_bindings` v1: exact species + potion +
 lifecycle stage + logical motion selects explicit native variant/action,
@@ -140,7 +160,8 @@ All three tarballs, npm integrity values and their supplied package sources
 match the application's existing checked-in versions. No package upgrade,
 repack or separate code publication is needed.
 
-Keep candidates outside Vite's broad `avatar/shared` globs and ordinary builds.
+Keep unpublished candidates outside Vite's broad `avatar/shared` globs and
+ordinary builds. The approved canonical release now uses the normal import.
 `frontend/assets.snake-hermit-crab.evaluation.lock.json` binds the private review
 candidate without changing any of the thirteen approved pins. The e2e-only
 server allowlists its exact digest and complete inventory, serves GET/HEAD only
@@ -148,8 +169,19 @@ on loopback and injects the staged release into the real application components.
 Historical Bee/Bat and Crown evaluation locks remain separate. Image dispatch
 uses exact family membership so a Snake candidate cannot replace Bee/Bat icons.
 
-From `frontend/`, point at the externally extracted runtime directory containing
-`manifest.json` and `objects/`:
+For canonical validation, run from `frontend/` with
+`ABBY_ELEMENTAL_EVALUATION_ROOT` unset:
+
+```bash
+ABBY_ELEMENTAL_FULL_MOTIONS=1 \
+  npx playwright test e2e/elemental.pw.js \
+  --workers=1 --max-failures=1 \
+  --grep 'meshtint-(snake|hermit-crab)|all installed exact portraits|exact Base, Fire and Ice loader|private evaluation delivery|Chick/(fire|ice): both confirmed' \
+  --output=/absolute/private/browser-results
+```
+
+To reproduce the historical private review instead, point at the externally
+extracted runtime directory containing `manifest.json` and `objects/`:
 
 ```bash
 ABBY_ELEMENTAL_EVALUATION_ROOT=/absolute/private/runtime-directory \
@@ -184,16 +216,13 @@ missing-file recovery. If no Evolve take exists, retain the same element's
 destination idle. Report desktop/browser checks separately from physical-phone
 and native-shell acceptance; neither has been performed for this release.
 
-## Later activation and rollback
+## Release gates and rollback
 
-Keep the PR draft through canonical readback and application activation checks.
-Owner appearance acceptance and release authorization are recorded above;
-obtain canonical publication through the scoped asset session. Verify the
-canonical version index, manifest and all
-payloads with the application's normal GET-only import before adding its pin.
-Then update the accepted descriptor, positive support policy and registered
-content together; test the full 31-pair catalog and default-loader acquisition.
-Preserve every earlier release and accepted saved promise.
+Keep the PR draft through final application activation checks. Owner acceptance,
+release authorization and canonical delivery are recorded above. Test the full
+31-pair catalog, sixteen guarantees, ordinary default-loader acquisition and
+the canonical renderer with no injected evaluation release. Preserve every
+earlier release and accepted saved promise.
 
 Refresh against current `main`, run required hosted PostgreSQL/Redis, frontend,
 API fixture and applicable browser gates, and obtain independent review of the
@@ -201,10 +230,17 @@ exact final head. MAIN owns merge/deployment and trusted live verification of
 the exact served squash revision. A private review pass is not publication,
 deployment, phone acceptance or permission to bypass those gates.
 
-The preparation rollback is its focused code/content revert; no new production
-asset pin or acquisition offer exists to withdraw. At later activation, record
-the then-current approved baseline and concrete revert before merge. A rollback
-must retain saved eggs, potions, pets, incubation receipts, accepted challenge
-promises and expedition rewards, while stopping new unsupported acquisition.
-Do not delete data or repoint existing release pins. Production reconciliation
-remains with MAIN and the established scoped operator process.
+The current approved application baseline is `f424805c` (PR #338), including
+the Coin rules and accepted challenge-policy reconciliation already on main.
+Record its latest trusted served receipt before MAIN merges this release.
+Rollback is a focused, reviewed change withdrawing only these four new offers:
+restore the previous initial acquisition content and remove Fire/Ice from new
+Snake/Crab acquisition eligibility. Keep the new canonical delivery pin,
+presentation identities and loader identity support for saved companions and
+previously accepted rewards. Do not blindly revert the whole PR after a promise
+or companion exists. Narrowed-policy tests preserve accepted challenge payouts,
+incubation receipts, saved appearances, care and expedition loot. Preserve every
+earlier release, all saved eggs/potions/pets, and unrelated current-main changes.
+Do not delete canonical objects, migrate saved identities, reroll promises or
+re-grant rewards. Production reconciliation remains with MAIN and the
+established scoped operator process.

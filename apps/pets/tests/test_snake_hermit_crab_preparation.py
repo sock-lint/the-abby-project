@@ -1,13 +1,19 @@
-"""Future exact-pair contracts run only under scoped synthetic art approval."""
+"""Activated exact pairs retain incubation, growth and shared expedition gates."""
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
+from threading import Event
+from time import monotonic
+from unittest import skipUnless
 from unittest.mock import patch
 from uuid import uuid4
 
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
-from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.expeditions import ExpeditionError, ExpeditionService
+from apps.pets.models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.serializers import UserMountSerializer, UserPetSerializer
 from apps.pets.services import PetService
 from apps.pets.tests import test_elemental_incubation as incubation_contract
@@ -17,14 +23,13 @@ from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PET_INCUBATION_DURATION_SECONDS=86400,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class PreparedSnakeHermitCrabIncubationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loadrpgcontent", stdout=StringIO())
-        call_command("loadrpgcontent", pack=preparation.PACK, stdout=StringIO())
         cls.child = make_family("Prepared incubation", children=[{"username": "prepared-incubator"}]).children[0]
         cls.foreign = make_family("Foreign incubation", children=[{"username": "foreign-incubator"}]).children[0]
 
@@ -46,8 +51,8 @@ class PreparedSnakeHermitCrabIncubationTests(TestCase):
     def test_ice_hermit_crab_reserves_natural_egg_then_hatches_exact_saved_variant(self):
         self.assert_pair_waits_and_hatches("meshtint-hermit-crab", "ice")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=None)
-    def test_production_policy_never_consumes_prepared_elemental_ingredients(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.PREACTIVATION_POLICY)
+    def test_withdrawn_pair_policy_never_consumes_elemental_ingredients(self):
         for species in preparation.SPECIES:
             for element in ("fire", "ice"):
                 with self.subTest(species=species, potion=element):
@@ -103,21 +108,98 @@ class PreparedSnakeHermitCrabIncubationTests(TestCase):
                         (species_slug, potion_slug, "grown"))
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedSnakeSharedExpeditionAllowanceTests(expedition_contract.SharedExpeditionAllowanceTests):
     species_identity = ("meshtint-snake", "Snakelet", "meshtint-snake")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedHermitCrabSharedExpeditionAllowanceTests(expedition_contract.SharedExpeditionAllowanceTests):
     species_identity = ("meshtint-hermit-crab", "Shell", "meshtint-hermit-crab")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedSnakeSharedExpeditionConcurrencyTests(expedition_contract.SharedExpeditionConcurrencyTests):
     species_identity = ("meshtint-snake", "Snakelet", "meshtint-snake")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedHermitCrabSharedExpeditionConcurrencyTests(expedition_contract.SharedExpeditionConcurrencyTests):
     species_identity = ("meshtint-hermit-crab", "Shell", "meshtint-hermit-crab")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None, TIME_ZONE="America/Phoenix", USE_TZ=True,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class SnakeCrabChildAllowanceTests(expedition_contract.SharedAllowanceSetup, TestCase):
+    species_identity = ("meshtint-snake", "Snakelet", "meshtint-snake")
+
+    def test_snake_and_crab_share_the_existing_two_launch_child_budget(self):
+        crab = PetSpecies.objects.create(slug="meshtint-hermit-crab", name="Shell", sprite_key="meshtint-hermit-crab")
+        crab_mount = UserMount.objects.create(user=self.user, species=crab, potion=self.ice)
+        wolf_mount = UserMount.objects.create(user=self.user, species=self.other_species, potion=self.base)
+        self.trip(mount=self.base_mount)
+        with patch("django.utils.timezone.now", return_value=expedition_contract.NOW), patch.object(
+            ExpeditionService, "_roll_loot", return_value={"coins": 3, "items": []},
+        ):
+            self.assertTrue(UserMountSerializer(crab_mount).data["expedition_available"])
+            launched = ExpeditionService.start(self.user, crab_mount.pk, "short")
+            self.assertEqual(launched.mount_id, crab_mount.pk)
+            self.assertFalse(UserMountSerializer(wolf_mount).data["expedition_available"])
+            with self.assertRaisesMessage(ExpeditionError, "2 expedition starts"):
+                ExpeditionService.start(self.user, wolf_mount.pk, "short")
+            with self.assertRaisesMessage(ExpeditionError, "already been out today"):
+                ExpeditionService.start(self.user, self.fire_mount.pk, "short")
+        self.assertEqual(MountExpedition.objects.count(), 2)
+
+
+@skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class SnakeCrabChildAllowanceConcurrencyTests(expedition_contract.SharedAllowanceSetup, TransactionTestCase):
+    species_identity = ("meshtint-snake", "Snakelet", "meshtint-snake")
+    worker = staticmethod(expedition_contract.SharedExpeditionConcurrencyTests.worker)
+
+    def test_different_species_compete_for_only_the_last_shared_child_start(self):
+        crab = PetSpecies.objects.create(slug="meshtint-hermit-crab", name="Shell", sprite_key="meshtint-hermit-crab")
+        crab_mount = UserMount.objects.create(user=self.user, species=crab, potion=self.ice)
+        prior_mount = UserMount.objects.create(user=self.user, species=self.other_species, potion=self.base)
+        self.trip(mount=prior_mount)
+        held, release, second_ready = Event(), Event(), Event()
+        pids = {}
+
+        def pause_loot(user, tier):
+            held.set()
+            if not release.wait(10):
+                raise TimeoutError("First launch was not released")
+            return {"coins": 3, "items": []}
+
+        with patch("django.utils.timezone.now", return_value=expedition_contract.NOW), patch.object(
+            ExpeditionService, "_roll_loot", side_effect=pause_loot,
+        ) as loot, ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(self.worker, lambda: ExpeditionService.start(self.user, self.fire_mount.pk, "short"),
+                                Event(), pids, "first")
+            second = None
+            try:
+                self.assertTrue(held.wait(5), "First launch never rolled loot")
+                second = pool.submit(self.worker, lambda: ExpeditionService.start(self.user, crab_mount.pk, "short"),
+                                     second_ready, pids, "second")
+                self.assertTrue(second_ready.wait(5))
+                deadline, tick = monotonic() + 4, Event()
+                while monotonic() < deadline:
+                    self.assertFalse(second.done(), "Second species bypassed the shared child gate")
+                    with connection.cursor() as cursor:
+                        cursor.execute("SELECT pg_blocking_pids(%s)", [pids["second"]])
+                        if pids["first"] in cursor.fetchone()[0]:
+                            break
+                    tick.wait(0.01)
+                else:
+                    self.fail("Second species did not wait for the shared user gate")
+            finally:
+                release.set()
+            self.assertIsInstance(first.result(timeout=15), MountExpedition)
+            self.assertIsNotNone(second)
+            loser = second.result(timeout=15)
+        self.assertIsInstance(loser, ExpeditionError)
+        self.assertIn("2 expedition starts", str(loser))
+        self.assertEqual(loot.call_count, 1)
+        self.assertEqual(MountExpedition.objects.count(), 2)
