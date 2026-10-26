@@ -34,6 +34,7 @@ class ElementalIncubationTests(TestCase):
         cls.child = make_family("Elemental incubation", children=[{"username": "element-incubator"}]).children[0]
         cls.species = {slug: PetSpecies.objects.get(slug=slug) for slug in (
             "chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
+            "meshtint-snake", "meshtint-hermit-crab",
         )}
         cls.potions = {slug: PotionType.objects.get(slug=slug) for slug in ("base", "fire", "ice")}
 
@@ -139,7 +140,9 @@ class ElementalIncubationTests(TestCase):
                     self.assert_unspent(egg, potion)
 
     def test_other_prepared_species_still_reject_elemental_potions_without_consumption(self):
-        for species in PetSpecies.objects.filter(slug__startswith="meshtint-").exclude(slug__in=self.species):
+        unsupported = list(PetSpecies.objects.filter(slug__startswith="meshtint-").exclude(slug__in=self.species))
+        self.assertEqual(len(unsupported), 7)
+        for species in unsupported:
             for potion_slug in ("fire", "ice"):
                 with self.subTest(species=species.slug, potion=potion_slug):
                     egg, potion = self.ingredients(species.slug, potion_slug)

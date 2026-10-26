@@ -64,6 +64,7 @@ class RosterLoadingTests(TestCase):
             self.assertEqual(species.sprite_key, family["sprite_key"])
             compatible = {"base", "fire", "ice"} if species.slug in {
                 "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
+                "meshtint-snake", "meshtint-hermit-crab",
             } else {"base"}
             self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
             approved = compatible

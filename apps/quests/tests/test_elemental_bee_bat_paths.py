@@ -255,7 +255,7 @@ class ElementalBeeBatPathTests(TestCase):
 
         definitions = self.isolate_paths()
         with override_settings(RPG_ASSET_SUPPORT_POLICY=bee_bat_policy()):
-            self.assertEqual(len(available_pet_pairs()), 23)
+            self.assertEqual(len(available_pet_pairs()), 31 - 2 * len(NEW_SPECIES))
             self.assertEqual(list_goals(self.child)["results"], [])
             self.assertFalse(ChallengeGoal.objects.filter(user=self.child).exists())
             self.assertEqual(self.client.get("/api/quests/available/").data, [])

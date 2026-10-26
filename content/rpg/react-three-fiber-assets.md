@@ -83,18 +83,24 @@ Saved ownership is independent of model filenames and availability.
 is the positive registry for new offers and acquisition. Its production pet
 allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
 identities in `shared/catalog/companion-roster.json`, with Base for all fifteen.
-The three Fire/Ice releases enable twelve additional pairs for exact `chick`,
-`meshtint-wolf`, `meshtint-dragon`, `meshtint-mushroom`, `meshtint-bee` and
-`meshtint-bat` identities: 27 pairs in total. The other nine families remain
+The four Fire/Ice releases enable sixteen additional pairs for exact `chick`,
+`meshtint-wolf`, `meshtint-dragon`, `meshtint-mushroom`, `meshtint-bee`,
+`meshtint-bat`, `meshtint-snake` and `meshtint-hermit-crab` identities:
+31 pairs in total. The other seven families remain
 Base only. Dragon/Mushroom adoption is recorded in
 [its runbook](../../docs/operations/elemental-dragon-mushroom.md); Bee/Bat's
 exact receiving pins, canonical readback, four new guarantees and rollback are
 recorded in [its runbook](../../docs/operations/elemental-bee-bat.md).
-The owner accepted the actual app previews for all three batches. Chick/Wolf was
+Snake/Hermit Crab's exact bindings, four Coil/Shore guarantees and rollback are
+recorded in [its runbook](../../docs/operations/elemental-snake-hermit-crab.md).
+The owner accepted the actual app previews for all four batches. Chick/Wolf was
 canonically published and verified on October 20, 2026; Dragon/Mushroom on
 October 21; Bee/Bat on October 23. Bee/Bat retains the accepted manifest
 `7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5`
-and all 146 runtime files unchanged. Application rollout uses the normal MAIN gates;
+and all 146 runtime files unchanged. Snake/Hermit Crab was canonically published
+and independently read back on October 26, retaining manifest
+`2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3`
+and all 234 runtime files unchanged. Application rollout uses the normal MAIN gates;
 see [Fire and Ice companions](../../docs/operations/fire-ice-companions.md).
 Exact egg slug, typed species FK and canonical metadata must agree. Native take
 order does not set gameplay thresholds; explicit server rules select stages.
