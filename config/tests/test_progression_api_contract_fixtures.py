@@ -1,5 +1,6 @@
 """Raw designer endpoints over fixed, synthetic global content."""
-from datetime import datetime, timezone as dt_timezone
+from datetime import date, datetime, timezone as dt_timezone
+from uuid import UUID
 from unittest.mock import patch
 from django.core.cache import cache
 from django.test import override_settings
@@ -334,6 +335,52 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         ProgressionObservation.objects.filter(pk=observation.json()["observations"][0]["id"]).update(id="00000000-0000-4000-8000-000000000004")
         snapshot = self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-observed.json")
         self.assertEqual(snapshot["observations"][0]["status"], "insufficient_evidence")
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_observed_sources_activity_and_shop_days_match_shared_wire_contract(self, _now):
+        from apps.accounts.models import User
+        from apps.reading.models import ReadingBook, ReadingSession
+        from apps.rewards.models import CoinLedger, Reward
+
+        parent = User.objects.get(pk=7)
+        child = User.objects.create_user(
+            id=601, username="fixture-economy-child", role="child", family=parent.family,
+            date_joined=datetime(2026, 1, 1, tzinfo=dt_timezone.utc),
+        )
+        book = ReadingBook.objects.create(
+            user=child, title="Synthetic reading", client_request_id=UUID(int=601), create_payload={},
+        )
+        # Short logs count as saved work even without a daily reading payout.
+        for day in (16, 17):
+            ReadingSession.objects.create(
+                user=child, book=book, occurred_on=date(2026, 10, day), duration_minutes=2,
+                client_request_id=UUID(int=day), create_payload={},
+            )
+        opening = CoinLedger.objects.create(user=child, amount=10000, reason="adjustment")
+        CoinLedger.objects.filter(pk=opening.pk).update(created_at=datetime(2026, 9, 1, tzinfo=dt_timezone.utc))
+        for amount, reason, source in (
+            (10, "reading", ""), (5, "chore_reward", ""), (10, "adjustment", "coin_pouch"),
+            (200, "adjustment", "birthday"), (100, "adjustment", "manual_grant"),
+            (10, "exchange", ""), (20, "refund", ""), (35, "adjustment", ""),
+            (-50, "redemption", ""),
+        ):
+            row = CoinLedger.objects.create(user=child, amount=amount, reason=reason, source=source)
+            CoinLedger.objects.filter(pk=row.pk).update(created_at=datetime(2026, 10, 17, 19, tzinfo=dt_timezone.utc))
+        Reward.objects.create(id=651, family=parent.family, name="Practice outing", cost_coins=51)
+        Reward.objects.create(id=652, family=parent.family, name="Movie night", cost_coins=500, stock=0)
+        Reward.objects.create(id=653, family=parent.family, name="Free family game", cost_coins=0)
+        before = list(CoinLedger.objects.values())
+        report = self.assert_response_fixture(
+            self.client.get("/api/rpg/progression-lab/observations/"), "progression-observations-earned.json",
+        )
+        self.assertEqual(report["activity"]["meaningful_active_child_days"], 2)
+        self.assertEqual(report["earning_pace"]["recurring_coins"], 25)
+        self.assertEqual(report["earning_pace"]["excluded_credits"], 365)
+        self.assertEqual(report["ledger"]["closing_balance"], 10340)
+        days = {row["reward_id"]: row["days_to_earn"] for row in report["shop_rewards"]}
+        self.assertEqual(days, {651: 5, 652: 40, 653: 0})
+        self.assertEqual(report["policy"]["coins_per_dollar"], 10)
+        self.assertEqual(list(CoinLedger.objects.values()), before)
 
     def test_companion_badges_pay_once_when_care_reaches_their_milestones(self):
         quest = QuestDefinition.objects.get(pk=561)
