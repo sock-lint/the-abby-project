@@ -31,7 +31,7 @@ PATHS = {
     "Frost Cave": ("meshtint-bat", "ice", 10, 180, "review-bat-ice-acquisition-icon"),
 }
 NEW_SPECIES = {"meshtint-bee", "meshtint-bat"}
-PREVIOUS_ELEMENTAL_SPECIES = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom"}
+PREVIOUS_ELEMENTAL_SPECIES = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-snake", "meshtint-hermit-crab"}
 TRIGGERS = {
     "chore_complete", "homework_complete", "milestone_complete", "project_complete",
     "creation_logged", "reading_logged",
@@ -102,7 +102,7 @@ class ElementalBeeBatPathTests(TestCase):
         self.assertEqual(pairs, {(slug, "base") for slug in species} | {
             (slug, potion) for slug in PREVIOUS_ELEMENTAL_SPECIES | NEW_SPECIES for potion in ("fire", "ice")
         })
-        self.assertEqual(len(available_pet_pairs()), 27)
+        self.assertEqual(len(available_pet_pairs()), 31)
         descriptor = json.loads(POLICY_PATH.with_name("elemental-bee-bat.json").read_text())["release"]
         source = next(row for row in policy["sources"] if row["id"] == descriptor["family_id"])
         self.assertEqual((source["release_version"], source["manifest_sha256"]), (
@@ -157,15 +157,16 @@ class ElementalBeeBatPathTests(TestCase):
             f"{species}-{potion}-egg" for species in NEW_SPECIES for potion in ("fire", "ice")
         ]).exists())
 
-    def test_codex_reads_all_twelve_guarantees_by_exact_pair_without_materializing_or_awarding(self):
+    def test_codex_reads_all_sixteen_guarantees_by_exact_pair_without_materializing_or_awarding(self):
         expected_families = {
             "chick": "Nest", "meshtint-wolf": "Trail", "meshtint-mushroom": "Grove",
             "meshtint-dragon": "Summit", "meshtint-bee": "Hive", "meshtint-bat": "Cave",
+            "meshtint-snake": "Coil", "meshtint-hermit-crab": "Shore",
         }
         with CaptureQueriesContext(connection) as queries:
             body = self.codex()
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 27)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 31)
         guarantees = []
         for species, suffix in expected_families.items():
             for potion, prefix in (("fire", "Ember"), ("ice", "Frost")):
@@ -176,7 +177,7 @@ class ElementalBeeBatPathTests(TestCase):
                     self.assertIsNone(rows[0]["attempt"])
                     self.assertEqual(rows[0]["path"], "/quests?tab=trials")
                     guarantees.extend(rows)
-        self.assertEqual(len(guarantees), 12)
+        self.assertEqual(len(guarantees), 16)
         self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "REPLACE"))
                              for query in queries))
         self.assertFalse(ChallengeGoal.objects.exists())
@@ -254,7 +255,7 @@ class ElementalBeeBatPathTests(TestCase):
 
         definitions = self.isolate_paths()
         with override_settings(RPG_ASSET_SUPPORT_POLICY=bee_bat_policy()):
-            self.assertEqual(len(available_pet_pairs()), 23)
+            self.assertEqual(len(available_pet_pairs()), 31 - 2 * len(NEW_SPECIES))
             self.assertEqual(list_goals(self.child)["results"], [])
             self.assertFalse(ChallengeGoal.objects.filter(user=self.child).exists())
             self.assertEqual(self.client.get("/api/quests/available/").data, [])

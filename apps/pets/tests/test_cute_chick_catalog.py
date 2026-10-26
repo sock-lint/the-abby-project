@@ -47,12 +47,12 @@ class CuteChickCatalogTests(TestCase):
 
     def test_stable_total_counts_only_art_supported_authored_variants(self):
         self.assertEqual(PetSpecies.objects.count(), 15)
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 27)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 31)
 
     def test_unprepared_legacy_species_does_not_expand_available_completion_total(self):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 27)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 31)
         self.assertEqual(self.chick.available_potions.count(), 3)
 
     def test_reload_keeps_supported_pet_mount_and_inventory(self):

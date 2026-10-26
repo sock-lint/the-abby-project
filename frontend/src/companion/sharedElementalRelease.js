@@ -2,6 +2,7 @@ import { resolveCompanionAppearance, validateAssetPackManifest } from '@abby-ass
 import assetLock from '../../assets.lock.json';
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
+import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
 
 const manifests = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, import: 'default' });
 const indexes = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, query: '?url', import: 'default' });
@@ -10,12 +11,13 @@ export const ELEMENTAL_FAMILY = 'abby-elemental-companions';
 export const ELEMENTAL_VERSION = '1.0.0';
 export const ELEMENTAL_MANIFEST_SHA256 = 'fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048';
 const STAGES = ['baby', 'middle', 'grown'];
-const RELEASES = [{ family_id: ELEMENTAL_FAMILY, release_version: ELEMENTAL_VERSION, manifest_sha256: ELEMENTAL_MANIFEST_SHA256 }, expansion.release, beeBat.release];
+const RELEASES = [{ family_id: ELEMENTAL_FAMILY, release_version: ELEMENTAL_VERSION, manifest_sha256: ELEMENTAL_MANIFEST_SHA256 }, expansion.release, beeBat.release, snakeCrab.release];
 const FAMILIES = new Map([
   ['chick', { sprite_key: 'cute-chick', egg_item_slug: 'chick-egg', release_family_id: ELEMENTAL_FAMILY }],
   ['meshtint-wolf', { sprite_key: 'meshtint-wolf', egg_item_slug: 'meshtint-wolf-egg', release_family_id: ELEMENTAL_FAMILY }],
   ...expansion.families.map((family) => [family.species_slug, { ...family, release_family_id: expansion.release.family_id }]),
   ...beeBat.families.map((family) => [family.species_slug, { ...family, release_family_id: beeBat.release.family_id }]),
+  ...snakeCrab.families.map((family) => [family.species_slug, { ...family, release_family_id: snakeCrab.release.family_id }]),
 ]);
 
 export function elementalFamilyId(speciesSlug) {

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-elemental-bee-bat-2026-10-23",
+  "policy_id": "owned-r3f-elemental-snake-hermit-crab-2026-10-24",
   "pets": [
     {
       "species_slug": "chick",
@@ -110,17 +110,23 @@
       "species_slug": "meshtint-snake",
       "sprite_key": "meshtint-snake",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-snake-hermit-crab", "ice": "abby-elemental-snake-hermit-crab"}
     },
     {
       "species_slug": "meshtint-hermit-crab",
       "sprite_key": "meshtint-hermit-crab",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-snake-hermit-crab", "ice": "abby-elemental-snake-hermit-crab"}
     },
     {
       "species_slug": "meshtint-blossom",
@@ -227,6 +233,22 @@
       "appearance_bindings_version": 1,
       "prepared_species": ["meshtint-bee", "meshtint-bat"],
       "prepared_potion_variants": ["fire", "ice"]
+    },
+    {
+      "id": "abby-elemental-snake-hermit-crab",
+      "publisher": "Meshtint Studio",
+      "pack": "Fire and Ice Snakelet / Snake / Snake Naga and Shell / Spike / Hermit King derivatives",
+      "release_version": "1.0.0",
+      "manifest_sha256": "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3",
+      "appearance_bindings_version": 1,
+      "prepared_species": [
+        "meshtint-snake",
+        "meshtint-hermit-crab"
+      ],
+      "prepared_potion_variants": [
+        "fire",
+        "ice"
+      ]
     }
   ],
   "provenance_document": "content/rpg/react-three-fiber-assets.md",

@@ -345,6 +345,23 @@ The owner-accepted Bee/Bat adoption adds their four exact elemental pairs and
 one-time Hive/Cave guarantees through the server policy. Runtime delivery still
 requires canonical publication/readback and the ordinary MAIN release gates.
 
+The owner-accepted Snake/Hermit Crab release is the fourteenth canonical runtime
+pin. The positive server policy supports thirty-one exact species/potion pairs;
+Coil/Shore challenges guarantee each new natural egg and global Fire/Ice potion
+bundle once after ten qualifying accomplishments within 180 days. React uses
+server-confirmed offers, incubation readiness, hatch receipts and species-wide
+expedition allowance; it grants no progress from artwork or rarity.
+
+The separate `assets.snake-hermit-crab.evaluation.lock.json` preserves the
+historical private review pin alongside the earlier evaluation locks. Ordinary
+runtime and canonical browser checks use active-lock defaults without an explicit
+staged prop. The optional loopback fixture routes art by exact family and image
+identity. Native takes come from `appearance_bindings` v1 without renaming source
+IDs; the Middle Snake's supplied `slither-foward-*` spelling is intentional. No
+Evolve clip is supplied, so confirmed growth selects that element's destination
+idle. Missing exact art retains care/claim controls. Physical-phone and native
+shell acceptance remain separate from desktop/browser evidence.
+
 ### Collection navigation (October 2026)
 
 `TomeShelf` and `TomeSpine` retain their existing APIs while rendering wrapping Meadow collection cards. All-`vessel` sets render compact wrapping filter pills at every width. One tablist provides a single tab stop, Left/Right wrapping and Home/End selection; mount and pointer changes do not scroll the page or move unrelated focus. Badges, Lorebook and other collections share this control. Skills uses its separate Wayfinder hierarchy. See `components/README.md` for the descriptor and accessibility contract; `/__design` demonstrates both patterns with local synthetic examples.

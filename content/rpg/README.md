@@ -55,17 +55,19 @@ paths through supported eggs plus a Base potion.
 
 Ember/Frost Nest and Ember/Frost Trail author guaranteed Chick/Wolf egg plus
 Fire/Ice potion bundles (5/20 qualifying actions, once, within 180 days).
-These four offers use the approved Chick/Wolf Fire/Ice policy; authored
-compatibility alone cannot enable another pair. Prepared Ember/Frost Grove
-offers promise Mushroom egg/potion bundles after 10 accomplishments within
+Ember/Frost Grove promises Mushroom bundles after 10 accomplishments within
 180 days; Ember/Frost Summit promises Dragon bundles after 50 within 365 days.
-The owner accepted all twelve new app appearances. This branch activates the
-four Grove/Summit receiving pairs. Exact canonical publication/readback is
-verified; merge/deployment uses the ordinary MAIN gates.
+Hive guarantees Bee bundles after 5, Cave guarantees Bat bundles after 10,
+and the new Coil/Shore guarantees promise Snake/Hermit Crab bundles after 10,
+each within 180 days. All sixteen offers pay once with a natural species egg
+and matching global potion, with zero authored Coins/XP. Authored compatibility
+alone cannot enable another pair: the positive policy admits 31 exact pairs
+after all four owner-accepted batches' canonical publication/readback.
+Application merge/deployment uses the ordinary MAIN gates.
 New-offer acquisition hints use the same whole-offer
 availability check; accepted snapshots remain fulfillable. Reading counts its
 saved ten-minute daily achievement; other qualifying work follows the ordinary
-source limits. See [next elemental batch](../../docs/operations/elemental-dragon-mushroom.md).
+source limits. See [Snake and Hermit Crab](../../docs/operations/elemental-snake-hermit-crab.md).
 
 | File                  | What it authors                                             |
 | --------------------- | ----------------------------------------------------------- |

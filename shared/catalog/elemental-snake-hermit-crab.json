@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "preparation": {
+    "state": "active",
+    "acquisition_active": true,
+    "artwork_accepted": true,
+    "application_ids_agreed": true
+  },
+  "release": {
+    "family_id": "abby-elemental-snake-hermit-crab",
+    "release_version": "1.0.0",
+    "manifest_sha256": "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3"
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-snake",
+      "sprite_key": "meshtint-snake",
+      "egg_item_slug": "meshtint-snake-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Coil",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-snake-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Coil",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-snake-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        { "potion_slug": "fire", "asset_id": "review-snake-fire-acquisition-icon" },
+        { "potion_slug": "ice", "asset_id": "review-snake-ice-acquisition-icon" }
+      ]
+    },
+    {
+      "species_slug": "meshtint-hermit-crab",
+      "sprite_key": "meshtint-hermit-crab",
+      "egg_item_slug": "meshtint-hermit-crab-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Shore",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-hermit-crab-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Shore",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-hermit-crab-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        { "potion_slug": "fire", "asset_id": "review-hermit-crab-fire-acquisition-icon" },
+        { "potion_slug": "ice", "asset_id": "review-hermit-crab-ice-acquisition-icon" }
+      ]
+    }
+  ]
+}

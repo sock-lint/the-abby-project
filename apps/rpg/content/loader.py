@@ -914,10 +914,18 @@ class ContentPack:
                 family = FAMILIES.get(slug)
                 if family is None:
                     raise ContentPackError(f"Unknown prepared companion identity {slug!r}")
-                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat"}
-                compatibility = (["base"], ["base", "fire", "ice"]) if slug in elemental_families else (["base"],)
+                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab"}
+                # Additional prepared families may be authored only after their
+                # exact identity has positive support for all three variants.
+                # Preserve existing authoring under narrowed rollback policies.
+                from apps.rpg.catalog_support import pet_is_available
+                exact_identity = {"slug": slug, "sprite_key": family["sprite_key"]}
+                elemental = slug in elemental_families or all(
+                    pet_is_available(exact_identity, {"slug": potion}) for potion in ("base", "fire", "ice")
+                )
+                compatibility = (["base"], ["base", "fire", "ice"]) if elemental else (["base"],)
                 if entry.get("available_potions") not in compatibility:
-                    raise ContentPackError(f"Prepared companion {slug!r} requires explicit global Base compatibility; only Wolf, Dragon, Mushroom, Bee and Bat may also author Fire and Ice")
+                    raise ContentPackError(f"Prepared companion {slug!r} requires explicit global Base compatibility; additional Fire and Ice compatibility requires exact approved artwork")
                 if entry["name"] != family["name"] or entry.get("sprite_key") != family["sprite_key"]:
                     raise ContentPackError(f"Prepared companion identity collision for {slug!r}")
                 existing = PetSpecies.objects.filter(slug=slug).first()

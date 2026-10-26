@@ -31,11 +31,14 @@ export async function inspectElementalMaterialIsolation(evaluation) {
     Object.fromEntries(Object.entries(evaluation.urls).map(([file, url]) => [`../avatar/shared/${evaluation.pin.directory}/${file}`, url])),
     { schema_version: 1, releases: [evaluation.pin] },
     { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
-  ) : stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
-  requireValue(!evaluation || candidate, 'Exact Bee/Bat evaluation binding is required.');
+  ) : null;
+  requireValue(!evaluation || candidate, 'Exact elemental evaluation binding is required.');
+  const releases = [elemental, ...['abby-elemental-bee-bat', 'abby-elemental-snake-hermit-crab'].map((familyId) =>
+    candidate?.release.family_id === familyId ? candidate : stagedElementalRelease(undefined, undefined, undefined, undefined, familyId))].filter(Boolean);
+  const selectedReleases = new Map(releases.flatMap((selected) => [...new Set(selected.release.appearance_bindings.stages.map(({ species_slug }) => species_slug))]
+    .map((species) => [species, selected])));
   const groups = [];
-  for (const species of ['meshtint-dragon', 'meshtint-mushroom', ...(candidate ? ['meshtint-bee', 'meshtint-bat'] : [])]) {
-    const selected = ['meshtint-bee', 'meshtint-bat'].includes(species) ? candidate : elemental;
+  for (const [species, selected] of selectedReleases) {
     const family = roster.families.find((entry) => entry.species_slug === species);
     for (const stage of ['baby', 'middle', 'grown']) {
       const instances = [];

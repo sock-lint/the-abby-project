@@ -53,11 +53,12 @@ System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
 legacy starts. The art policy enables Ember/Frost Nest, Trail, Grove, Summit,
-Hive and Cave for exact Chick/Wolf/Mushroom/Dragon/Bee/Bat Fire/Ice pairs.
-Previously adopted canonical releases remain verified; Bee/Bat activation
-requires canonical publication/readback and ordinary MAIN merge/deployment
-gates. All twelve are one-time with zero authored Coins/XP: Nest and
-Hive target 5 actions, Trail 20, Grove and Cave 10 within 180 days; Summit
+Hive, Cave, Coil and Shore for exact Chick/Wolf/Mushroom/Dragon/Bee/Bat/Snake/
+Hermit Crab Fire/Ice pairs. Previously adopted canonical releases remain
+verified; the owner-accepted Snake/Hermit Crab runtime has also passed canonical
+publication/readback, with ordinary MAIN rollout gates still required.
+All sixteen are one-time with zero authored Coins/XP: Nest and
+Hive target 5 actions, Trail 20, Grove, Cave, Coil and Shore 10 within 180 days; Summit
 targets 50 within 365 days.
 Approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
