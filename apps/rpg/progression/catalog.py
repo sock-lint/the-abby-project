@@ -1,19 +1,37 @@
 """Read global authoring data once; never inspect a household or mutate a model."""
 
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 from types import MappingProxyType
 
 from apps.achievements.availability import badge_goal_is_available
-from apps.achievements.models import Badge, Skill
+from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
 from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item, random_item_is_available
-from apps.rpg.models import DropTable, ItemDefinition
+from apps.rpg.models import DropTable, ItemDefinition, RPGContentOverride
+
+
+TAXONOMY_CATEGORY_LIMIT = 2048
+TAXONOMY_OVERRIDE_LIMIT = 4096
+
+
+def taxonomy_source_overrides():
+    """Only global taxonomy provenance consumed by the installed resolver.
+
+    Leave projection to the caller: snapshots copy only the source identity,
+    while decision freshness can compare PostgreSQL row versions. Neither
+    consumer needs an author's family, publication or replacement values.
+    Database JSON equality also keeps boolean versions distinct from version 1.
+    """
+    return RPGContentOverride.objects.filter(
+        model_label__in=(SkillCategory._meta.label_lower, Skill._meta.label_lower),
+        values___authoring={"version": 1, "source": "mcp"},
+    ).order_by("pk")
 
 
 MODELED_BADGE_TYPES = frozenset(
@@ -107,9 +125,12 @@ class Catalog:
     quests: list
     excluded_badges: dict
     fingerprint: str
+    source_categories: Mapping = field(default_factory=dict)
+    source_skills: Mapping = field(default_factory=dict)
 
     def __post_init__(self):
-        for name in ("skills", "items", "pools", "pairs", "badges", "quests", "excluded_badges"):
+        for name in ("skills", "items", "pools", "pairs", "badges", "quests", "excluded_badges",
+                     "source_categories", "source_skills"):
             object.__setattr__(self, name, _freeze(getattr(self, name)))
 
     def summary(self):
@@ -133,6 +154,39 @@ def _bounded(queryset, limit, label):
     return rows
 
 
+def _taxonomy_identities(categories, skills):
+    """Detach unique current-or-retained identities without per-row ORM reads.
+
+    This mirrors ``resolve_source_identity`` for its complete category and
+    category-qualified skill lookups. Competing objects fail closed, including
+    empty current categories. Retired rows remain installed destinations.
+    """
+    category_matches, skill_matches = defaultdict(set), defaultdict(set)
+    category_ids = {pk for pk, _ in categories}
+    skill_ids = {skill.pk for skill in skills}
+    for pk, name in categories:
+        category_matches[name].add(pk)
+    for skill in skills:
+        skill_matches[(skill.category_id, skill.name)].add(skill.pk)
+    overrides = _bounded(
+        taxonomy_source_overrides().values("model_label", "object_id", "source_lookup"),
+        TAXONOMY_OVERRIDE_LIMIT, "taxonomy source",
+    )
+    for row in overrides:
+        lookup, object_id = row["source_lookup"], row["object_id"]
+        if type(lookup) is not dict or type(lookup.get("name")) is not str:
+            continue
+        if row["model_label"] == SkillCategory._meta.label_lower:
+            if set(lookup) == {"name"} and object_id in category_ids:
+                category_matches[lookup["name"]].add(object_id)
+        elif (set(lookup) == {"name", "category_id"} and type(lookup["category_id"]) is int
+              and object_id in skill_ids):
+            skill_matches[(lookup["category_id"], lookup["name"])].add(object_id)
+    def unique(matches):
+        return {key: next(iter(ids)) if len(ids) == 1 else None for key, ids in matches.items()}
+    return unique(category_matches), unique(skill_matches)
+
+
 def snapshot_catalog():
     """Capture global rules as detached immutable values, safe after a rollback.
 
@@ -140,11 +194,15 @@ def snapshot_catalog():
     savepoint, roll them back, then simulate without any subsequent ORM reads.
     No account, family, inventory, ledger or reward writer is involved.
     """
+    categories = _bounded(
+        SkillCategory.objects.order_by("pk").values_list("pk", "name"), TAXONOMY_CATEGORY_LIMIT, "category",
+    )
     skills = _bounded(
         Skill.objects.order_by("pk").select_related("category", "subject__category").prefetch_related("prerequisites"),
         2048,
         "skill",
     )
+    source_categories, source_skills = _taxonomy_identities(categories, skills)
     items = _bounded(
         ItemDefinition.objects.order_by("pk").select_related("pet_species", "potion_type", "food_species"), 4096, "item"
     )
@@ -210,6 +268,10 @@ def snapshot_catalog():
     skills, items = list(skill_records.values()), item_records
     # A digest of the exact accepted catalog makes a saved forecast comparable.
     serialized = {
+        "categories": categories,
+        "source_categories": sorted(source_categories.items()),
+        "source_skills": [(category_id, name, skill_id)
+                          for (category_id, name), skill_id in sorted(source_skills.items())],
         "skills": [
             (
                 s.pk,
@@ -273,7 +335,8 @@ def snapshot_catalog():
         ],
     }
     digest = hashlib.sha256(json.dumps(_plain(serialized), sort_keys=True, default=str).encode()).hexdigest()
-    return Catalog({s.pk: s for s in skills}, items, pools, pairs, badges, quests, dict(excluded), digest)
+    return Catalog({s.pk: s for s in skills}, items, pools, pairs, badges, quests, dict(excluded), digest,
+                   source_categories, source_skills)
 
 
 def load_catalog():

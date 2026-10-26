@@ -7,6 +7,19 @@ inventory, awards or notifications. The experiment notebook saves private
 design evidence separately; its observation panel reads only your family's
 recent-child Coin ledger aggregates.
 
+Reading XP and named category-mastery projections use exact current or retained
+taxonomy identities captured with the global catalog. MCP renames and retirement
+preserve the installed Reading destination; distinct competing identities fail
+closed. Mastery still follows the current skills in that category and its existing
+level requirement. Calculations use detached IDs and never query taxonomy during
+a trial. Other assumed activity tags retain their documented scenario behavior.
+
+Catalog fingerprints include category labels and the resolved source identities.
+Changing these inputs makes saved comparisons stale without rewriting their
+reports. Decisions also check bounded public taxonomy source versions under short
+snapshot and final-save fences. These fences exclude household computation and
+do not read authoring families, prose or publication values.
+
 ## Save findings and act on them
 
 Use the experiment notebook to name a hypothesis and capture the current

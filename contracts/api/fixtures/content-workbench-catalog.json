@@ -732,7 +732,7 @@
       ]
     },
     "catalog": {
-      "fingerprint": "6b2282b5772ee262b09549b1e879a6d9da18c8d1a370d109a52880b667d42875",
+      "fingerprint": "c7d4301d714c5668cf50fc9495c35a0db3ae2bd79aa28f14778ec22a4baa3f97",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
@@ -866,7 +866,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "da3567bd34ef6ac660fbb54ebadca534eed08b9061b08d0f9399b5452890fc38",
+    "rules_fingerprint": "007f0fa388d04faf6e5a431b54615c952ef38ec0bbac35aa6f32b668805fa745",
     "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "work_budget": {

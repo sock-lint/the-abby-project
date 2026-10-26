@@ -436,7 +436,7 @@
     ]
   },
   "catalog": {
-    "fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
+    "fingerprint": "122ece774e5bcf4d922b3a89091f0e831ddc0bb56684687ef5e594a6f962c552",
     "skills": 5,
     "supported_items": 5,
     "supported_pet_variants": 1,
@@ -570,7 +570,7 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "da3567bd34ef6ac660fbb54ebadca534eed08b9061b08d0f9399b5452890fc38",
+  "rules_fingerprint": "007f0fa388d04faf6e5a431b54615c952ef38ec0bbac35aa6f32b668805fa745",
   "engine_version": "2026-10-23.1",
   "source_commit": "unavailable",
   "work_budget": {

@@ -118,6 +118,14 @@ criteria across taxonomy edits, and `test_reading_forecast_identity` and
 Reading forecast parity and completed publication retries after source disposal.
 These use synthetic registered MCP calls with native award/receipt controls.
 
+Lab taxonomy coverage is `apps.mcp_server.tests.test_lab_source_identity`,
+`apps.mcp_server.tests.test_lab_identity_freshness` and
+`apps.rpg.tests.test_progression_taxonomy_snapshot`. The freshness concurrency
+checks require disposable PostgreSQL: metadata edits must block during capture
+and final save, fail a decision after capture, and leave household XP activity
+unblocked during detached catalog work. The real Lab producer/React pair also
+checks a renamed-taxonomy Reading/mastery report.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,

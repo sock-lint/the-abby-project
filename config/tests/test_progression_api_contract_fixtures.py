@@ -1,11 +1,16 @@
 """Raw designer endpoints over fixed, synthetic global content."""
 from datetime import datetime, timezone as dt_timezone
 from unittest.mock import patch
+from asgiref.sync import async_to_sync
 from django.core.cache import cache
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
 from apps.achievements.models import Badge, Skill, SkillCategory
+from apps.mcp_server.context import override_user
+from apps.mcp_server.server import mcp
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.models import DropTable, ItemDefinition
@@ -33,6 +38,7 @@ class ProgressionLabResponseFixtureTests(APITestCase):
             family_id=31,
             parents=[{"id": 7, "username": "fixture-progression-designer", "is_staff": True}],
         ).parents[0]
+        self.designer = designer
         self.client.force_authenticate(designer)
         language = SkillCategory.objects.create(id=501, name="Language Arts")
         life = SkillCategory.objects.create(id=502, name="Life Skills")
@@ -68,6 +74,45 @@ class ProgressionLabResponseFixtureTests(APITestCase):
             coin_reward=12, xp_reward=15, is_system=True,
         )
         QuestSkillTag.objects.create(id=562, quest_definition=quest, skill=persistence, xp_weight=1)
+
+    def test_renamed_taxonomy_keeps_installed_reading_and_mastery_contract(self):
+        with override_user(self.designer, scopes=frozenset({"mcp:publish"})):
+            for name, params in (
+                ("update_skill", {"skill_id": 511, "name": "Reading practice"}),
+                ("update_category", {"category_id": 501, "name": "Language practice"}),
+                ("update_category", {"category_id": 502, "name": "Everyday practice"}),
+            ):
+                result = async_to_sync(mcp.call_tool)(name, {"params": params, "confirmation": True})
+                body = result[1] if isinstance(result, tuple) else result.structuredContent
+                self.assertNotIn("error", body, body)
+        Badge.objects.create(id=552, name="Practice mastery", criteria_type="category_mastery",
+            criteria_value={"category": "Life Skills", "min_level": 1}, xp_bonus=0, award_coins=False)
+        quest = QuestDefinition.objects.create(id=563, name="Tagged Reading practice", quest_type="collection",
+            target_value=1, duration_days=None, is_repeatable=False, is_system=True, xp_reward=100,
+            trigger_filter={"allowed_triggers": ["reading_logged"]})
+        QuestSkillTag.objects.create(id=564, quest_definition=quest, skill_id=512, xp_weight=1)
+        with CaptureQueriesContext(connection) as queries, patch(
+            "apps.achievements.services.AwardService.grant", side_effect=AssertionError("Forecast wrote an award"),
+        ):
+            response = self.client.post("/api/rpg/progression-lab/simulate/", {
+                "horizon_days": 30, "trials": 1, "seed": 17, "active_days_per_week": 7,
+                "reading_minutes": 10, "project_minutes": 0, "chores_per_day": 0,
+                "habits_per_day": 0, "movement_sessions_per_day": 0, "creations_per_day": 0,
+                "journal_per_day": False, "expeditions_per_day": 0,
+            }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        sources = {row["source"]: row for row in response.data["flows"]["sources"]}
+        # These assertions precede fixture comparison, so regeneration cannot
+        # bless mutable-name routing or a lost authored mastery goal.
+        self.assertEqual(sources["reading"]["xp"], 450)
+        self.assertEqual(sources["challenges"]["xp"], 100)
+        self.assertEqual(response.data["trace"][-1]["badges_p50"], 1)
+        for row in queries:
+            self.assertTrue(row["sql"].lstrip().upper().startswith("SELECT"), row["sql"])
+            for table in ("projects_user", "families_family", "achievements_skillprogress",
+                          "achievements_userbadge", "rewards_coinledger", "rpg_userinventory"):
+                self.assertNotIn(connection.ops.quote_name(table), row["sql"])
+        self.assert_response_fixture(response, "progression-lab-renamed-taxonomy-report.json")
 
     def test_metadata_and_seeded_report_match_shared_wire_contract(self):
         metadata_response = self.client.get("/api/rpg/progression-lab/")

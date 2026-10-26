@@ -260,6 +260,7 @@ def rules_fingerprint(*, incubation_policy=None):
                                     for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
         "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
         "fixed_xp_source_identity_source": inspect.getsource(fixed_xp_identity),
+        "catalog_source": inspect.getsource(inspect.getmodule(load_catalog)),
         "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
         "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
@@ -522,7 +523,7 @@ class Trial:
         self.category_required = defaultdict(set)
         for s in catalog.skills.values():
             if not s.is_locked_by_default:
-                self.category_required[s.category.name].add(s.pk)
+                self.category_required[s.category_id].add(s.pk)
         self.cross_category_skills = {
             pk
             for pk, info in self.skill_info.items()
@@ -552,7 +553,14 @@ class Trial:
                 if s.category.name == category and s.name == name
             ]
             for source, names in ACTIVITY_SKILLS.items()
+            if source != "reading"
         }
+        # Reading has an installed native destination. Resolve its detached,
+        # category-qualified source identity instead of a mutable display name.
+        reading_category = catalog.source_categories.get("Language Arts")
+        reading_id = catalog.source_skills.get((reading_category, ReadingRewardService.SKILL_NAME))
+        reading_skill = catalog.skills.get(reading_id)
+        self.tags["reading"] = [SimpleNamespace(skill=reading_skill, xp_weight=1)] if reading_skill else []
         self.quests = self._eligible_quests()
         self.finite_keys = self._finite_keys()
         native_quest_ids = set(self.reachable_quest_ids)
@@ -1301,7 +1309,8 @@ class Trial:
         if kind == "cross_category_unlock":
             return bool(self.cross_category_skills & self.unlocked)
         if kind == "category_mastery":
-            required = self.category_required.get(c.get("category"))
+            category_id = self.catalog.source_categories.get(c.get("category"))
+            required = self.category_required.get(category_id)
             return bool(required) and all(levels.get(pk, 0) >= int(c.get("min_level", 3)) for pk in required)
         if kind == "streak_days":
             return self.counters["project_best_streak"] >= int(c.get("days", 7))

@@ -60,7 +60,7 @@
     }
   },
   "catalog": {
-    "fingerprint": "bd464447341df09015c126d1de52f1ca53e5085c72208c1624505bb3b7346c77",
+    "fingerprint": "cad940553e13a98edcd6deb79c224eaa2ac27b91448f65a602a901272ab7b600",
     "skills": 5,
     "supported_items": 5,
     "supported_pet_variants": 1,
@@ -70,7 +70,7 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "da3567bd34ef6ac660fbb54ebadca534eed08b9061b08d0f9399b5452890fc38",
+  "rules_fingerprint": "007f0fa388d04faf6e5a431b54615c952ef38ec0bbac35aa6f32b668805fa745",
   "engine_version": "2026-10-23.1",
   "source_commit": "unavailable",
   "coverage": {

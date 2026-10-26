@@ -207,6 +207,12 @@ React transport and report checks live in
 `frontend/src/api/progressionLabContractFixtures.test.js` and the Progression Lab
 page tests.
 
+`progression-lab-renamed-taxonomy-report.json` is a real staff-parent simulation
+after registered MCP renames of Reading, Language Arts and Life Skills. The
+producer asserts 450 Reading XP, 100 explicit challenge-tag XP and one mastery
+badge before comparing the fixture; it rejects household queries and award
+writes. The existing Lab React consumer verifies that same response and request.
+
 `progression-lab-reward-budget-report.json` adds a synthetic shared daily
 expedition/pouch Coin allowance to the same endpoint. Its normalized scenario
 and report distinguish requested, credited and omitted automatic Coins,
