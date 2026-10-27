@@ -64,6 +64,25 @@ class PersonalWorkspaceTests(APITestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(self.personal("get", "/api/children/").status_code, 403)
 
+    def test_personal_project_edits_keep_cash_rewards_zero_through_completion(self):
+        from apps.payments.models import PaymentLedger
+
+        created = self.personal("post", "/api/projects/", {"title": "My personal project"})
+        self.assertEqual(created.status_code, 201)
+        project = Project.objects.get(pk=created.data["id"])
+        edited = self.personal("patch", f"/api/projects/{project.pk}/", {
+            "bonus_amount": "20.00", "hourly_rate_override": "15.00",
+        })
+        self.assertEqual(edited.status_code, 200, edited.data)
+        project.refresh_from_db()
+        self.assertEqual(project.bonus_amount, 0)
+        self.assertEqual(project.hourly_rate_override, 0)
+        project.status = "in_progress"
+        project.save()
+        completed = self.personal("post", f"/api/projects/{project.pk}/approve/", {})
+        self.assertEqual(completed.status_code, 200, completed.data)
+        self.assertFalse(PaymentLedger.objects.filter(user=self.parent).exists())
+
     def test_parent_personal_coin_selector_cannot_target_a_child(self):
         response = self.personal("get", f"/api/coins/?user_id={self.child.pk}")
         self.assertEqual(response.status_code, 400)

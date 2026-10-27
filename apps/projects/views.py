@@ -476,6 +476,14 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0)
         serializer.save(**extras)
 
+    def perform_update(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {}
+        if is_personal_space(self.request):
+            extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0)
+        serializer.save(**extras)
+
     def get_permissions(self):
         # activate / approve / request_changes declare permission_classes=
         # [IsParent] on their @action decorators; without this line those
