@@ -400,8 +400,10 @@ export const subscribeToPush = (subscription) => api.post('/push/subscribe/', su
 export const unsubscribeFromPush = (endpoint) => api.post('/push/unsubscribe/', { endpoint });
 export const markAllRead = () => api.post('/notifications/mark_all_read/');
 export const markNotificationRead = (id) => api.post(`/notifications/${id}/mark_read/`);
-export const getPendingCelebrationNotification = () =>
-  api.get('/notifications/pending-celebration/');
+// retryGateway: a deploy window can answer this boot-time read with an HTML 200
+// (THE-ABBY-PROJECT-40); App reports it only if a delayed second try also fails.
+export const getPendingCelebrationNotification = (signal) =>
+  api.get('/notifications/pending-celebration/', { retryGateway: true, signal });
 
 // Instructables
 export const getInstructablesPreview = (url) =>

@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
-import { useAuth } from './hooks/useApi';
+import { callWithDeferredRecovery, useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
 import { getPendingCelebration, getPendingCelebrationNotification } from './api';
 import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
@@ -147,19 +147,19 @@ function AppContent() {
   useEffect(() => {
     if (designRoute || !userId) return;
     if (celebration) return;
-    let cancelled = false;
-    getPendingCelebrationNotification()
+    const controller = new AbortController();
+    callWithDeferredRecovery(getPendingCelebrationNotification, controller.signal)
       .then((res) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         if (res && typeof res === 'object' && res.id) {
           setCelebrationNotice(res);
         }
       })
       .catch(() => {
-        // 204 / network — nothing pending.
+        // 204 / network / aborted — nothing pending.
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [designRoute, userId, celebration]);
 
