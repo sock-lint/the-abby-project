@@ -72,7 +72,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showPeriod = true, sh
   );
 }
 
-export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false }) {
+export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false, isPersonalParent = false }) {
   const period = goalPeriod(goal, timezone);
   const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   const { hideArt } = useChallengeSurprise(goal);
@@ -83,7 +83,7 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onR
             <div className="min-w-0 flex-1 basis-40 flex flex-wrap items-start gap-3">
               {goal.catalog_icon && !hideArt && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
               <div className="min-w-0 flex-1 basis-32 space-y-1">
-                <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
+                <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isPersonalParent ? 'Your goal' : isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
                 <h4 className="font-body font-bold text-lede text-ink-primary break-words [overflow-wrap:anywhere]">{goal.name}</h4>
                 <p className="font-body text-caption text-ink-secondary break-words">{goalTargetSummary(goal)}</p>
                 {period && <p className="font-body text-caption text-ink-secondary">{period}</p>}

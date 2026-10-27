@@ -25,7 +25,7 @@ function GoalDisclosure({ title, children, onOpenChange, controlledOpen }) {
   );
 }
 
-export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, onRetry, busy = false, toolbar = null, dailyBonus = null }) {
+export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinnedGoal = null, timezone = 'UTC', isParent = false, isPersonalParent = false, onSelect, onPin, onRetry, busy = false, toolbar = null, dailyBonus = null }) {
   const [browsing, setBrowsing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
@@ -33,7 +33,7 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
   const bonusGoals = goals.filter((goal) => goal.status === 'active' && goal.origin !== 'parent' && goal.id !== focus.pinned?.id);
   const retryable = focus.history.filter((goal) => goal.retry?.allowed === true);
   const historyRows = historyFilter === 'retryable' ? retryable : focus.history;
-  const cardProps = { timezone, onSelect, onPin, onRetry, busy, isParent };
+  const cardProps = { timezone, onSelect, onPin, onRetry, busy, isParent, isPersonalParent };
   const cards = (rows) => (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
       {rows.map((goal) => <ChallengeGoalCard key={goal.id} goal={goal} {...cardProps} />)}
@@ -44,7 +44,7 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
     <QuestFolio
       letter="C" title="Challenges" kicker="Focus on the goals that matter to you"
       meta="Your usual tasks can earn extra rewards."
-      stats={[{ value: focus.parentCount, label: 'parent goals' }, { value: focus.pinned ? 1 : 0, label: 'pinned' }]}
+      stats={[{ value: focus.parentCount, label: isPersonalParent ? 'personal goals' : 'parent goals' }, { value: focus.pinned ? 1 : 0, label: 'pinned' }]}
       progressPct={focus.pinnedProgress}
       progressLabel={focus.pinned ? `${focus.pinned.name} · ${goalProgress(focus.pinned)}` : undefined}
     >
@@ -54,8 +54,8 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
         <ChapterRubric index={sectionIndex++} name="Pinned to Today" />
         <ChallengeGoalCard goal={focus.pinned} {...cardProps} />
       </section>}
-      {focus.parentGoals.length > 0 && <section className="space-y-3" aria-label="Parent goals">
-        <ChapterRubric index={sectionIndex++} name="Parent goals" />
+      {focus.parentGoals.length > 0 && <section className="space-y-3" aria-label={isPersonalParent ? 'Personal goals' : 'Parent goals'}>
+        <ChapterRubric index={sectionIndex++} name={isPersonalParent ? 'Personal goals' : 'Parent goals'} />
         {cards(focus.parentGoals)}
       </section>}
       {focus.upcoming.length > 0 && <section className="space-y-3" aria-label="Upcoming challenges">
@@ -63,7 +63,7 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
         {cards(focus.upcoming)}
       </section>}
       {!focus.pinned && !focus.parentGoals.length && !focus.upcoming.length && <EmptyState>
-        {isParent ? 'Create a goal for this child, or explore their bonus challenges below.' : 'Parent goals and any challenge you pin will appear here. Your usual activity already counts toward matching bonuses.'}
+        {isParent ? 'Create a goal for this child, or explore their bonus challenges below.' : isPersonalParent ? 'Create a personal goal or pin a challenge. Your usual activity already counts toward matching bonuses.' : 'Parent goals and any challenge you pin will appear here. Your usual activity already counts toward matching bonuses.'}
       </EmptyState>}
       {dailyBonus}
       {!browsing && focus.explore.length > 0 && <section className="space-y-3" aria-label="Explore challenges">

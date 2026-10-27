@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BackLink from '../components/BackLink';
 import Button from '../components/Button';
@@ -49,6 +50,7 @@ export default function ProjectDetail() {
 
 function ProjectDetailPage() {
   const { user, isParent } = useRole();
+  const { isParentAccount, isPersonalSpace } = useSpace();
   const location = useLocation();
   const returnList = projectListDestination(location.state?.projectListReturn, user?.id);
   const { id } = useParams();
@@ -220,6 +222,7 @@ function ProjectDetailPage() {
         timezone={user?.family?.timezone || 'America/Phoenix'}
         project={project}
         isParent={isParent}
+        personal={isParentAccount && isPersonalSpace}
         isAssigned={isAssigned}
         onAction={handleAction}
         onEdit={() => setEditOpen(true)}

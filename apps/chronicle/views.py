@@ -28,8 +28,10 @@ from apps.chronicle.services import ChronicleService, JournalAlreadyExistsError,
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from config.viewsets import (
     RoleFilteredQuerySetMixin, action_declares_permissions, child_not_found_response, get_child_or_404,
+    resolve_target_user,
 )
 
 
@@ -48,7 +50,7 @@ class ChronicleViewSet(
     def get_permissions(self):
         if action_declares_permissions(self):
             return super().get_permissions()
-        # Journal actions are self-authored by children and only need
+        # Journal actions are self-authored and only need
         # IsAuthenticated — the viewset binds writes to ``request.user``.
         if self.action in ("journal", "journal_update", "journal_today"):
             return [IsAuthenticated()]
@@ -67,6 +69,8 @@ class ChronicleViewSet(
         filters = GradeListQuerySerializer(data=self.request.query_params)
         filters.is_valid(raise_exception=True)
         qs = visible_chronicle_entries(self.request.user, ChronicleEntry.objects.all())
+        if is_personal_space(self.request):
+            qs = qs.filter(user=self.request.user)
         # Parents can further scope with ?user_id= — but only to a child in
         # the same family. The role-filtered queryset already family-scopes,
         # so the explicit user_id filter is layered on top.
@@ -95,7 +99,11 @@ class ChronicleViewSet(
         filters = GradeListQuerySerializer(data=request.query_params)
         filters.is_valid(raise_exception=True)
         target = request.user
-        if request.user.role == "parent" and (uid := filters.validated_data.get("user_id")):
+        if is_personal_space(request):
+            target, error = resolve_target_user(request)
+            if error is not None:
+                return error
+        elif request.user.role == "parent" and (uid := filters.validated_data.get("user_id")):
             from django.contrib.auth import get_user_model
             target = get_object_or_404(
                 get_user_model(),
@@ -181,7 +189,7 @@ class ChronicleViewSet(
 
     @action(detail=False, methods=["post"], url_path="journal")
     def journal(self, request):
-        """Child-authored journal entry. Always writes to request.user.
+        """Self-authored journal entry. Always writes to request.user.
 
         Any ``user_id`` in the body is ignored — this endpoint is self-scoped
         so a child can't post a journal entry into another child's chronicle.
@@ -297,14 +305,21 @@ class ChronicleViewSet(
 
     @action(detail=False, methods=["post"], url_path="manual")
     def manual(self, request):
-        """Create a manual chronicle entry for a child. Parent-only."""
+        """Create a family child's memory, or one's own in My space."""
         serializer = ManualEntryCreateSerializer(data=request.data)
+        if is_personal_space(request):
+            serializer.fields["user_id"].required = False
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        user_id = data.pop("user_id")
-        target = get_child_or_404(user_id, requesting_user=request.user)
-        if target is None:
-            return child_not_found_response()
+        user_id = data.pop("user_id", None)
+        if is_personal_space(request):
+            target, error = resolve_target_user(request, source="data")
+            if error is not None:
+                return error
+        else:
+            target = get_child_or_404(user_id, requesting_user=request.user)
+            if target is None:
+                return child_not_found_response()
         occurred_on: date = data["occurred_on"]
         chapter_year = occurred_on.year if occurred_on.month >= 8 else occurred_on.year - 1
         entry = ChronicleEntry.objects.create(
@@ -335,6 +350,8 @@ class JournalCommentsView(APIView):
         queryset = visible_chronicle_entries(request.user, ChronicleEntry.objects.all()).filter(
             kind__in=(ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.GRADE), is_private=False,
         )
+        if is_personal_space(request):
+            queryset = queryset.filter(user=request.user)
         if lock:
             queryset = queryset.select_for_update()
         return get_object_or_404(queryset, pk=entry_id)

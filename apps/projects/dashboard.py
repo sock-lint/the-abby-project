@@ -28,13 +28,15 @@ def build_dashboard(user, *, request=None) -> dict[str, Any]:
     # since-last-visit block summarizes what happened in the gap.
     last_seen = user.last_seen_at
     payload = _common_dashboard(user, today)
-    if user.role == "child":
+    from config.participation import is_personal_space
+    personal = is_personal_space(request)
+    if user.role == "child" or personal:
         payload.update(_child_extras(user, today))
         payload["since_last_visit"] = _since_last_visit(user, last_seen)
     elif user.role == "parent":
         payload.update(_parent_extras(user, today))
     payload["rpg"] = _rpg_block(user, today, request=request)
-    payload["next_actions"] = _next_actions(user)
+    payload["next_actions"] = _next_actions(user, personal=personal)
     _stamp_last_seen(user)
     return payload
 
@@ -337,6 +339,7 @@ def _rpg_block(user, today, *, request=None) -> dict[str, Any]:
 # Next-actions feed (priority scorer)
 # ---------------------------------------------------------------------------
 
-def _next_actions(user) -> list[dict[str, Any]]:
+def _next_actions(user, *, personal=False) -> list[dict[str, Any]]:
     from apps.projects import priority as priority_module
-    return [a.as_dict() for a in priority_module.build_next_actions(user)]
+    kwargs = {"personal": True} if personal else {}
+    return [a.as_dict() for a in priority_module.build_next_actions(user, **kwargs)]

@@ -206,7 +206,7 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if legacy:
             pin.legacy_quest = legacy
             pin.save(update_fields=["legacy_quest", "updated_at"])
-    if user.role != "child":
+    if user.role not in {"child", "parent"}:
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
     existing_ids.update(QuestDefinition.objects.filter(pk__in=existing_ids).exclude(
@@ -629,7 +629,7 @@ def _lock_reward_skills(tags, *, retained_ids=()):
     admit_references(Skill, ids, retained_ids=retained_ids)
 
 
-def _lock_parent_goal_members(parent, child):
+def _lock_parent_goal_members(parent, child, *, allow_self=False):
     """Native callers share Family -> sorted account admission with MCP."""
     from apps.families.models import Family
 
@@ -641,15 +641,17 @@ def _lock_parent_goal_members(parent, child):
     fresh_parent, fresh_child = members.get(parent.pk), members.get(child.pk)
     if fresh_parent is None or not fresh_parent.is_active or fresh_parent.role != "parent":
         raise GoalParentUnavailable("You can no longer create challenges for this family.")
-    if fresh_child is None or not fresh_child.is_active or fresh_child.role != "child":
+    self_participant = allow_self and fresh_child is not None and fresh_child.pk == fresh_parent.pk
+    if (fresh_child is None or not fresh_child.is_active
+            or (fresh_child.role != "child" and not self_participant)):
         raise GoalChildUnavailable("Child not found")
     fresh_parent.family = fresh_child.family = family
     return fresh_parent, fresh_child
 
 
 @transaction.atomic
-def create_goal(parent, child, data, *, validate_current=False):
-    parent, child = _lock_parent_goal_members(parent, child)
+def create_goal(parent, child, data, *, validate_current=False, allow_self=False):
+    parent, child = _lock_parent_goal_members(parent, child, allow_self=allow_self)
     fingerprint = hashlib.sha256(json.dumps(
         {key: value for key, value in data.items() if key != "request_id"}, sort_keys=True, default=str,
     ).encode()).hexdigest()
@@ -959,7 +961,7 @@ def list_goals(user):
     ).values_list("superseded_by_id", flat=True))
     locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
         "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
-    ).order_by("quest_type", "name", "pk") if user.role == "child" else []
+    ).order_by("quest_type", "name", "pk") if user.role in {"child", "parent"} else []
     # A retryable ended prerequisite can still unlock this offer. Omit only
     # paths with no accepted completion, current window or eligible retry.
     locked = [definition for definition in locked if definition_is_available(definition) and not (

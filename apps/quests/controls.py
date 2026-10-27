@@ -186,13 +186,13 @@ def close_unpaid_attempts(occurrence, ctx, *, include_current=False):
     )
 
 
-def _authorized_goal(actor, goal_id):
+def _authorized_goal(actor, goal_id, *, self_only=False):
     from .goals import lock_user
     goal = ChallengeGoal.objects.select_related("user__family").filter(
         pk=goal_id, family_id=actor.family_id, user__family_id=actor.family_id,
-        user__role="child", user__is_active=True,
+        user__role__in=["child", "parent"], user__is_active=True,
     ).first()
-    if goal is None or (actor.role != "parent" and (actor.role != "child" or goal.user_id != actor.pk)):
+    if goal is None or (goal.user_id != actor.pk and (self_only or actor.role != "parent" or goal.user.role != "child")):
         raise NotFound("Challenge not found")
     try:
         members = {member.pk: lock_user(member) for member in sorted(
@@ -201,18 +201,18 @@ def _authorized_goal(actor, goal_id):
     except get_user_model().DoesNotExist:
         raise NotFound("Challenge not found") from None
     fresh_actor, child = members[actor.pk], members[goal.user_id]
-    if (not fresh_actor.is_active or not child.is_active or child.role != "child" or fresh_actor.family_id != child.family_id
+    if (not fresh_actor.is_active or not child.is_active or (child.role != "child" and child.pk != actor.pk) or fresh_actor.family_id != child.family_id
             or child.family_id != goal.family_id or fresh_actor.role != actor.role):
         raise NotFound("Challenge not found")
     return ChallengeGoal.objects.select_related("user__family", "catalog_definition", "movement_type").get(pk=goal.pk)
 
 
 @transaction.atomic
-def retry_challenge(actor, occurrence_id):
+def retry_challenge(actor, occurrence_id, *, self_only=False):
     original = ChallengeOccurrence.objects.filter(pk=occurrence_id).first()
     if original is None:
         raise NotFound("Challenge not found")
-    goal = _authorized_goal(actor, original.goal_id)
+    goal = _authorized_goal(actor, original.goal_id, self_only=self_only)
     original = ChallengeOccurrence.objects.select_related("goal__catalog_definition").get(pk=original.pk)
     successor = ChallengeOccurrence.objects.filter(retry_of=original).first()
     if successor is not None:
@@ -283,12 +283,12 @@ def schedule_payload(goal, ctx=None):
 
 
 @transaction.atomic
-def update_schedule(actor, goal_id, data):
+def update_schedule(actor, goal_id, data, *, self_only=False):
     from types import SimpleNamespace
     from .goal_serializers import GoalWriteSerializer
     if actor.role != "parent":
         raise NotFound("Challenge not found")
-    goal = _authorized_goal(actor, goal_id)
+    goal = _authorized_goal(actor, goal_id, self_only=self_only)
     if goal.is_catalog or not goal.repeat_weekly:
         raise ValueError("Only recurring parent goals have a future weekly setup.")
     if data["expected_revision"] != goal.schedule_revision:

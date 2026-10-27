@@ -61,6 +61,8 @@ class ChoreService:
 
         if user.role == "child":
             qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
+        elif user.role == "parent":
+            qs = qs.filter(assigned_to=user)
 
         # Exclude alternating-week chores that are off this week.
         active_ids = [c.pk for c in qs if ChoreService.is_active_this_week(c, target_date)]
@@ -121,7 +123,7 @@ class ChoreService:
 
     @staticmethod
     @transaction.atomic
-    def submit_completion(user, chore, notes=""):
+    def submit_completion(user, chore, notes="", *, personal=False):
         """Child marks a chore as done. Creates a pending ChoreCompletion."""
         # Re-read the schedule before freezing it. Lock the child first,
         # matching homework/account lifecycle lock order, then the chore.
@@ -138,7 +140,8 @@ class ChoreService:
                 "This chore is waiting for parent approval before it can be completed.",
             )
 
-        if user.role != "child":
+        own_parent_chore = personal and user.is_active and user.role == "parent" and chore.assigned_to_id == user.pk
+        if user.role != "child" and not own_parent_chore:
             raise ChoreNotAvailableError("Only children can complete chores.")
 
         if chore.assigned_to and chore.assigned_to != user:
@@ -188,7 +191,7 @@ class ChoreService:
             ),
             status=ChoreCompletion.Status.PENDING,
             notes=notes,
-            reward_amount_snapshot=chore.reward_amount,
+            reward_amount_snapshot=0 if own_parent_chore else chore.reward_amount,
             coin_reward_snapshot=chore.coin_reward,
         )
 
@@ -211,6 +214,9 @@ class ChoreService:
                 "coin_snapshot": chore.coin_reward,
             },
         )
+
+        if own_parent_chore:
+            return ChoreService.approve_completion(completion, user)
 
         # Notify parents.
         display = get_display_name(user)

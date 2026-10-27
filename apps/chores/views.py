@@ -7,6 +7,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin, RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
@@ -90,6 +91,8 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         if family is None:
             return Chore.objects.none()
         qs = Chore.objects.prefetch_related("skill_tags__skill").filter(family=family)
+        if is_personal_space(self.request):
+            return qs.filter(assigned_to=user)
         if user.role == "parent":
             # Parents can filter to just pending proposals for the review queue.
             if self.request.query_params.get("pending") == "true":
@@ -138,7 +141,13 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 about_user=user,
             )
         else:
-            chore = serializer.save(created_by=user, family=user.family)
+            extras = {"created_by": user, "family": user.family}
+            if is_personal_space(self.request):
+                assigned = serializer.validated_data.get("assigned_to")
+                if assigned is not None and assigned.pk != user.pk:
+                    raise ValidationError({"assigned_to": "My space chores must be assigned to you."})
+                extras.update(assigned_to=user, reward_amount=0)
+            chore = serializer.save(**extras)
             _apply_skill_tags(chore, tags)
 
     @transaction.atomic
@@ -147,6 +156,11 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         # omitting leaves the existing tag set alone (common for minor
         # edits that don't re-save the whole form).
         tags = serializer.validated_data.pop("skill_tags", None)
+        if is_personal_space(self.request):
+            assigned = serializer.validated_data.get("assigned_to")
+            if assigned is not None and assigned.pk != self.request.user.pk:
+                raise ValidationError({"assigned_to": "My space chores must be assigned to you."})
+            serializer.validated_data.update(assigned_to=self.request.user, reward_amount=0)
         chore = serializer.save()
         if tags is not None:
             _apply_skill_tags(chore, tags)
@@ -184,7 +198,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         # annotated with tap availability.
         if request.query_params.get("pending") == "true":
             return super().list(request, *args, **kwargs)
-        if user.role == "child":
+        if user.role == "child" or is_personal_space(request):
             chores = ChoreService.get_available_chores(user)
             data = []
             for chore in chores:
@@ -202,6 +216,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         try:
             completion = ChoreService.submit_completion(
                 request.user, chore, notes=request.data.get("notes", ""),
+                personal=is_personal_space(request),
             )
         except ChoreNotAvailableError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

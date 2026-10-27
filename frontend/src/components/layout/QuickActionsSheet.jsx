@@ -199,8 +199,8 @@ export default function QuickActionsSheet(props) {
 function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReload, context }) {
   const mounted = useMountedRef();
   const navigate = useNavigate();
-  const { isParent, children, selectedChild, targetUserId, selectChild } = context;
-  const childPath = (path) => targetUserId ? `${path}&child=${encodeURIComponent(targetUserId)}` : path;
+  const { isParent, isParentAccount, children, selectedChild, targetUserId, selectChild } = context;
+  const childPath = (path) => isParent && targetUserId ? `${path}&child=${encodeURIComponent(targetUserId)}` : path;
   const needsChild = context.loading || !selectedChild;
   const go = (path) => { onClose(); navigate(childPath(path)); };
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
@@ -220,7 +220,7 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
   const todayJournal = journal.data;
 
   // Contextual enable/disable flags.
-  const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
+  const { data: hwDashboard } = useApi(isParent || isParentAccount ? () => Promise.resolve(null) : getHomeworkDashboard);
   const { data: goalsData } = useApi(isParent ? () => Promise.resolve([]) : getSavingsGoals);
 
   // Projects load at the sheet level (shared with ClockPane) so the menu can
@@ -391,20 +391,20 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
               />
               <ErrorAlert message={journal.error} onRetry={journal.reload} />
               {/* Use the same feature names as the Tasks tabs. */}
-              <ActionRow
+              {!isParentAccount && <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Log a grade"
                 hint="Keep a result and what you learned"
                 tone="royal"
                 onClick={() => setGradeOpen(true)}
-              />
-              <ActionRow
+              />}
+              {!isParentAccount && <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Add homework"
                 hint="Self-assign homework"
                 tone="royal"
                 onClick={() => setHomeworkOpen(true)}
-              />
+              />}
               {hasDueHw && (
                 <ActionRow
                   icon={<BookOpen size={18} />}

@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+from itertools import chain
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from celery import shared_task
@@ -9,6 +10,12 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 logger = logging.getLogger(__name__)
+
+
+def _personal_participants():
+    """Child accounts and parents who have entered their own progression space."""
+    from apps.families.queries import children_across_families, parents_across_families
+    return chain(children_across_families(), parents_across_families(challengeenrollment__isnull=False))
 
 
 def _completion_accounting_day(completion):
@@ -134,21 +141,19 @@ def _award_perfect_day(child, today):
 
 @shared_task
 def evaluate_perfect_day_task():
-    """Award approved daily chores once per child and configured local date.
+    """Award approved daily chores once per participant and configured local date.
 
     Household chore periods stay distinct from this worker/streak day. New
     completions use their captured submission instant; legacy rows retain
     their configured-day completed_date fallback.
     """
-    from apps.families.queries import children_across_families
-
     awarded = 0
     seen = 0
     today = timezone.localdate(timezone=timezone.get_default_timezone())
-    for _family, child in children_across_families():
+    for _family, child in _personal_participants():
         seen += 1
         awarded += _award_perfect_day(child, today)
-    return f"Perfect day evaluated: {awarded}/{seen} children awarded."
+    return f"Perfect day evaluated: {awarded}/{seen} participants awarded."
 
 
 # Streaks of at least this length get the evening at-risk warning —
@@ -158,15 +163,14 @@ STREAK_AT_RISK_MIN = 3
 
 @shared_task
 def streak_at_risk_warning_task():
-    """Warn children whose streak will break tonight if they stay idle.
+    """Warn participating accounts whose streak will break tonight if idle.
 
     Runs at 19:00 local (before the 23:55 perfect-day tick) so there's
-    still real evening left to act on it. Gentle-nudge doctrine: child
-    only — no parent fan-out — and at most one warning per local day.
-    Kids holding an armed streak freeze that covers today are skipped;
+    still real evening left to act on it. Reminders address only the account
+    with its own streak, at most once per local day; there is no family fan-out.
+    Accounts holding an armed streak freeze that covers today are skipped;
     the freeze means tonight's miss won't break anything.
     """
-    from apps.families.queries import children_across_families
     from apps.notifications.models import Notification, NotificationType
     from apps.notifications.services import notify
     from apps.rpg.models import CharacterProfile
@@ -175,7 +179,7 @@ def streak_at_risk_warning_task():
     warned = 0
     seen = 0
 
-    for _family, child in children_across_families():
+    for _family, child in _personal_participants():
         seen += 1
         profile = CharacterProfile.objects.filter(user=child).first()
         if not profile or profile.login_streak < STREAK_AT_RISK_MIN:
@@ -211,4 +215,4 @@ def streak_at_risk_warning_task():
         )
         warned += 1
 
-    return f"Streak at-risk evaluated: {warned}/{seen} children warned."
+    return f"Streak at-risk evaluated: {warned}/{seen} participants warned."

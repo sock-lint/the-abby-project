@@ -446,6 +446,17 @@ from automatic cleanup candidates.
 
 ## Automatic challenges
 
+Parent participation uses the existing parent account and reward pipelines.
+`X-Abby-Space: personal` narrows participating REST endpoints to the current
+parent's own records through `config/participation.py`; it grants no authority.
+Family behavior remains the default for clients without the hint. Personal
+dashboard/heartbeat carry own progression, and parent-created personal chores
+auto-confirm only exact self assignments with zero money snapshots. Children
+retain the existing approval workflow. The read-only child overview at
+`/api/children/<id>/overview/` is parent/family-scoped, bounded to 100 rows per
+collection, and contains no private journal bodies. See
+[Family and My space](docs/family-and-my-space.md).
+
 Matching saved activities advance every eligible goal; a pin only features one
 on Today. Challenges have a period, the daily bonus pays automatically once per
 family-local day, and badges remain permanent recognition. Parent distance goals

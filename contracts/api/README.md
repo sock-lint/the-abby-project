@@ -1,5 +1,15 @@
 # Shared API response fixtures
 
+`parent-personal-dashboard.json` is a real parent-authenticated dashboard with
+`X-Abby-Space: personal`: its role remains `parent`, its Coins and habits belong
+to that parent, and household review/overview fields are absent. The header
+selects a self-scoped workspace without changing permissions.
+`family-child-overview.json` is the bounded, read-only parent-family child
+profile response, with saved skills, badges, companion collections and total
+counts. It exposes no journal bodies and awards nothing on read. The existing
+parent fixture producer and React consumer verify both raw responses and the
+client's explicit Family override when reading a child profile from My space.
+
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment
 restore and archive-replay fixtures distinguish the record's current restored

@@ -1,0 +1,200 @@
+import { test, expect } from '@playwright/test';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { stripVTControlCharacters } from 'node:util';
+
+let server;
+let origin;
+let fixtures;
+const PERSONAL_NAV = ['Today', 'Tasks', 'Pets', 'Rewards', 'Progress', 'Memories'];
+const FAMILY_NAV = ['Today', 'Tasks', 'Children', 'Rewards'];
+
+test.beforeAll(async () => {
+  const names = ['parent-personal-dashboard', 'parent-family-overview', 'family-child-overview',
+    'auth-me-ordinary-parent', 'auth-me-child', 'dashboard-earned-identity'];
+  fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name,
+    JSON.parse(await readFile(new URL(`../../contracts/api/fixtures/${name}.json`, import.meta.url), 'utf8')),
+  ])));
+  server = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)),
+    '--host', '127.0.0.1', '--port', '0'], {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  origin = await new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error(`Vite startup timed out: ${output}`)), 30_000);
+    server.once('error', (error) => { clearTimeout(timer); reject(error); });
+    server.once('exit', (code) => { clearTimeout(timer); reject(new Error(`Vite exited (${code}): ${output}`)); });
+    server.stdout.on('data', (chunk) => {
+      output += stripVTControlCharacters(chunk.toString());
+      const url = output.match(/http:\/\/127\.0\.0\.1:\d+/);
+      if (url) { clearTimeout(timer); resolve(url[0]); }
+    });
+    server.stderr.on('data', (chunk) => { output += chunk.toString(); });
+  });
+});
+
+test.afterAll(async () => {
+  if (server && server.exitCode === null) {
+    const stopped = once(server, 'exit');
+    server.kill();
+    await stopped;
+  }
+});
+
+async function mockApp(page, { child = false } = {}) {
+  const reads = [];
+  const writes = [];
+  const errors = [];
+  const unexpected = [];
+  const identity = fixtures[child ? 'auth-me-child' : 'auth-me-ordinary-parent'];
+  const personal = fixtures['parent-personal-dashboard'];
+  let createdHabit = null;
+  const ownHabit = { id: 901, user: identity.id, name: 'Read after breakfast', icon: '', habit_type: 'positive',
+    max_taps_per_day: 1, strength: 0, taps_today: 0, xp_reward: 5, skill_tags: [], is_active: true, pending_parent_review: false };
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => localStorage.setItem('abby_auth_token', 'synthetic-parent-space-browser-session'));
+  await page.route('**/*', (route) => {
+    if (new URL(route.request().url()).origin !== origin) {
+      unexpected.push({ url: route.request().url(), method: route.request().method() });
+      return route.abort();
+    }
+    return route.continue();
+  });
+  await page.route('**/api/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (!url.pathname.startsWith('/api/')) return route.fallback();
+    const record = { path: url.pathname, query: Object.fromEntries(url.searchParams),
+      space: request.headers()['x-abby-space'], authorization: request.headers().authorization };
+    if (request.method() === 'POST' && url.pathname === '/api/usage/visit/') return route.fulfill({ status: 204 });
+    if (request.method() === 'POST' && url.pathname === '/api/habits/') {
+      const body = request.postDataJSON();
+      writes.push({ ...record, body });
+      createdHabit = { ...ownHabit, ...body, id: 902 };
+      return route.fulfill({ status: 201, json: createdHabit });
+    }
+    if (request.method() !== 'GET') {
+      unexpected.push({ path: url.pathname, method: request.method() });
+      return route.abort();
+    }
+    reads.push(record);
+    if (url.pathname === '/api/dashboard/') return route.fulfill({ json: child ? fixtures['dashboard-earned-identity']
+      : record.space === 'personal' ? personal : fixtures['parent-family-overview'] });
+    if (url.pathname === '/api/habits/') return route.fulfill({
+      json: url.searchParams.has('pending') ? [] : [ownHabit, ...(createdHabit ? [createdHabit] : [])],
+    });
+    const payloads = {
+      '/api/auth/me/': identity,
+      '/api/children/': [{ id: 7, username: 'synthetic-abby', display_name: 'Abby', role: 'child', is_active: true },
+        { id: 8, username: 'synthetic-ben', display_name: 'Ben', role: 'child', is_active: true }],
+      '/api/children/7/overview/': fixtures['family-child-overview'],
+      '/api/pulse/': { unread_count: 0, notifications: [], recent_drops: [], challenge_receipts: [],
+        companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+        header: { active_timer: null, coin_balance: 35, streak_days: 0, identity: personal.rpg.identity } },
+      '/api/sprites/catalog/': { sprites: {}, etag: 'synthetic-empty' },
+      '/api/push/config/': { enabled: false },
+      '/api/dev/ping/': { enabled: false },
+      '/api/coins/': { balance: 35, recent: [] },
+      '/api/balance/': { balance: 0, breakdown: {}, recent_transactions: [] },
+      '/api/clock/': null,
+      '/api/homework/dashboard/': { pending_submissions: [], assignments: [], children: [] },
+      '/api/habits/history/': {},
+      '/api/pets/stable/': { pets: [], mounts: [], expeditions: [] },
+      '/api/challenges/': { results: [], pin: null, daily_bonus: null, locked_catalog: [], recent_receipts: [] },
+      '/api/achievements/summary/': { total_xp: 0, skills_count: 0, badges_count: 0 },
+    };
+    return route.fulfill({ json: payloads[url.pathname] ?? [] });
+  });
+  return { reads, writes, errors, unexpected };
+}
+
+function visibleNav(page, width) {
+  return width >= 1024 ? page.locator('aside nav[aria-label="Main navigation"]')
+    : page.locator('[data-journal-bottom-nav="true"]');
+}
+async function assertNavigation(page, width, names) {
+  const nav = visibleNav(page, width);
+  await expect(nav).toBeVisible();
+  await expect(nav.getByRole('link')).toHaveCount(names.length);
+  for (const name of names) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
+}
+async function assertFits(page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
+for (const width of [320, 390, 1280]) {
+  test(`parent switches between Family and own full experience at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { reads, writes, errors, unexpected } = await mockApp(page);
+    await page.goto(`${origin}/`);
+    const family = page.locator('button[aria-pressed]').filter({ hasText: /^Family/ });
+    const personal = page.getByRole('button', { name: 'My space', exact: true });
+    await expect(family).toHaveAttribute('aria-pressed', 'true');
+    await assertNavigation(page, width, FAMILY_NAV);
+    await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
+    await assertFits(page);
+    await page.screenshot({ path: testInfo.outputPath(`family-${width}.png`), fullPage: true });
+    await visibleNav(page, width).getByRole('link', { name: 'Children', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Children', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Abby', exact: true })).toBeVisible();
+    await expect(page.getByText('First drawing', { exact: true })).toBeVisible();
+    const personalBoundary = reads.length;
+    await personal.click();
+    await expect(personal).toHaveAttribute('aria-pressed', 'true');
+    await assertNavigation(page, width, PERSONAL_NAV);
+    await expect(page.getByText('Read after breakfast', { exact: true }).first()).toBeVisible();
+    await expect.poll(() => reads.some((read) => read.path === '/api/dashboard/' && read.space === 'personal')).toBe(true);
+    await assertFits(page);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('parent');
+    await page.screenshot({ path: testInfo.outputPath(`my-space-${width}.png`), fullPage: true });
+    await page.goto(`${origin}/quests?tab=rituals`);
+    await expect(page.getByRole('button', { name: 'New habit', exact: true })).toBeVisible();
+    await expect.poll(() => reads.some((read) => read.path === '/api/habits/' && read.space === 'personal')).toBe(true);
+    await page.getByRole('button', { name: 'New habit', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'New habit', exact: true });
+    await expect(dialog.getByLabel('Child', { exact: true })).toHaveCount(0);
+    await dialog.getByLabel('Name', { exact: true }).fill('Walk after lunch');
+    await assertFits(page);
+    await expect(family).toBeDisabled();
+    await expect(page.getByText('Save or close your current form before switching spaces.')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Create habit', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(family).toBeEnabled();
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ path: '/api/habits/', space: 'personal', body: { name: 'Walk after lunch', user: 6 } });
+    expect(writes[0].body).not.toHaveProperty('user_id');
+    for (const name of ['Pets', 'Rewards', 'Progress', 'Memories']) {
+      await visibleNav(page, width).getByRole('link', { name, exact: true }).click();
+      await expect(page.getByRole('tablist', { name: `${name} sections`, exact: true })).toBeVisible();
+      await assertNavigation(page, width, PERSONAL_NAV);
+      await assertFits(page);
+    }
+    const pendingReads = reads.slice(personalBoundary).filter((read) => read.query.status === 'pending');
+    expect(pendingReads.length).toBeGreaterThan(0);
+    expect(pendingReads.every((read) => read.space === undefined)).toBe(true);
+    expect(reads.filter((read) => read.path !== '/api/sprites/catalog/').every(
+      (read) => read.authorization === 'Token synthetic-parent-space-browser-session',
+    )).toBe(true);
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`my-memories-${width}.png`), fullPage: true });
+  });
+  test(`child keeps six personal destinations without a switch at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { errors, unexpected } = await mockApp(page, { child: true });
+    await page.goto(`${origin}/`);
+    await assertNavigation(page, width, PERSONAL_NAV);
+    await expect(page.getByRole('group', { name: 'Choose your space' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('child');
+    await assertFits(page);
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`child-${width}.png`), fullPage: true });
+  });
+}

@@ -13,8 +13,45 @@ import inactiveDeliveredReward from '../../../contracts/api/fixtures/parent-rewa
 import RewardDeliveryQueue from '../pages/rewards/RewardDeliveryQueue';
 import userEvent from '@testing-library/user-event';
 import { spyHandler } from '../test/spy';
+import personalDashboard from '../../../contracts/api/fixtures/parent-personal-dashboard.json';
+import childOverview from '../../../contracts/api/fixtures/family-child-overview.json';
+import { getChildOverview } from './index';
+import { setRequestSpace } from './space';
+import { getToken } from './client';
 
 describe('parent dashboard response through the real React API client', () => {
+  it('reads personal progression with the original parent identity', async () => {
+    let hint;
+    server.use(http.get('*/api/dashboard/', ({ request }) => {
+      hint = request.headers.get('X-Abby-Space'); return HttpResponse.json(personalDashboard);
+    }));
+    setRequestSpace('personal', getToken());
+    try {
+      const data = await getDashboard();
+      expect(hint).toBe('personal');
+      expect(data.role).toBe('parent');
+      expect(data.coin_balance).toBe(35);
+      expect(data.next_actions.map(row => row.title)).toEqual(['Read after breakfast']);
+      expect(data).not.toHaveProperty('family_overview');
+    } finally { setRequestSpace('family', getToken()); }
+  });
+
+  it('reads a child’s saved overview in Family even while My space is selected', async () => {
+    let hint;
+    server.use(http.get('*/api/children/7/overview/', ({ request }) => {
+      hint = request.headers.get('X-Abby-Space'); return HttpResponse.json(childOverview);
+    }));
+    setRequestSpace('personal', getToken());
+    try {
+      const data = await getChildOverview(7);
+      expect(hint).toBeNull();
+      expect(data.child).toEqual({ id: 7, display_name: 'Abby' });
+      expect(data.coin_balance).toBe(45);
+      expect(data.skills[0]).toMatchObject({ skill_name: 'Drawing', xp_points: 25 });
+      expect(data.badges[0].badge.name).toBe('First drawing');
+      expect(data).not.toHaveProperty('journals');
+    } finally { setRequestSpace('family', getToken()); }
+  });
   it('retains the saved inactive-child handover audit on delivery replay', async () => {
     const delivery = spyHandler('post', '*/api/redemptions/902/deliver/', inactiveDeliveredReward);
     server.use(delivery.handler);

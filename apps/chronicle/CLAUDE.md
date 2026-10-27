@@ -20,6 +20,15 @@ Age-aware lifelong journal: birthdays, chapter transitions (school years that do
 Celery tasks: `chronicle-birthday-check` (00:20, grants the fixed `BIRTHDAY_COIN_GIFT` (200) once for a new birthday), `chronicle-chapter-transition` (00:25, Aug 1 opens / Jun 1 closes + freezes RECAP; grade-12 Jun 1 also emits a standalone `graduated_high_school` MILESTONE entry).
 
 ## Endpoints
+
+Parent My space (`X-Abby-Space: personal`) reads only the parent's own history,
+chapter summaries and shared-entry comments; a targeted child summary is
+rejected. Journal creation/today/corrections remain bound to the authenticated
+author and preserve existing private defaults, rewards and UUID retries for
+parents too. Family can still read explicitly shared household journals/grades;
+co-parents cannot read private entries or alter another author's sharing.
+Academic grade capture and the Meadow projection remain child-only.
+
 - `ChronicleViewSet` at `/api/chronicle/` — `summary`, `pending-celebration`, `mark-viewed`, parent-only manual CRUD, self-scoped journal POST (exact UUID retries return the saved entry; unrelated second-of-day attempts return 409) + same-day text PATCH + historical sharing PATCH + today lookup GET.
 - Journal action is `IsAuthenticated`, binds writes to `request.user` so `user_id` in body is ignored.
 - `GET /api/chronicle/journal/today/` — returns today's local-day journal entry for `request.user`, or `204` when none yet.

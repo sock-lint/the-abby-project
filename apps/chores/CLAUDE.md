@@ -28,5 +28,12 @@ Recurring household tasks with a submit-then-approve workflow. User-facing label
 - **First challenge credit**: approval locks the child before the completion and before saving `decided_at`, using the same account lock as automatic enrollment. A concurrent first challenge read therefore cannot exclude that accepted approval from its initial window. PostgreSQL approval/read interleavings for chores and homework are covered by `tests/test_approval_concurrency.py`.
 
 ## Key entry points
+
+Personal parent requests use `X-Abby-Space: personal` and exact self-assigned
+chores. Create/update force self assignment and zero money. Completion invokes
+the existing locked approval/award service in the same submission transaction,
+with a zero money snapshot even for older money-bearing chores. Parent personal
+availability excludes shared and child chores; children still submit pending
+completions. The account role and Family management permissions do not change.
 - `services.py` — `ChoreService` (all business logic).
 - `models.py` — `Chore.WeekSchedule`, `ChoreCompletion.Status`.

@@ -140,6 +140,20 @@ frontend/src/
 
 ## Auth wiring
 
+### Parent workspaces
+
+`SpaceProvider` sits inside `BrowserRouter` above Pulse/review/shell. Parents
+have Family (Today/Tasks/Children/Rewards) and My space (the six personal
+destinations). `useRole` remains actual authorization; `useSpace` supplies
+presentation and `useChildContext.isParent` means the Family view. Personal
+parents target their own account. The provider remounts workspace data/forms,
+binds the API hint to the exact credential, respects existing unfinished-work
+guards, and keeps per-account per-tab route preferences. Requests snapshot
+`X-Abby-Space: personal`; explicit Family review reads override that hint,
+including every pending-list page. Private read namespaces also include space.
+Do not change `user.role` to show a participant interface. See
+[the user guide](../docs/family-and-my-space.md).
+
 - Token stored in `localStorage` key `abby_auth_token`, sent as `Authorization: Token <key>`.
 - **Shared browser session:** tabs on the same origin share the browser token; Unity is retired and no longer consumes it. Delayed 401s and logout responses clear only the token they used, preserving a newer sign-in. `AuthProvider` reloads on an external tab's auth-token change or localStorage clear, keeping the rendered user/role aligned with the credential. It also drops the cached user snapshot so offline boot cannot hydrate the previous account.
 - **Offline identity:** `AuthProvider` stores the last verified user in a versioned `{ token, user }` envelope bound to the exact credential that fetched it. It restores that identity only after a network failure with the matching token. Legacy snapshots and mismatched credentials are rejected; anonymous boots never accept a cached `/auth/me/` success. Login, signup and OAuth replacement clear the old snapshot before installing the new credential. `sessionError` carries OAuth/logout push-cleanup failures to the Login page.

@@ -35,6 +35,10 @@ class RoleFilteredQuerySetMixin:
     role_filter_field = "user"
 
     def get_role_filtered_queryset(self, queryset):
+        from config.participation import is_personal_space
+
+        if is_personal_space(self.request):
+            return queryset.filter(**{self.role_filter_field: self.request.user})
         return filter_queryset_by_role(
             self.request.user, queryset, self.role_filter_field,
         )
@@ -101,6 +105,10 @@ class NestedProjectResourceMixin:
         qs = super().get_queryset().filter(
             project_id=self.kwargs.get("project_pk"),
         )
+        from config.participation import is_personal_space
+        if is_personal_space(self.request):
+            self.get_project()
+            return qs.filter(project__assigned_to=self.request.user)
         return filter_resources_under_accessible_projects(
             self.request.user, qs,
         )
@@ -111,8 +119,12 @@ class NestedProjectResourceMixin:
         from apps.projects.models import Project
 
         if not hasattr(self, "_accessible_project"):
+            from config.participation import is_personal_space
+            projects = filter_projects_accessible_to(self.request.user, Project.objects.all())
+            if is_personal_space(self.request):
+                projects = projects.filter(assigned_to=self.request.user)
             self._accessible_project = get_object_or_404(
-                filter_projects_accessible_to(self.request.user, Project.objects.all()),
+                projects,
                 pk=self.kwargs["project_pk"],
             )
         return self._accessible_project
@@ -314,6 +326,16 @@ def resolve_target_user(request, source="query_params"):
     """
     user = request.user
     target_user = user
+    from config.participation import is_personal_space
+    if is_personal_space(request):
+        bucket = request.query_params if source == "query_params" else request.data
+        requested_id = bucket.get("user_id")
+        if requested_id not in (None, "", user.pk, str(user.pk)):
+            return None, Response(
+                {"error": "My space only uses your own records."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return user, None
     if user.role == "parent":
         bucket = request.query_params if source == "query_params" else request.data
         child_id = bucket.get("user_id")

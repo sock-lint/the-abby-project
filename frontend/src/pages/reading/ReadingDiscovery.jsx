@@ -1,3 +1,4 @@
+import { useSpace } from '../../hooks/useSpace';
 import { useEffect, useRef, useState } from 'react';
 import { getReadingRecommendations, saveReadingDiscoveryFeedback, listReadingFamilySuggestions, updateReadingFamilySuggestion } from '../../api';
 import { getToken } from '../../api/client';
@@ -22,6 +23,8 @@ const FILTERS = [
 const onShelf = (book, books) => books.some((saved) => saved.title.toLowerCase().trim() === book.title.toLowerCase().trim() && saved.author.toLowerCase().trim() === book.author.toLowerCase().trim());
 
 export default function ReadingDiscovery({ context, credential, books, shelfReady, refreshKey, onChooseBook, similarBook, onSimilar }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const params = context.isParent ? { user_id: context.targetUserId } : {};
   const mounted = useRef(false);
   const inFlight = useRef(false);
@@ -130,7 +133,7 @@ export default function ReadingDiscovery({ context, credential, books, shelfRead
       })}</div>
       {!suggestions.length && !recommendations.error && <p className="text-body text-ink-secondary">No matching books right now. Try another topic or reset the filters.</p>}
     </>}
-    <section aria-label="Family book suggestions" className="space-y-3">
+    {!personalParent && <section aria-label="Family book suggestions" className="space-y-3">
       <h4 className="text-lede font-bold text-ink-primary">{context.isParent ? 'Family book suggestions' : 'Suggestions from your family'}</h4>
       <ErrorAlert message={family.error} onRetry={family.reload} />
       {family.loading ? <Loader /> : <>
@@ -149,7 +152,7 @@ export default function ReadingDiscovery({ context, credential, books, shelfRead
         <ErrorAlert message={familyPageError} onRetry={loadFamilyPage} />
         {family.data?.next && <Button size="sm" variant="secondary" loading={familyPageBusy} onClick={loadFamilyPage}>Show earlier suggestions</Button>}
       </>}
-    </section>
+    </section>}
     {composer && <FamilySuggestionForm book={composer} userId={context.targetUserId} credential={credential} onClose={() => setComposer(null)} onSaved={() => { if (!current()) return; setComposer(null); setMessage('Suggestion sent. Your child can choose whether to save it.'); void family.reload(); }} />}
   </section>;
 }

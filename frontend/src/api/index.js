@@ -48,7 +48,8 @@ export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/cl
 // Dashboard
 // retryGateway: a deploy window can answer this boot-time read with an HTML 200
 // (THE-ABBY-PROJECT-3Z); useApi reports it only if a delayed second try fails.
-export const getDashboard = (signal) => api.get('/dashboard/', { retryGateway: true, signal });
+export const getDashboard = (signal, options) => api.get('/dashboard/', { ...options, retryGateway: true, signal });
+export const getChildOverview = (id, options) => api.get(`/children/${id}/overview/`, { ...options, space: 'family' });
 // First-party usage: server-derived actors, bounded aggregate reports only.
 export const getUsageDashboard = (filters, options) => api.get(`/admin/usage/?${new URLSearchParams(filters)}`, options);
 export const recordUsageVisit = (options) => api.post('/usage/visit/', {}, options);
@@ -321,7 +322,7 @@ export const getAllApprovalPages = async (fetchFirstPage) => {
     if (!page.next) return rows;
     if (visited.has(page.next)) throw new Error('Could not load all pending approvals. Try again.');
     visited.add(page.next);
-    page = await fetchActivityUrl(page.next);
+    page = await fetchActivityUrl(page.next, { space: 'family' });
   }
   return rows;
 };
@@ -334,9 +335,9 @@ export const deleteReward = (id) => api.delete(`/rewards/${id}/`);
 export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
 export const getRedemptions = () => api.get('/redemptions/');
 export const getPendingRedemptions = () =>
-  getAllApprovalPages(() => api.get('/redemptions/?status=pending'));
+  getAllApprovalPages(() => api.get('/redemptions/?status=pending', { space: 'family' }));
 export const getAwaitingRedemptions = () =>
-  getAllApprovalPages(() => api.get('/redemptions/?status=approved'));
+  getAllApprovalPages(() => api.get('/redemptions/?status=approved', { space: 'family' }));
 export const approveRedemption = (id, notes = '') =>
   withParentReviewRefresh(api.post(`/redemptions/${id}/approve/`, { notes }));
 export const rejectRedemption = (id, notes = '') =>
@@ -356,7 +357,7 @@ export const requestExchange = (dollar_amount) =>
   withParentReviewRefresh(api.post('/coins/exchange/', { dollar_amount }));
 export const getExchangeRequests = () => api.get('/coins/exchange/list/');
 export const getPendingExchangeRequests = () =>
-  getAllApprovalPages(() => api.get('/coins/exchange/list/?status=pending'));
+  getAllApprovalPages(() => api.get('/coins/exchange/list/?status=pending', { space: 'family' }));
 export const approveExchange = (id, notes = '') =>
   withParentReviewRefresh(api.post(`/coins/exchange/${id}/approve/`, { notes }));
 export const rejectExchange = (id, notes = '') =>
@@ -488,9 +489,9 @@ export const updateChore = (id, data) => withParentReviewRefresh(api.patch(`/cho
 export const deleteChore = (id) => withParentReviewRefresh(api.delete(`/chores/${id}/`));
 export const completeChore = (id, notes = '') =>
   withParentReviewRefresh(api.post(`/chores/${id}/complete/`, { notes }));
-export const getChoreCompletions = (status) => {
+export const getChoreCompletions = (status, options) => {
   const qs = status ? `?status=${status}` : '';
-  return api.get(`/chore-completions/${qs}`);
+  return api.get(`/chore-completions/${qs}`, options);
 };
 export const getReviewHistory = (kind, { userId, page = 1, signal } = {}) => {
   const endpoint = { chore: 'chore-completions', homework: 'homework-submissions' }[kind];
@@ -507,7 +508,7 @@ export const withdrawChoreCompletion = (id) =>
   withParentReviewRefresh(api.post(`/chore-completions/${id}/withdraw/`));
 // Chore proposals (child-authored, parent-gated rewards).
 export const listPendingChoreProposals = () =>
-  api.get('/chores/?pending=true');
+  api.get('/chores/?pending=true', { space: 'family' });
 export const listMyChoreProposals = () =>
   api.get('/chores/?pending=true');
 export const approveChoreProposal = (id, payload) =>
@@ -555,7 +556,7 @@ export const triggerCalendarSync = () => api.post('/auth/google/calendar/sync/')
 export const getHomeworkAISettings = () => api.get('/homework/ai-settings/');
 export const updateHomeworkAISettings = (data) => api.put('/homework/ai-settings/', data);
 export const deleteHomeworkAISettings = () => api.delete('/homework/ai-settings/');
-export const getHomeworkDashboard = () => api.get('/homework/dashboard/');
+export const getHomeworkDashboard = () => api.get('/homework/dashboard/', { space: 'family' });
 export const getHomework = () => api.get('/homework/');
 export const getHomeworkDetail = (id) => api.get(`/homework/${id}/`);
 export const createHomework = (data) => withParentReviewRefresh(api.post('/homework/', data));
@@ -624,7 +625,7 @@ export const approveCreation = (id, payload = {}) =>
   withParentReviewRefresh(api.post(`/creations/${id}/approve/`, payload));
 export const rejectCreation = (id, notes = '') =>
   withParentReviewRefresh(api.post(`/creations/${id}/reject/`, { notes }));
-export const listPendingCreations = () => api.get('/creations/pending/');
+export const listPendingCreations = () => api.get('/creations/pending/', { space: 'family' });
 
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
@@ -642,7 +643,7 @@ export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
 // Habit proposals (child-authored, parent-gated rewards).
 export const listPendingHabitProposals = () =>
-  api.get('/habits/?pending=true');
+  api.get('/habits/?pending=true', { space: 'family' });
 export const listMyHabitProposals = () =>
   api.get('/habits/?pending=true');
 export const approveHabitProposal = (id, payload) =>
@@ -802,8 +803,8 @@ const forgeQuery = (params = {}) => {
   return qs ? `?${qs}` : '';
 };
 
-export const listPrintRequests = (params = {}) =>
-  api.get(`/print-requests/${forgeQuery(params)}`);
+export const listPrintRequests = (params = {}, options) =>
+  api.get(`/print-requests/${forgeQuery(params)}`, options);
 export const createPrintRequest = (data) =>
   (data instanceof FormData
     ? api.upload('/print-requests/', data)
@@ -849,10 +850,10 @@ export const listActivity = (params = {}) => {
 };
 // Cursor pagination returns absolute next/previous URLs — call them as-is
 // minus the /api prefix the client auto-adds.
-export const fetchActivityUrl = (url) => {
+export const fetchActivityUrl = (url, options) => {
   if (!url) return Promise.resolve({ results: [], next: null, previous: null });
   const path = url.replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '');
-  return api.get(path);
+  return api.get(path, options);
 };
 
 // Dev tools — parent + DEBUG/DEV_TOOLS_ENABLED only. Drives the

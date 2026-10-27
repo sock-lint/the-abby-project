@@ -17,6 +17,7 @@ import ChapterRubric from '../components/atlas/ChapterRubric';
 import ArtworkImage from '../components/rpg/ArtworkImage';
 import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import Button from '../components/Button';
 import AddToCalendar from '../components/AddToCalendar';
 import { SelectField } from '../components/form';
@@ -52,9 +53,10 @@ const STATUS_RUBRICS = [
 
 export default function Projects() {
   const { isParent, user } = useRole();
+  const { isFamilySpace } = useSpace();
   const { data, loading, error, reload } = useApi(getProjects);
   const { data: suggestions } = useApi(getProjectSuggestions);
-  const { data: childrenData } = useApi(getChildren);
+  const { data: childrenData } = useApi(isFamilySpace ? getChildren : () => Promise.resolve([]), [isFamilySpace]);
   const navigate = useNavigate();
   const location = useLocation();
   const restoredScroll = useRef(false);
@@ -308,7 +310,7 @@ export default function Projects() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </SelectField>
-          {isParent && children.length > 0 && (
+          {isFamilySpace && children.length > 0 && (
             <SelectField
               variant="filter"
               aria-label="Filter by child"

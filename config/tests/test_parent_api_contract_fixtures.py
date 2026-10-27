@@ -27,6 +27,58 @@ FIXED_NOW = datetime(2026, 10, 19, 2, tzinfo=timezone.utc)
 class ParentApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
 
+    def test_personal_parent_dashboard_uses_own_progress_without_changing_role(self):
+        from apps.habits.models import Habit
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            family = make_family(
+                "Parent Personal Fixture", family_id=63,
+                parents=[{"id": 6, "username": "personal-parent", "display_name": "Alex"}],
+                children=[{"id": 7, "username": "personal-child"}],
+            )
+            parent, child = family.parents[0], family.children[0]
+            Habit.objects.create(id=901, user=parent, created_by=parent, name="Read after breakfast")
+            Habit.objects.create(id=902, user=child, created_by=parent, name="Child-only habit")
+            CoinService.award_coins(parent, 35, CoinLedger.Reason.ADJUSTMENT)
+            CoinService.award_coins(child, 700, CoinLedger.Reason.ADJUSTMENT)
+            self.client.force_authenticate(parent)
+            body = self.assert_response_fixture(
+                self.client.get("/api/dashboard/", HTTP_X_ABBY_SPACE="personal"),
+                "parent-personal-dashboard.json",
+            )
+            self.assertEqual(body["role"], "parent")
+            self.assertEqual(body["coin_balance"], 35)
+            self.assertNotIn("family_overview", body)
+            self.assertEqual([row["title"] for row in body["next_actions"]], ["Read after breakfast"])
+
+    def test_child_overview_is_read_only_and_contains_saved_progress(self):
+        from apps.achievements.models import Skill, SkillCategory, SkillProgress
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            family = make_family(
+                "Child Profile Fixture", family_id=64,
+                parents=[{"id": 6, "username": "profile-parent"}],
+                children=[{"id": 7, "username": "profile-child", "display_name": "Abby"}],
+            )
+            parent, child = family.parents[0], family.children[0]
+            category = SkillCategory.objects.create(id=801, name="Creative practice")
+            skill = Skill.objects.create(id=802, name="Drawing", category=category)
+            SkillProgress.objects.create(id=803, user=child, skill=skill, xp_points=25, level=1)
+            badge = Badge.objects.create(id=804, name="First drawing", criteria_type="manual")
+            UserBadge.objects.create(id=805, user=child, badge=badge)
+            CoinService.award_coins(child, 45, CoinLedger.Reason.ADJUSTMENT)
+            self.client.force_authenticate(parent)
+            before = list(CoinLedger.objects.values())
+            body = self.assert_response_fixture(
+                self.client.get(f"/api/children/{child.pk}/overview/"),
+                "family-child-overview.json",
+            )
+            self.assertEqual(body["child"]["id"], child.pk)
+            self.assertEqual(body["counts"]["skills"], 1)
+            self.assertEqual(list(CoinLedger.objects.values()), before)
+
     def test_family_overview_is_the_household_day_with_safe_confirmed_accomplishments(self):
         with patch("django.utils.timezone.now", return_value=FIXED_NOW):
             household = make_family(

@@ -1,20 +1,20 @@
 import { NavLink } from 'react-router-dom';
-import { SlidersHorizontal, Settings, LogOut, History, BookOpen, Sparkles } from 'lucide-react';
+import { SlidersHorizontal, Settings, LogOut, History, BookOpen, Sparkles, UsersRound } from 'lucide-react';
 import { TodayIcon, QuestsIcon, BestiaryIcon, TreasuryIcon, AtlasIcon, ChronicleIcon } from '../icons/JournalIcons';
 import AvatarMenu from '../AvatarMenu';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
+import { useSpaceForUser } from '../../hooks/useSpace';
 
 /**
- * ChapterNav — renders the six-chapter nav in two flavors:
+ * ChapterNav — renders the current workspace's navigation in two flavors:
  *   - desktop : soft navigation rail with icons + labels
- *   - mobile  : bottom tab bar, six equal columns (same for both roles)
+ *   - mobile  : bottom tab bar, four Family or six personal destinations
  *
  * The Clock is NOT a chapter — it lives in ClockFab (floating action).
  * Manage / Activity / Content Catalog (parent-only) sit in the desktop
- * sidebar footer. Mobile has no footer — Settings, Manage, Activity, and
- * Content Catalog are all reached via the header AvatarMenu so the bottom bar
- * keeps showing all six chapters (Chronicle included) for parents the same as
- * it does for children.
+ * sidebar footer. Mobile reaches those utilities through AvatarMenu.
+ * Parent permission is unchanged; My space has the same personal navigation
+ * as a child account, while Family organizes household work and children.
  *
  * The /codex link reads "Content Catalog", matching the page heading: it
  * administers the RPG catalog, not the kid-facing Lorebook, and "Codex"
@@ -30,8 +30,13 @@ const CHAPTERS = [
   { to: '/chronicle',  icon: ChronicleIcon, label: 'Memories', shortLabel: 'Memories' },
 ];
 
+const FAMILY_CHAPTERS = [CHAPTERS[0], CHAPTERS[1],
+  { to: '/family', icon: UsersRound, label: 'Children', shortLabel: 'Children' }, CHAPTERS[3]];
+
 export function ChapterSidebar({ user, onLogout }) {
   const isParent = user?.role === 'parent';
+  const { isFamilySpace } = useSpaceForUser(user);
+  const chapters = isFamilySpace ? FAMILY_CHAPTERS : CHAPTERS;
   const { total: pendingCount, ready, incomplete } = useParentPendingCounts({ enabled: isParent });
   return (
     <aside
@@ -46,7 +51,7 @@ export function ChapterSidebar({ user, onLogout }) {
           The Abby Project
         </h1>
         <div className="font-body text-ink-secondary text-caption mt-1 truncate">
-          {user?.display_name || user?.username
+          {isFamilySpace ? `${user?.family?.name || 'Your family'} · Family` : user?.display_name || user?.username
             ? `${user.display_name || user.username}’s little world`
             : 'Your little world'}
         </div>
@@ -54,7 +59,7 @@ export function ChapterSidebar({ user, onLogout }) {
 
       {/* Chapter list */}
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 pb-3 space-y-1.5">
-        {CHAPTERS.map(({ to, icon: Icon, label }) => (
+        {chapters.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
@@ -74,7 +79,7 @@ export function ChapterSidebar({ user, onLogout }) {
                     size={22}
                     className={isActive ? 'text-sheikah-teal-deep' : ''}
                   />
-                  {to === '/' && isParent && (pendingCount > 0 || !ready || incomplete) && (
+                  {to === '/' && isFamilySpace && (pendingCount > 0 || !ready || incomplete) && (
                     <span
                       className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
                       aria-label={!ready ? 'Checking reviews' : incomplete ? 'Some review queues are unavailable' : `${pendingCount} items needing attention`}
@@ -167,12 +172,11 @@ export function ChapterSidebar({ user, onLogout }) {
 
 export function ChapterBottomBar({ user }) {
   const isParent = user?.role === 'parent';
+  const { isFamilySpace } = useSpaceForUser(user);
   const { total: pendingCount, ready, incomplete } = useParentPendingCounts({ enabled: isParent });
 
-  // Both roles get the same six chapters — Manage / Activity / Content
-  // Catalog for parents reach via AvatarMenu in the mobile header so Chronicle
-  // isn't displaced out of the bottom bar.
-  const chapters = CHAPTERS;
+  // Family utilities remain in AvatarMenu; personal chapters belong in My space.
+  const chapters = isFamilySpace ? FAMILY_CHAPTERS : CHAPTERS;
 
   return (
     <nav
@@ -199,7 +203,7 @@ export function ChapterBottomBar({ user }) {
             <>
               <span className="relative">
                 <Icon size={20} className={isActive ? 'text-sheikah-teal-deep' : ''} />
-                {to === '/' && isParent && (pendingCount > 0 || !ready || incomplete) && (
+                {to === '/' && isFamilySpace && (pendingCount > 0 || !ready || incomplete) && (
                   <span
                     className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
                     aria-label={!ready ? 'Checking reviews' : incomplete ? 'Some review queues are unavailable' : `${pendingCount} items needing attention`}

@@ -328,6 +328,9 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         request = self.context.get("request")
         if request is None:
             return value
+        from config.participation import is_personal_space
+        if is_personal_space(request) and value.pk != request.user.pk:
+            raise serializers.ValidationError("My space projects must be assigned to you.")
         family_id = getattr(request.user, "family_id", None)
         if family_id is None or value.family_id != family_id:
             raise serializers.ValidationError("Child not found in your family.")

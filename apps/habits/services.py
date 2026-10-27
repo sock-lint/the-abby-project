@@ -25,6 +25,9 @@ class HabitService:
         Habit.objects.select_for_update().get(pk=habit.pk)
         habit.refresh_from_db()
 
+        if habit.user_id != user.pk:
+            raise ValueError("You can only check in to your own habits.")
+
         if not habit.is_active:
             raise ValueError("This habit is paused. Ask a parent to resume it before tapping.")
 

@@ -2,6 +2,10 @@
 
 A family-focused Django + React app for managing kids' projects, chores, and homework with real-money allowance tracking, a non-monetary Coins economy with a reward shop, a skill tree with badges, AI-powered project ingestion from Instructables/PDFs, and an MCP server for Claude tool use.
 
+Parents can also participate with their own pets, XP, Coins, and challenges.
+See [Family and My space](docs/family-and-my-space.md) for navigation,
+personal activities, and privacy.
+
 React remains the complete application. The profile and pet experience uses
 optional React Three Fiber presentation, with ordinary accessible controls and
 2D fallbacks. Capacitor packages the same UI for development on iOS/Android;

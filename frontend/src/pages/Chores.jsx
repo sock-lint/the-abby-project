@@ -17,6 +17,7 @@ import { useApi } from '../hooks/useApi';
 import useMountedRef from '../hooks/useMountedRef';
 import { useFormState } from '../hooks/useFormState';
 import useChildContext from '../hooks/useChildContext';
+import { useSpace } from '../hooks/useSpace';
 import ChildContext from '../components/family/ChildContext';
 import { getFamilyChores, getFamilyChoreProposals, getFamilyChoreCompletions } from '../api';
 import ApprovalQueue from '../components/ApprovalQueue';
@@ -60,13 +61,15 @@ const STATUS_TONE = {
 };
 
 function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mode, onClose, onSaved }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   // mode: 'create' | 'edit' | 'approve'. Resolved by caller so labels + submit
   // routing are unambiguous (approve has its own endpoint).
   const mounted = useMountedRef();
   const resolvedMode = mode || (chore ? 'edit' : 'create');
   const isApprove = resolvedMode === 'approve';
   const isEdit = resolvedMode === 'edit';
-  const canSetRewards = isParent;
+  const canSetRewards = isParent || personalParent;
   const [advanced, setAdvanced] = useState(resolvedMode !== 'create');
   const [offerReward, setOfferReward] = useState(Number(chore?.reward_amount) > 0 || Number(chore?.coin_reward) > 0);
 
@@ -115,7 +118,7 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
           ? form.schedule_start_date || null : null,
       };
       const parentExtras = canSetRewards ? {
-        reward_amount: offerReward ? form.reward_amount : '0.00',
+        reward_amount: offerReward && !personalParent ? form.reward_amount : '0.00',
         coin_reward: offerReward ? parseInt(form.coin_reward) || 0 : 0,
         xp_reward: parseInt(form.xp_reward) || 0,
         assigned_to: form.assigned_to ? parseInt(form.assigned_to) : null,
@@ -148,10 +151,10 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
     ? 'Approve chore proposal'
     : isEdit
       ? 'Edit chore'
-      : isParent ? 'New chore' : 'Propose a chore';
+      : canSetRewards ? 'New chore' : 'Propose a chore';
   const submitLabel = isApprove ? 'Approve & publish'
     : isEdit ? 'Update'
-    : isParent ? 'Create' : 'Send to parent';
+    : canSetRewards ? 'Create' : 'Send to parent';
 
   return (
     <BottomSheet title={title} onClose={onClose} disabled={saving} dirty={dirty}>
@@ -191,9 +194,9 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
           </>}
         </>}
         {canSetRewards && <>
-          <CheckboxField label="Offer money or coins (optional)" checked={offerReward} onChange={(event) => setOfferReward(event.target.checked)} />
+          <CheckboxField label={personalParent ? 'Offer Coins (optional)' : 'Offer money or coins (optional)'} checked={offerReward} onChange={(event) => setOfferReward(event.target.checked)} />
           {offerReward && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
+            {!personalParent && <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />}
             <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
           </div>}
           <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>
@@ -226,6 +229,8 @@ export default function Chores() {
 }
 
 function ChoresWorkspace({ context }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const mounted = useMountedRef();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
@@ -242,7 +247,7 @@ function ChoresWorkspace({ context }) {
     isParent ? getFamilyChoreProposals : listMyChoreProposals,
     [isParent],
   );
-  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi((signal) => isParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]), [isParent]);
+  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi((signal) => isParent || personalParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]), [isParent, personalParent]);
 
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
@@ -436,7 +441,7 @@ function ChoresWorkspace({ context }) {
             onClick={openCreate}
             className="flex items-center gap-1"
           >
-            <Plus size={14} /> {isParent ? 'New chore' : 'Propose a chore'}
+            <Plus size={14} /> {isParent || personalParent ? 'New chore' : 'Propose a chore'}
           </Button>
         </div>
 
@@ -657,6 +662,10 @@ function ChoresWorkspace({ context }) {
                           <Check size={14} /> Done
                         </Button>
                       ) : null}
+                      {personalParent && <div className="flex gap-1 mt-1">
+                        <IconButton variant="secondary" onClick={() => openEdit(chore)} aria-label="Edit chore"><Pencil size={16} /></IconButton>
+                        <IconButton variant="danger" onClick={() => setDeleteConfirm(chore.id)} aria-label="Delete chore"><Trash2 size={16} /></IconButton>
+                      </div>}
                     </div>
                   </div>
                   {calendarEvent && (

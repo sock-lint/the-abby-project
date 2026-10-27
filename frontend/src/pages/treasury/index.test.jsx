@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import TreasuryHub from './index.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
-import { buildUser } from '../../test/factories.js';
+import { buildParent, buildUser } from '../../test/factories.js';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('framer-motion', async () => {
@@ -14,6 +14,16 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('TreasuryHub', () => {
+  it('keeps family rewards focused on shop, print decisions and family money', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
+    render(<MemoryRouter><AuthProvider><TreasuryHub /></AuthProvider></MemoryRouter>);
+    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Inventory' })).toBeNull());
+    expect(screen.getByRole('tab', { name: 'Payments' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Timecards' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Shop' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Savings goals' })).toBeNull();
+  });
+
   it('opens print requests alongside the reward shop', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
     const user = userEvent.setup();

@@ -101,6 +101,26 @@ const ACCENT_CLASS = {
   ink:   'text-ink-secondary',
 };
 
+// Parent inboxes contain both household decisions and personal achievements.
+// Only types with an unambiguous audience select a space automatically.
+const FAMILY_NOTIFICATIONS = new Set([
+  'chore_submitted', 'chore_proposed', 'habit_proposed', 'homework_submitted',
+  'redemption_requested', 'exchange_requested', 'timecard_ready',
+  'creation_submitted', 'print_request_submitted', 'print_budget_low',
+  'low_reward_stock', 'approval_reminder',
+]);
+const PERSONAL_NOTIFICATIONS = new Set([
+  'badge_earned', 'skill_unlocked', 'streak_milestone', 'streak_at_risk',
+  'perfect_day', 'daily_check_in', 'drop_received', 'quest_completed',
+  'pet_evolved', 'mount_bred', 'expedition_returned', 'comeback_suggested',
+]);
+
+export function notificationSpace(notification) {
+  if (FAMILY_NOTIFICATIONS.has(notification?.notification_type)) return 'family';
+  if (PERSONAL_NOTIFICATIONS.has(notification?.notification_type)) return 'personal';
+  return null;
+}
+
 export function metaForNotification(notification) {
   const meta = NOTIFICATION_TYPE_META[notification?.notification_type];
   return {

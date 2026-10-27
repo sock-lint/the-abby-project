@@ -10,8 +10,7 @@ from config.permissions import IsParent
 from config.viewsets import (
     ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
-    child_not_found_response,
-    get_child_or_404,
+    resolve_target_user,
 )
 
 from django.utils import timezone
@@ -54,13 +53,9 @@ class CreationViewSet(
         write.is_valid(raise_exception=True)
 
         # Parent can create on behalf of a child via optional user_id.
-        target_user = request.user
-        if request.user.role == "parent":
-            child_id = request.data.get("user_id")
-            if child_id:
-                target_user = get_child_or_404(child_id, requesting_user=request.user)
-                if target_user is None:
-                    return child_not_found_response()
+        target_user, error = resolve_target_user(request, source="data")
+        if error is not None:
+            return error
 
         try:
             creation = CreationService.log_creation(

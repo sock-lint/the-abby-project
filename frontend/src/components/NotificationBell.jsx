@@ -9,7 +9,8 @@ import IconButton from './IconButton';
 import BottomSheet from './BottomSheet';
 import Button from './Button';
 import useIsDesktop from '../hooks/useIsDesktop';
-import { metaForNotification } from './notifications.constants';
+import { metaForNotification, notificationSpace } from './notifications.constants';
+import { useSpaceForUser } from '../hooks/useSpace';
 
 // Mirror the unread count onto the installed-PWA home-screen icon
 // (Badging API — Android + iOS 16.4+ standalone; a no-op everywhere else).
@@ -21,6 +22,7 @@ function syncAppBadge(count) {
 }
 
 export default function NotificationBell() {
+  const { space, isParentAccount, switchSpace } = useSpaceForUser();
   const { pulse, refresh } = usePulse();
   // Seeded from the shared heartbeat, then mutated locally on read so a tap
   // feels instant; the next beat reconciles.
@@ -51,7 +53,9 @@ export default function NotificationBell() {
     const target = notification.link || defaultRoute;
     if (target) {
       setOpen(false);
-      navigate(target);
+      const destinationSpace = isParentAccount ? notificationSpace(notification) : null;
+      if (destinationSpace && destinationSpace !== space) switchSpace(destinationSpace, target);
+      else navigate(target);
     }
   };
 

@@ -18,6 +18,7 @@ import { TextField, SelectField, TextAreaField, DueDateChips } from '../componen
 import { fieldErrors, normalizeList } from '../utils/api';
 import { toISODate } from '../utils/dates';
 import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
+import { useSpace } from '../hooks/useSpace';
 
 export default function ProjectNew() {
   const { user, accountKey } = usePlanningAccount();
@@ -27,9 +28,10 @@ export default function ProjectNew() {
 }
 
 function ProjectNewForm() {
+  const { isPersonalSpace } = useSpace();
   const navigate = useNavigate();
   const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
-  const { data: childrenData } = useApi(getChildren);
+  const { data: childrenData } = useApi(isPersonalSpace ? () => Promise.resolve([]) : getChildren, [isPersonalSpace]);
   const categories = normalizeList(categoriesData);
   const children = normalizeList(childrenData);
 
@@ -181,7 +183,7 @@ function ProjectNewForm() {
           </div>
 
           {/* Assignment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {!isPersonalSpace && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Assign To" value={form.assigned_to_id} onChange={set('assigned_to_id')}>
               <option value="">{form.payment_kind === 'bounty' ? 'Unassigned (available to claim)' : 'Select a child...'}</option>
               {children.map((c) => (
@@ -200,9 +202,9 @@ function ProjectNewForm() {
                 ? `Default: $${children.find(c => c.id === parseInt(form.assigned_to_id))?.hourly_rate || '—'}/hr`
                 : 'Select child first'}
             />
-          </div>
+          </div>}
 
-          <SelectField
+          {!isPersonalSpace && <SelectField
             label="Payment Kind"
             value={form.payment_kind}
             onChange={set('payment_kind')}
@@ -212,9 +214,9 @@ function ProjectNewForm() {
           >
             <option value="required">Required (part of allowance)</option>
             <option value="bounty">Optional project (optional, cash reward)</option>
-          </SelectField>
+          </SelectField>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <TextField
+            {!isPersonalSpace && <TextField
               label={form.payment_kind === 'bounty' ? 'Cash reward ($)' : 'Bonus ($)'}
               value={form.bonus_amount}
               onChange={set('bonus_amount')}
@@ -222,7 +224,7 @@ function ProjectNewForm() {
               step="0.01"
               min="0"
               inputMode="decimal"
-            />
+            />}
             <TextField label="Materials Budget ($)" value={form.materials_budget} onChange={set('materials_budget')} type="number" step="0.01" min="0" inputMode="decimal" />
             <div>
               <TextField label="Due Date" value={form.due_date} onChange={set('due_date')} type="date" min={today} />
@@ -236,11 +238,11 @@ function ProjectNewForm() {
 
           {/* Parent Notes */}
           <TextAreaField
-            label="Parent Notes"
+            label={isPersonalSpace ? 'Notes' : 'Parent Notes'}
             value={form.parent_notes}
             onChange={set('parent_notes')}
             rows={3}
-            placeholder="Private notes (only visible to parents)"
+            placeholder={isPersonalSpace ? 'Notes for your project' : 'Private notes (only visible to parents)'}
           />
 
           <Button type="submit" className="w-full" loading={saving} disabled={drafting}>
