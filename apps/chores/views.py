@@ -92,7 +92,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             return Chore.objects.none()
         qs = Chore.objects.prefetch_related("skill_tags__skill").filter(family=family)
         if is_personal_space(self.request):
-            return qs.filter(assigned_to=user)
+            qs = qs.filter(assigned_to=user)
         if user.role == "parent":
             # Parents can filter to just pending proposals for the review queue.
             if self.request.query_params.get("pending") == "true":

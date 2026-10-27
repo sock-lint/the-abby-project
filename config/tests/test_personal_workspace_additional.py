@@ -97,6 +97,31 @@ class AdditionalPersonalWorkspaceTests(APITestCase):
         self.assertEqual(result.data["status"], "pending")
         self.assertFalse(CoinLedger.objects.exists())
 
+    def test_published_personal_chores_are_absent_from_proposal_list(self):
+        Chore.objects.create(family=self.family, title="Published own chore", assigned_to=self.parent,
+                             created_by=self.parent, pending_parent_review=False)
+        response = self.personal("get", "/api/chores/?pending=true")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["results"], [])
+
+    def test_personal_proposal_list_contains_only_own_pending_chores(self):
+        own_pending = Chore.objects.create(family=self.family, title="Own pending chore", assigned_to=self.parent,
+                                           created_by=self.parent, pending_parent_review=True)
+        own_published = Chore.objects.create(family=self.family, title="Own published chore", assigned_to=self.parent,
+                                             created_by=self.parent, pending_parent_review=False)
+        for owner in (self.child, self.coparent, self.foreign, None):
+            for pending in (True, False):
+                Chore.objects.create(family=owner.family if owner else self.family,
+                                     title=f"Other chore {owner} {pending}", assigned_to=owner,
+                                     created_by=owner or self.parent, pending_parent_review=pending)
+        proposals = self.personal("get", "/api/chores/?pending=true")
+        self.assertEqual(proposals.status_code, 200, proposals.data)
+        self.assertEqual([row["id"] for row in proposals.data["results"]], [own_pending.pk])
+        available = self.personal("get", "/api/chores/")
+        self.assertEqual([row["id"] for row in available.data], [own_published.pk])
+        self.assertFalse(ChoreCompletion.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+
     @override_settings(STORAGES={
         "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Chores from './Chores.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
+import { SpaceContext } from '../providers/spaceContext';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildChore, buildParent, buildUser } from '../test/factories.js';
@@ -21,7 +22,7 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duties') {
+function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duties', space = null) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
@@ -29,13 +30,41 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
   return render(
     <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
-        <Chores />
+        <SpaceContext.Provider value={space}><Chores /></SpaceContext.Provider>
       </AuthProvider>
     </MemoryRouter>,
   );
 }
 
 describe('Chores', () => {
+  it('shows a published personal chore once without labeling it as a proposal', async () => {
+    const parent = buildParent({ id: 90 });
+    const published = buildChore({
+      id: 7, title: 'My published practice', assigned_to: parent.id,
+      reward_amount: '0.00', pending_parent_review: false, is_available: true,
+    });
+    const choreReads = [];
+    renderPage(parent, [
+      http.get('*/api/chores/', ({ request }) => {
+        const pending = new URL(request.url).searchParams.get('pending') === 'true';
+        choreReads.push(pending);
+        return HttpResponse.json(pending
+          ? { count: 0, next: null, previous: null, results: [] }
+          : [published]);
+      }),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ], '/quests?tab=duties', {
+      space: 'personal', isParentAccount: true, isPersonalSpace: true, isFamilySpace: false,
+    });
+    await screen.findByRole('button', { name: 'Done' });
+    await waitFor(() => expect(choreReads).toEqual(expect.arrayContaining([false, true])));
+    expect(screen.getAllByText('My published practice')).toHaveLength(1);
+    expect(screen.queryByText('Your proposals')).not.toBeInTheDocument();
+    expect(screen.queryByText('waiting for parent to set rewards')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit chore' })).toBeInTheDocument();
+  });
+
   it('uses one optional scheduled date for a one-time chore and sends it as the deadline', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/chores\/$/, { id: 7, title: 'Plant bulbs' });
