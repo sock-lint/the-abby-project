@@ -1,5 +1,13 @@
 # Shared API response fixtures
 
+`badges-reachable-legacy-levels.json` preserves native-reachable legacy level
+values in a real child badge response, including numeric strings, fractions,
+zero and false. The producer checks native eligibility, excludes a genuinely
+unreachable fractional threshold, proves reads award nothing, then confirms
+once-only native earning. The catalog producer and React transport consumer
+share this response. New authoring retains strict validation; read compatibility
+does not rewrite saved criteria.
+
 `badges-retained-unreachable-level.json` is a real child-authenticated
 `GET /api/badges/` response. Its producer earns a valid level-6 badge through
 native services before simulating legacy level-7 criteria. The earned badge

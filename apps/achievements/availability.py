@@ -1,10 +1,43 @@
 """Reachable collectible goals without changing achievement criteria or payouts."""
 
 from functools import cached_property
-
-from django.core.exceptions import ValidationError
+import math
 
 from apps.rpg.catalog_support import available_pet_pairs, item_is_available, potion_is_available
+
+
+_SKILL_LEVEL_GOALS = {
+    "skill_level_reached": ("level", 2),
+    "subjects_completed": ("min_level", 2),
+    "skill_categories_breadth": ("min_level", 1),
+    "category_mastery": ("min_level", 3),
+}
+
+
+def native_badge_skill_level(kind, criteria):
+    """Return a saved native threshold, or None for an unusable/other criterion.
+
+    The first three native checkers round float thresholds up in their integer
+    ORM comparison; mastery converts explicitly with int(). Legacy strings,
+    fractions, zero and booleans can remain reachable without changing criteria.
+    New content writers retain their independent strict numeric validation.
+    """
+    if kind not in _SKILL_LEVEL_GOALS or not isinstance(criteria, dict):
+        return None
+    field, default = _SKILL_LEVEL_GOALS[kind]
+    try:
+        value = criteria.get(field, default)
+        return math.ceil(value) if isinstance(value, float) and kind != "category_mastery" else int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _skill_level_goal_is_reachable(kind, criteria):
+    if kind not in _SKILL_LEVEL_GOALS:
+        return True
+    level = native_badge_skill_level(kind, criteria)
+    from .models import XP_THRESHOLDS
+    return level is not None and level <= max(XP_THRESHOLDS)
 
 
 class BadgeGoalAvailability:
@@ -56,12 +89,9 @@ class BadgeGoalAvailability:
     def is_available(self, badge):
         kind = badge.criteria_type
         criteria = badge.criteria_value or {}
-        from apps.rpg.content.validation import validate_badge_runtime_levels
-        try:
-            validate_badge_runtime_levels(kind, badge.criteria_value)
-        except ValidationError:
-            # Imported invalid goals stay visible in earned history, but do
-            # not count as a new goal or suggest that more XP can reach them.
+        if not _skill_level_goal_is_reachable(kind, criteria):
+            # Unusable or genuinely unreachable thresholds stay in earned
+            # history without being advertised as a future goal.
             return False
         if kind in {"pets_hatched", "pet_species_owned", "mounts_evolved"}:
             pairs = self.pet_pairs | self.owned_pets

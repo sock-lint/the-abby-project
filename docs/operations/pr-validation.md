@@ -150,6 +150,12 @@ controls and legacy level-0 YAML prerequisite compatibility. They also retain
 earned unavailable-level badges and payouts while hiding unreachable new goals.
 The real `badges-retained-unreachable-level.json` producer/React pair checks the
 same retained catalog response; reads cannot rewrite rewards or history.
+`test_category_projects_compatibility` and `test_legacy_runtime_level_visibility`
+under `apps.achievements.tests` retain current case-variant category unions,
+uncategorized-project rules and native-compatible saved level thresholds.
+`apps.rpg.tests.test_progression_legacy_runtime_levels` compares those thresholds
+with native eligibility, including integer-query rounding and missing progress.
+The catalog producer/React pair also consumes `badges-reachable-legacy-levels.json`.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

@@ -150,29 +150,35 @@ def _projects_completed(user, c):
     return user.assigned_projects.filter(status="completed").count() >= c.get("count", 1)
 
 
-def _project_category_identity(name):
-    """Resolve the legacy case-insensitive category name without redirecting it."""
+def _project_category_ids(name):
+    """Keep current-name unions while admitting only unambiguous renamed sources."""
     from apps.achievements.models import SkillCategory
     from apps.rpg.models import RPGContentOverride
 
-    if not isinstance(name, str) or not name:
-        return None
-    # A bounded metadata read preserves the checker's case-insensitive names
-    # while requiring the same exact original-identity/provenance shape as
-    # installed XP destinations. Excess or competing candidates fail closed.
+    if not isinstance(name, str):
+        return ()
+    current = SkillCategory.objects.filter(name__iexact=name)
+    # A current category's own authoring override does not turn its current
+    # label into a competing historical identity. Legacy iexact rules count
+    # the union of all current case variants, including MCP-authored rows.
+    # Only genuinely renamed source rows need the bounded ambiguity check.
     sources = list(RPGContentOverride.objects.filter(
         model_label="achievements.skillcategory", source_lookup__name__iexact=name,
         values___authoring={"version": 1, "source": "mcp"},
-    ).order_by("pk").values_list("object_id", "source_lookup")[:1001])
+    ).exclude(object_id__in=current.values("pk"))
+        .order_by("pk").values_list("object_id", "source_lookup")[:1001])
     if len(sources) > 1000:
-        return None
+        return ()
     retained_ids = [object_id for object_id, lookup in sources
                     if isinstance(lookup, dict) and set(lookup) == {"name"}
                     and isinstance(lookup["name"], str)]
-    matches = list(SkillCategory.objects.filter(
-        models.Q(name__iexact=name) | models.Q(pk__in=retained_ids),
-    ).order_by("pk")[:2])
-    return matches[0] if len(matches) == 1 else None
+    retained = list(SkillCategory.objects.filter(pk__in=retained_ids)
+                    .order_by("pk").values_list("pk", flat=True)[:2])
+    if retained:
+        # A distinct current row must never take over a renamed promise, nor
+        # may multiple renamed categories compete for the same original name.
+        return retained if len(retained) == 1 and not current.exists() else ()
+    return current.values_list("pk", flat=True)
 
 
 @criterion(Badge.CriteriaType.CATEGORY_PROJECTS, scopes={"project"})
@@ -184,9 +190,15 @@ def _category_projects(user, c):
             status="completed", category__isnull=False,
         ).values("category").annotate(n=Count("id")).filter(n__gte=1)
         return cats.count() >= category_count
-    category = _project_category_identity(c.get("category"))
-    return category is not None and user.assigned_projects.filter(
-        status="completed", category=category,
+    name = c.get("category")
+    if name is None:
+        # The original category__name__iexact=None lookup counted projects
+        # without a category. Omitted/null selectors retain that saved rule.
+        return user.assigned_projects.filter(
+            status="completed", category__isnull=True,
+        ).count() >= count
+    return user.assigned_projects.filter(
+        status="completed", category_id__in=_project_category_ids(name),
     ).count() >= count
 
 

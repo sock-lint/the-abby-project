@@ -5,7 +5,7 @@ earned badges. Unsupported retained definitions are reported, never rewritten.
 """
 from django.core.exceptions import ValidationError
 
-from apps.achievements.availability import badge_goal_is_available
+from apps.achievements.availability import badge_goal_is_available, native_badge_skill_level
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject, XP_THRESHOLDS
 from apps.achievements.taxonomy import available_for_new_choices
 from apps.pets.models import PetSpecies, PotionType
@@ -18,7 +18,7 @@ from apps.rpg.catalog_support import (
     pet_is_available, potion_is_available, potion_type_for_item,
 )
 from apps.rpg.constants import TriggerType
-from apps.rpg.content.validation import validate_badge_criteria
+from apps.rpg.content.validation import BADGE_SKILL_LEVEL_FIELDS, validate_badge_criteria
 from apps.rpg.models import DropTable, ItemDefinition
 from apps.rpg.item_effects import effect_summary
 
@@ -54,7 +54,16 @@ def catalog_page(params):
 
 def _badge_available(badge):
     try:
-        validate_badge_criteria(badge.criteria_type, badge.criteria_value)
+        criteria = badge.criteria_value
+        if badge.criteria_type in BADGE_SKILL_LEVEL_FIELDS and isinstance(criteria, dict):
+            # A read may retain native-compatible legacy level representations.
+            # Validate every other field with today's strict rules, without
+            # changing saved criteria or the audit/publication validators.
+            if not badge_goal_is_available(badge):
+                return False
+            level = native_badge_skill_level(badge.criteria_type, criteria)
+            criteria = {**criteria, BADGE_SKILL_LEVEL_FIELDS[badge.criteria_type]: max(1, level)}
+        validate_badge_criteria(badge.criteria_type, criteria)
         return badge_goal_is_available(badge)
     except (ValidationError, AttributeError, TypeError, ValueError):
         # Invalid authored criteria belong in the audit, not a failed listing.

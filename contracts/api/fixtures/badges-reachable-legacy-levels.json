@@ -1,0 +1,75 @@
+{
+  "count": 4,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 954,
+      "name": "Reachable legacy goal 954",
+      "description": "Preserved native level conversion",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": "2",
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": true,
+      "coin_bonus": 0
+    },
+    {
+      "id": 955,
+      "name": "Reachable legacy goal 955",
+      "description": "Preserved native level conversion",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": 1.5,
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": true,
+      "coin_bonus": 0
+    },
+    {
+      "id": 956,
+      "name": "Reachable legacy goal 956",
+      "description": "Preserved native level conversion",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": 0,
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": true,
+      "coin_bonus": 0
+    },
+    {
+      "id": 958,
+      "name": "Reachable legacy goal 958",
+      "description": "Preserved native level conversion",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": false,
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": true,
+      "coin_bonus": 0
+    }
+  ]
+}

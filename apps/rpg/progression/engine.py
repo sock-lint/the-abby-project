@@ -1286,6 +1286,11 @@ class Trial:
             self.recognize_event_firsts("quest_complete")
             self.milestones.setdefault("first_challenge", self.day)
 
+    @staticmethod
+    def _badge_integer_threshold(value):
+        """Match native IntegerField gte conversion for retained JSON criteria."""
+        return math.ceil(value) if isinstance(value, float) else int(value)
+
     def _badge_matches(self, badge):
         kind, c = badge.criteria_type, badge.criteria_value or {}
         count = int(c.get("count", 1))
@@ -1302,30 +1307,34 @@ class Trial:
         if kind == "days_worked":
             return self.counters["project_sessions"] >= int(c.get("count", 5))
         if kind == "skill_level_reached":
-            return sum(level >= c.get("level", 2) for level in levels.values()) >= count
+            minimum = self._badge_integer_threshold(c.get("level", 2))
+            return sum(level >= minimum for level in levels.values()) >= count
         if kind == "skills_unlocked":
             return sum(self.skill_info[pk][0] for pk in self.unlocked) >= count
         if kind == "subjects_completed":
+            minimum = self._badge_integer_threshold(c.get("min_level", 2))
             return (
                 len(
                     {
                         self.skill_info[pk][2]
                         for pk, level in levels.items()
-                        if level >= c.get("min_level", 2) and self.skill_info[pk][2]
+                        if level >= minimum and self.skill_info[pk][2]
                     }
                 )
                 >= count
             )
         if kind == "skill_categories_breadth":
+            minimum = self._badge_integer_threshold(c.get("min_level", 1))
             return len(
-                {self.skill_info[pk][1] for pk, level in levels.items() if level >= c.get("min_level", 1)}
+                {self.skill_info[pk][1] for pk, level in levels.items() if level >= minimum}
             ) >= c.get("categories", 4)
         if kind == "cross_category_unlock":
             return bool(self.cross_category_skills & self.unlocked)
         if kind == "category_mastery":
             category_id = self.catalog.source_categories.get(c.get("category"))
             required = self.category_required.get(category_id)
-            return bool(required) and all(levels.get(pk, 0) >= int(c.get("min_level", 3)) for pk in required)
+            minimum = int(c.get("min_level", 3))
+            return bool(required) and all(pk in levels and levels[pk] >= minimum for pk in required)
         if kind == "streak_days":
             return self.counters["project_best_streak"] >= int(c.get("days", 7))
         if kind == "total_coins_earned":

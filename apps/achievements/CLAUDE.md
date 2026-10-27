@@ -14,12 +14,15 @@ because new accessories and accessory equip are unavailable. Other criteria,
 including independent badge and consumable collections, stay available when
 their skill-level requirements fit the installed XP curve.
 
-Shared content validation bounds badge `level`/`min_level` requirements by that
-curve (currently maximum 6), preserving the existing positive minimum. Native
-availability applies the same narrow level check to legacy rows without
-revalidating unrelated criterion fields. Invalid unearned goals are hidden;
-earned rows remain in history with `catalog_available=false`, with no reward
-rewrite. The MCP catalog also marks them unavailable and reports audit errors.
+New content validation bounds badge `level`/`min_level` requirements by that
+curve (currently maximum 6), preserving strict whole numbers and the positive
+minimum. Legacy visibility instead follows the native checkers' integer
+coercion: saved numeric strings, fractions, zero and booleans remain available
+when their effective threshold is reachable. Unusable values and effective
+thresholds beyond the curve hide unearned goals; earned rows remain in history
+with `catalog_available=false`, without rewriting criteria or rewards. The MCP
+catalog uses that same availability, while its strict content audit can still
+report legacy authoring errors.
 
 Unreachable unearned goals are omitted by `visible_badges` from child catalog
 and summary surfaces. Earned badges remain visible, counted and eligible for
@@ -58,10 +61,14 @@ receipts or cause past awards to be replayed.
 
 Named `category_mastery` and single-category `category_projects` criteria also
 retain the original category identity after MCP renames. Mastery keeps exact
-name matching; project criteria keep case-insensitive matching. Exact versioned
-MCP provenance may retain an original name, while distinct competing current or
-retained categories fail closed. Retirement preserves eligibility and earned
-badge history; plural project-category counts keep their existing behavior.
+name matching. Project criteria preserve the legacy union of current categories
+whose names match case-insensitively, including current MCP-authored rows with
+their own source overrides. An omitted or null project-category selector counts
+uncategorized completed projects. Exact versioned MCP provenance may retain an
+original name after a rename; distinct renamed identities, or a renamed identity
+competing with another current category, fail closed. Retirement preserves
+eligibility and earned badge history; plural project-category counts keep their
+existing behavior.
 
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be

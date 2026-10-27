@@ -300,7 +300,11 @@ Badge skill-level goals and skill prerequisites must fit the installed XP curve,
 whose current maximum is level 6. Preview and publication reject out-of-range
 requirements before changing the catalog. Raw YAML retains its existing
 level-0 prerequisite compatibility; direct MCP prerequisite editing starts at
-level 1. A rejected draft can be corrected and previewed again.
+level 1. A rejected draft can be corrected and previewed again. Existing badge
+goals keep the native checkers' integer coercion for saved thresholds, so a
+legacy numeric string, fraction, zero or boolean remains visible if it is
+reachable. This read compatibility does not allow those values in new badge
+authoring or rewrite saved criteria and awards.
 
 Public challenge drafts check name collisions within the public definition
 namespace. A private household challenge may share a public title and does not
@@ -548,6 +552,13 @@ bundled/pack definitions require reviewed source reconciliation. REST returns 40
 with a readable `detail` and `code: taxonomy_in_use`; MCP returns that structured
 code. Errors expose no private dependency names or counts. Unused caller-owned
 direct entries can be deleted with their own override metadata atomically.
+
+Named project-category badges keep case-insensitive matching across all current
+category names, including names which differ only by case. Omitting `category`
+counts uncategorized completed projects; `categories` keeps its distinct-category
+count. Renamed source identities remain eligible when unambiguous, and cannot
+redirect a saved rule to another category with the old name. Existing earned
+badge receipts and payouts are preserved.
 
 Existing badges with unreachable skill-level requirements are unavailable for
 new goals and reported by the catalog audit. Earned badges remain readable and

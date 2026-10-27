@@ -27,6 +27,7 @@ import rosterHatch from '../../../contracts/api/fixtures/pet-incubation-roster-h
 import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
 import retainedLevelBadges from '../../../contracts/api/fixtures/badges-retained-unreachable-level.json';
+import reachableLegacyLevels from '../../../contracts/api/fixtures/badges-reachable-legacy-levels.json';
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
@@ -164,6 +165,18 @@ describe('current owned-art API contracts', () => {
     expect(response.results.find(({ id }) => id === 953)).toMatchObject({
       criteria_value: { level: 6 }, catalog_available: true,
     });
+  });
+  it('transports native-reachable legacy level values without hiding or rewriting their goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, reachableLegacyLevels);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(reachableLegacyLevels);
+    expect(new Map(response.results.map(({ id, criteria_value }) => [id, criteria_value.level]))).toEqual(new Map([
+      [954, '2'], [955, 1.5], [956, 0], [958, false],
+    ]));
+    expect(response.results.every(({ catalog_available }) => catalog_available === true)).toBe(true);
+    expect(response.results.some(({ id }) => id === 960)).toBe(false);
   });
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
     server.use(
