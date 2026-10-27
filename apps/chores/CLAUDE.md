@@ -38,8 +38,10 @@ completions. The account role and Family management permissions do not change.
 Personal catalog/detail, dashboard, next-action rewards and submission audit
 project zero cash even when a legacy Family chore retains a money reward;
 stored Family configuration and historical completion snapshots stay intact.
-Personal lists also include own inactive published chores as unavailable so
-they can be edited/re-enabled; those rows stay out of dashboard actions and
-cannot be completed until active. `?pending=true` remains pending-only.
+Personal lists retain all own published chores for editing, including inactive,
+off-week and completed one-time chores. These retained rows are unavailable and
+stay out of dashboard actions; completion eligibility still comes from the
+existing service. Completed one-time rows retain their saved completion status.
+`?pending=true` remains pending-only.
 - `services.py` — `ChoreService` (all business logic).
 - `models.py` — `Chore.WeekSchedule`, `ChoreCompletion.Status`.

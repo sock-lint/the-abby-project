@@ -47,8 +47,10 @@ allowance or cash payments in My space; personal progression uses XP and Coins.
 Imported projects belong to you in My space. Personal project and milestone
 completion in My space earns progression without adding cash payments; previously recorded
 payments stay in the payment history.
-Inactive personal chores remain in Tasks so you can edit or reactivate them;
-they cannot be completed while inactive. If you later assign a personal project
+Personal chores remain in Tasks for editing or deletion when paused, during an
+off week, or after a one-time completion. You can reactivate a paused chore;
+completion still follows its schedule and saved completion history.
+If you later assign a personal project
 to a child in Family, its hourly rate starts with that child's usual rate unless
 you choose a specific project rate.
 School homework and grades remain in the child experience and Family tools.

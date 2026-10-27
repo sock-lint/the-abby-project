@@ -174,6 +174,74 @@ class PersonalActivityProjectionTests(APITestCase):
         self.assertIn(pending.pk, family_ids)
         self.assertFalse(ChoreCompletion.objects.exists())
 
+    def test_offweek_personal_chore_remains_editable_without_becoming_available(self):
+        chore = self.chore(
+            "Own alternating chore", week_schedule="alternating",
+            schedule_start_date=timezone.localdate() - timedelta(days=7),
+        )
+        listed = self.personal("get", "/api/chores/")
+        with self.subTest(surface="editable_list"):
+            self.assertEqual([row["id"] for row in listed.data], [chore.pk])
+            self.assertTrue(listed.data[0]["is_active"])
+            self.assertFalse(listed.data[0]["is_available"])
+            self.assertIsNone(listed.data[0]["today_status"])
+        self.assertEqual(self.personal("post", f"/api/chores/{chore.pk}/complete/").status_code, 400)
+        self.assertFalse(ChoreCompletion.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+        self.assertFalse(PaymentLedger.objects.exists())
+        dashboard = self.personal("get", "/api/dashboard/").data
+        self.assertEqual(dashboard["chores_today"], [])
+        self.assertEqual(dashboard["next_actions"], [])
+        edited = self.personal("patch", f"/api/chores/{chore.pk}/", {"title": "Edited alternating chore"})
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertEqual(self.personal("delete", f"/api/chores/{chore.pk}/").status_code, 204)
+
+    def test_completed_one_time_personal_chore_stays_editable_with_saved_status(self):
+        chore = self.chore("Own one-time chore", recurrence="one_time")
+        completed = self.personal("post", f"/api/chores/{chore.pk}/complete/")
+        self.assertEqual(completed.status_code, 201, completed.data)
+        self.assertEqual(completed.data["status"], "approved")
+        ChoreCompletion.objects.filter(pk=completed.data["id"]).update(
+            completed_date=timezone.localdate() - timedelta(days=2),
+        )
+        coin_count = CoinLedger.objects.filter(user=self.parent).count()
+        listed = self.personal("get", "/api/chores/")
+        with self.subTest(surface="editable_list"):
+            self.assertEqual([row["id"] for row in listed.data], [chore.pk])
+            self.assertFalse(listed.data[0]["is_available"])
+            self.assertEqual(listed.data[0]["today_status"], "approved")
+            self.assertEqual(listed.data[0]["today_completion_id"], completed.data["id"])
+        self.assertEqual(self.personal("post", f"/api/chores/{chore.pk}/complete/").status_code, 400)
+        self.assertEqual(ChoreCompletion.objects.filter(chore=chore).count(), 1)
+        self.assertEqual(CoinLedger.objects.filter(user=self.parent).count(), coin_count)
+        self.assertFalse(PaymentLedger.objects.exists())
+        dashboard = self.personal("get", "/api/dashboard/").data
+        self.assertEqual(dashboard["chores_today"], [])
+        self.assertEqual(dashboard["next_actions"], [])
+        edited = self.personal("patch", f"/api/chores/{chore.pk}/", {"description": "Kept for reference"})
+        self.assertEqual(edited.status_code, 200, edited.data)
+        self.assertEqual(self.personal("delete", f"/api/chores/{chore.pk}/").status_code, 204)
+
+    def test_personal_catalog_retention_keeps_child_family_and_proposal_scopes(self):
+        offweek = self.chore("Own offweek", week_schedule="alternating",
+                             schedule_start_date=timezone.localdate() - timedelta(days=7))
+        pending = self.chore("Own pending", pending_parent_review=True)
+        for owner in (self.child, self.coparent, self.foreign):
+            self.chore(f"Other offweek {owner.pk}", owner, week_schedule="alternating",
+                       schedule_start_date=timezone.localdate() - timedelta(days=7))
+            self.chore(f"Other one-time {owner.pk}", owner, recurrence="one_time", is_active=False)
+        Chore.objects.create(family=self.family, created_by=self.parent, title="Shared published")
+        with self.subTest(surface="personal_published"):
+            self.assertEqual([row["id"] for row in self.personal("get", "/api/chores/").data], [offweek.pk])
+        self.assertEqual([row["id"] for row in self.personal("get", "/api/chores/?pending=true").data["results"]], [pending.pk])
+        family_rows = self.client.get("/api/chores/").data["results"]
+        self.assertIn(offweek.pk, [row["id"] for row in family_rows])
+        self.assertIn(pending.pk, [row["id"] for row in family_rows])
+        self.assertFalse(any(row["assigned_to"] == self.foreign.pk for row in family_rows))
+        self.client.force_authenticate(self.child)
+        child_rows = self.personal("get", "/api/chores/").data
+        self.assertEqual([row["title"] for row in child_rows], ["Shared published"])
+
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class PersonalVisitProjectionTests(APITestCase):

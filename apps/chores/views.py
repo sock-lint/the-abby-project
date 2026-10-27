@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -200,16 +203,36 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             return super().list(request, *args, **kwargs)
         if user.role == "child" or is_personal_space(request):
             chores = ChoreService.get_available_chores(user)
+            available_ids = {chore.pk for chore in chores}
             if is_personal_space(request):
-                # Pausing a personal chore must leave a way to edit/re-enable
-                # it. Keep inactive rows out of actionable service results.
-                chores.extend(self.get_queryset().filter(
-                    is_active=False, pending_parent_review=False,
-                ))
+                # The personal catalog also manages off-week, inactive and
+                # completed one-time chores. Only service rows are actionable.
+                retained = list(self.get_queryset().filter(
+                    pending_parent_review=False,
+                ).exclude(pk__in=available_ids))
+                if retained:
+                    from config.submission_timing import submission_context
+                    today = submission_context(user)[2]
+                    monday = today - timedelta(days=today.weekday())
+                    completions = ChoreCompletion.objects.filter(
+                        user=user, chore_id__in=[chore.pk for chore in retained],
+                    ).exclude(status=ChoreCompletion.Status.REJECTED).filter(
+                        Q(chore__recurrence=Chore.Recurrence.ONE_TIME)
+                        | Q(chore__recurrence=Chore.Recurrence.DAILY, completed_date=today)
+                        | Q(chore__recurrence=Chore.Recurrence.WEEKLY, completed_date=monday),
+                    ).order_by("chore_id", "-created_at", "-pk").values("chore_id", "pk", "status")
+                    latest = {}
+                    for completion in completions:
+                        latest.setdefault(completion["chore_id"], completion)
+                    for chore in retained:
+                        completion = latest.get(chore.pk)
+                        chore.today_completion_status = completion["status"] if completion else None
+                        chore.today_completion_id = completion["pk"] if completion else None
+                chores.extend(retained)
             data = []
             for chore in chores:
                 serialized = self.get_serializer(chore).data
-                serialized["is_available"] = chore.is_active and not getattr(chore, "is_done_today", False)
+                serialized["is_available"] = chore.pk in available_ids and not chore.is_done_today
                 serialized["today_status"] = getattr(chore, "today_completion_status", None)
                 serialized["today_completion_id"] = getattr(chore, "today_completion_id", None)
                 data.append(serialized)
