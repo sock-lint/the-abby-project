@@ -239,6 +239,29 @@ describe('Primary companion home', () => {
     expect(scene.props).toBeNull();
   });
 
+  it.each(['fire', 'ice'])('keeps released %s artwork status, greetings and care controls accurate when 3D is disabled', async (potion) => {
+    vi.stubEnv('VITE_COMPANION_3D', 'false');
+    const user = userEvent.setup(), care = vi.fn(), claim = vi.fn();
+    const creature = { ...syntheticElemental('meshtint-wolf', potion, 'baby'), name: 'Rex' };
+    const view = render(<CompanionPreview variant="primary" creature={creature} onInteract={care}>
+      <button type="button" onClick={claim}>Claim saved expedition loot</button>
+    </CompanionPreview>);
+    expect(screen.queryByText(/Artwork for this appearance is not available yet/)).toBeNull();
+    expect(screen.queryByText('View')).toBeNull();
+    expect(scene.props).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Say hello to Rex' }));
+    await user.click(screen.getByRole('button', { name: 'Claim saved expedition loot' }));
+    expect(care).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Say hello' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Rex is happy to see you.');
+    view.rerender(<CompanionPreview creature={creature} />);
+    expect(screen.getByRole('status')).toHaveTextContent('A little company while you grow.');
+    await user.click(screen.getByRole('button', { name: 'Say hello' }));
+    expect(screen.getByRole('status')).toHaveTextContent(/Hello, (Fire|Ice) Wolf Pup!/);
+    expect(screen.queryByText(/Artwork for this appearance is not available yet/)).toBeNull();
+  });
+
   it('makes greetings and supplied play local, repeats on tap and resets on identity change', async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, 'fetch');

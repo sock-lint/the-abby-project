@@ -88,7 +88,7 @@ describe('current owned-art API contracts', () => {
     expect(rows.filter((row) => row.item.name === 'Fire Potion').map((row) => row.item.catalog_icon)).toEqual(['item-fire-potion', null]);
   });
 
-  it('transports twelve shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
+  it('transports sixteen shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
     server.use(http.get('*/api/quests/catalog/', () => HttpResponse.json(elementalChallenges)));
     const rows = await getQuestCatalog();
     expect(rows).toEqual(elementalChallenges);
@@ -97,11 +97,14 @@ describe('current owned-art API contracts', () => {
       [96, 'challenge-ember-grove'], [97, 'challenge-frost-grove'], [98, 'challenge-ember-summit'], [99, 'challenge-frost-summit'],
       [100, 'review-bee-fire-acquisition-icon'], [101, 'review-bee-ice-acquisition-icon'],
       [102, 'review-bat-fire-acquisition-icon'], [103, 'review-bat-ice-acquisition-icon'],
+      [104, 'review-snake-fire-acquisition-icon'], [105, 'review-snake-ice-acquisition-icon'],
+      [106, 'review-hermit-crab-fire-acquisition-icon'], [107, 'review-hermit-crab-ice-acquisition-icon'],
     ]));
     for (const [id, egg, potion, target, days] of [
       [91, 71, 51, 5, 180], [92, 71, 52, 5, 180], [93, 72, 51, 20, 180], [94, 72, 52, 20, 180],
       [96, 74, 51, 10, 180], [97, 74, 52, 10, 180], [98, 75, 51, 50, 365], [99, 75, 52, 50, 365],
       [100, 76, 51, 5, 180], [101, 76, 52, 5, 180], [102, 73, 51, 10, 180], [103, 73, 52, 10, 180],
+      [104, 77, 51, 10, 180], [105, 77, 52, 10, 180], [106, 78, 51, 10, 180], [107, 78, 52, 10, 180],
     ]) {
       const challenge = rows.find((row) => row.id === id);
       expect(challenge).toMatchObject({ quest_type: 'collection', is_system: true, is_repeatable: false, target_value: target, duration_days: days, coin_reward: 0, xp_reward: 0 });
@@ -112,7 +115,7 @@ describe('current owned-art API contracts', () => {
     }
     expect(rows.find((row) => row.id === 95)).toMatchObject({ name: 'Ember Nest', is_system: false, catalog_icon: null, reward_items: [] });
   });
-  it('uses server-confirmed Fire/Ice compatibility for all six accepted families', async () => {
+  it('uses server-confirmed Fire/Ice compatibility for all eight accepted families', async () => {
     server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(elementalCatalog)));
     const codex = await getPetCodex();
     expect(codex).toEqual(elementalCatalog);
@@ -120,13 +123,13 @@ describe('current owned-art API contracts', () => {
     expect(Object.fromEntries(codex.species.map((species) => [species.slug, species.available_potions.map((potion) => potion.slug)]))).toEqual({
       chick: ['base', 'fire', 'ice'], 'meshtint-wolf': ['base', 'fire', 'ice'], 'meshtint-bat': ['base', 'fire', 'ice'],
       'meshtint-mushroom': ['base', 'fire', 'ice'], 'meshtint-dragon': ['base', 'fire', 'ice'],
-      'meshtint-bee': ['base', 'fire', 'ice'],
+      'meshtint-bee': ['base', 'fire', 'ice'], 'meshtint-snake': ['base', 'fire', 'ice'], 'meshtint-hermit-crab': ['base', 'fire', 'ice'],
     });
     expect(Object.fromEntries(codex.species.map((species) => [species.slug, species.id]))).toEqual({
       chick: 61, 'meshtint-wolf': 62, 'meshtint-bat': 63, 'meshtint-mushroom': 64, 'meshtint-dragon': 65,
-      'meshtint-bee': 66,
+      'meshtint-bee': 66, 'meshtint-snake': 67, 'meshtint-hermit-crab': 68,
     });
-    expect(codex.totals).toEqual({ species: 6, discovered_species: 0, mounts_possible: 18, mounts_owned: 0 });
+    expect(codex.totals).toEqual({ species: 8, discovered_species: 0, mounts_possible: 24, mounts_owned: 0 });
   });
   it('uses the shared species allowance for every saved potion appearance', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));

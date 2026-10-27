@@ -74,6 +74,8 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             (64, "meshtint-mushroom", "meshtint-mushroom", "Mushroom", 74),
             (65, "meshtint-dragon", "meshtint-dragon", "Dragon", 75),
             (66, "meshtint-bee", "meshtint-bee", "Bee", 76),
+            (67, "meshtint-snake", "meshtint-snake", "Snakelet", 77),
+            (68, "meshtint-hermit-crab", "meshtint-hermit-crab", "Shell", 78),
         ):
             species = PetSpecies.objects.create(id=species_id, slug=slug, name=name, sprite_key=sprite, icon="S")
             species.available_potions.add(self.fire, self.ice)
@@ -94,6 +96,10 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             (101, "Frost Hive", "meshtint-bee", "ice", 5, 180, "review-bee-ice-acquisition-icon"),
             (102, "Ember Cave", "meshtint-bat", "fire", 10, 180, "review-bat-fire-acquisition-icon"),
             (103, "Frost Cave", "meshtint-bat", "ice", 10, 180, "review-bat-ice-acquisition-icon"),
+            (104, "Ember Coil", "meshtint-snake", "fire", 10, 180, "review-snake-fire-acquisition-icon"),
+            (105, "Frost Coil", "meshtint-snake", "ice", 10, 180, "review-snake-ice-acquisition-icon"),
+            (106, "Ember Shore", "meshtint-hermit-crab", "fire", 10, 180, "review-hermit-crab-fire-acquisition-icon"),
+            (107, "Frost Shore", "meshtint-hermit-crab", "ice", 10, 180, "review-hermit-crab-ice-acquisition-icon"),
         )
         for definition_id, name, species, potion, target, days, _ in paths:
             definition = QuestDefinition.objects.create(
@@ -137,6 +143,8 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             (64, "meshtint-mushroom", "meshtint-mushroom", "Mushroom"),
             (65, "meshtint-dragon", "meshtint-dragon", "Dragon"),
             (66, "meshtint-bee", "meshtint-bee", "Bee"),
+            (67, "meshtint-snake", "meshtint-snake", "Snakelet"),
+            (68, "meshtint-hermit-crab", "meshtint-hermit-crab", "Shell"),
         ):
             species = PetSpecies.objects.create(id=species_id, slug=slug, name=name, sprite_key=sprite, icon="S")
             # Deliberately broad authored compatibility cannot expand the art policy.
@@ -150,12 +158,13 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             "chick": {"base", "fire", "ice"}, "meshtint-wolf": {"base", "fire", "ice"}, "meshtint-bat": {"base", "fire", "ice"},
             "meshtint-mushroom": {"base", "fire", "ice"}, "meshtint-dragon": {"base", "fire", "ice"},
             "meshtint-bee": {"base", "fire", "ice"},
+            "meshtint-snake": {"base", "fire", "ice"}, "meshtint-hermit-crab": {"base", "fire", "ice"},
         })
         self.assertEqual({row["slug"]: row["id"] for row in body["species"]}, {
             "chick": 61, "meshtint-wolf": 62, "meshtint-bat": 63, "meshtint-mushroom": 64, "meshtint-dragon": 65,
-            "meshtint-bee": 66,
+            "meshtint-bee": 66, "meshtint-snake": 67, "meshtint-hermit-crab": 68,
         })
-        self.assertEqual(body["totals"], {"species": 6, "discovered_species": 0, "mounts_possible": 18, "mounts_owned": 0})
+        self.assertEqual(body["totals"], {"species": 8, "discovered_species": 0, "mounts_possible": 24, "mounts_owned": 0})
         # No reward definitions were authored in this codex scenario; the new
         # field must be an empty list rather than an invented acquisition path.
         for species in body["species"]:

@@ -109,8 +109,10 @@ new acquisition. Producer: `config.tests.test_catalog_api_contract_fixtures`;
 consumer: `frontend/src/api/catalogContractFixtures.test.js`.
 
 `pets-hatchery-discovery.json` is a child-authenticated `GET /api/pets/codex/`
-response with exact typed egg/potion reward bundles for all eight guaranteed
-Fire/Ice challenges and an untimed Base Reading Companion. Each species's
+response from a four-species synthetic catalog, with exact typed egg/potion
+reward bundles for its eight Fire/Ice challenges and an untimed Base Reading
+Companion. The separate elemental-art fixture covers all sixteen guarantees.
+Each species's
 `available_potions` preserves `id`, `slug`, `name`, `color_hex` and `rarity`, and
 adds `acquisition_challenges`. Each challenge contains integer `definition_id`,
 current-offer `name`, boolean `offer_available`, decimal-string `target`, nullable
@@ -1371,13 +1373,14 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all twelve exact system
+`catalog-icons-elemental-challenges.json` exposes all sixteen exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon, Mushroom, Bee and Bat. Hive guarantees the natural Bee egg and
+Wolf, Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab. Hive guarantees the natural Bee egg and
 selected global potion after five qualifying accomplishments; Cave guarantees
-the natural Bat egg and potion after ten. Both are one-time 180-day challenges,
+the natural Bat egg and potion after ten. Coil and Shore guarantee the natural
+Snake or Hermit Crab egg and matching potion after ten. All are one-time 180-day challenges,
 with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
 remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in

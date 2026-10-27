@@ -124,7 +124,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-snake
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: uncommon
     egg_coin_value: 3
 
@@ -133,7 +133,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-hermit-crab
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: uncommon
     egg_coin_value: 3
 

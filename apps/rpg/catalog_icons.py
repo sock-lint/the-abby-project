@@ -13,6 +13,7 @@ ARTWORK_BINDINGS_PATH = BINDINGS_PATH.with_name("artwork-bindings.json")
 ELEMENTAL_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bindings.json")
 ELEMENTAL_EXPANSION_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-expansion-bindings.json")
 ELEMENTAL_BEE_BAT_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bee-bat-bindings.json")
+ELEMENTAL_SNAKE_HERMIT_CRAB_PATH = BINDINGS_PATH.with_name("elemental-snake-hermit-crab.json")
 
 
 @lru_cache(maxsize=1)
@@ -38,6 +39,16 @@ def elemental_expansion_bindings():
 @lru_cache(maxsize=1)
 def elemental_bee_bat_bindings():
     return json.loads(ELEMENTAL_BEE_BAT_BINDINGS_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def prepared_snake_hermit_crab_challenges():
+    """Proposed receiving handles only; no payload, artwork pin or activation."""
+    descriptor = json.loads(ELEMENTAL_SNAKE_HERMIT_CRAB_PATH.read_text(encoding="utf-8"))
+    return {
+        challenge["name"]: {"quest_type": "collection", "asset_id": challenge["catalog_icon"]}
+        for family in descriptor["families"] for challenge in family["challenges"]
+    }
 
 
 def badge_catalog_icon(badge):
@@ -104,6 +115,8 @@ def challenge_catalog_icon(definition):
         entry = elemental_expansion_bindings()["challenges"].get(definition.name)
     if entry is None:
         entry = elemental_bee_bat_bindings()["challenges"].get(definition.name)
+    if entry is None:
+        entry = prepared_snake_hermit_crab_challenges().get(definition.name)
     if entry and definition.quest_type == entry["quest_type"]:
         return entry["asset_id"]
     entry = bindings()["challenges"].get(definition.name)

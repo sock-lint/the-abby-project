@@ -72,8 +72,8 @@ class AccomplishmentAcquisitionSourceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         items = {row["item"]["id"]: row["item"] for row in response.data}
         for element, names in (
-            ("fire", ["Ember Cave", "Ember Grove", "Ember Hive", "Ember Nest"]),
-            ("ice", ["Frost Cave", "Frost Grove", "Frost Hive", "Frost Nest"]),
+            ("fire", ["Ember Cave", "Ember Coil", "Ember Grove", "Ember Hive"]),
+            ("ice", ["Frost Cave", "Frost Coil", "Frost Grove", "Frost Hive"]),
         ):
             with self.subTest(element=element):
                 potion = potions[element]
