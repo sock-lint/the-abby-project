@@ -198,3 +198,84 @@ class LegacyRuntimeLevelVisibilityTests(TestCase):
                 self.assertTrue(badge_goal_is_available(badge, self.child))
                 with patch.dict(XP_THRESHOLDS, {0: 0, 1: 100}, clear=True):
                     self.assertEqual(badge_goal_is_available(badge, self.child), case[0] == 'skill_categories_breadth')
+
+    def count_badge(self, case, level, required):
+        badge = self.badge(case, level, save=False)
+        count_field = 'categories' if case[0] == 'skill_categories_breadth' else 'count'
+        badge.criteria_value[count_field] = required
+        badge.save()
+        return badge
+
+    def test_nonpositive_legacy_counts_preserve_native_awards_above_level_cap(self):
+        badges = []
+        for case in LEVEL_CASES[:3]:
+            for level in (7, '7', 7.1):
+                for required in (0, -1, -0.5, False):
+                    with self.subTest(kind=case[0], level=level, required=required):
+                        badge = self.count_badge(case, level, required)
+                        badges.append(badge)
+                        self.assertTrue(BadgeService._check_criteria(self.child, badge))
+                        self.assertTrue(badge_goal_is_available(badge, self.child))
+        original = dict(Badge.objects.values_list('pk', 'criteria_value'))
+        self.assertEqual({badge.pk for badge in BadgeService.evaluate_badges(self.child, scopes={'skill_xp'})}, {badge.pk for badge in badges})
+        after = self.state()
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={'skill_xp'}), [])
+        self.assertEqual(self.state(), after)
+        self.assertEqual(dict(Badge.objects.values_list('pk', 'criteria_value')), original)
+
+    def test_nonpositive_legacy_count_visibility_is_read_only_and_mcp_remains_strict(self):
+        badges = [self.count_badge(case, '7', required) for case in LEVEL_CASES[:3] for required in (0, -0.5, False)]
+        before = self.state()
+        with CaptureQueriesContext(connection) as queries:
+            choices = self.client.get('/api/badges/')
+            summary = self.client.get('/api/achievements/summary/')
+            catalog = self.wire('read_rpg_catalog', {'section': 'badges'})
+            audit = self.wire('audit_rpg_catalog', {'section': 'badges'})
+        self.assertEqual(choices.status_code, 200)
+        self.assertEqual(summary.status_code, 200)
+        self.assertEqual(self.state(), before)
+        self.assertEqual([query['sql'] for query in queries.captured_queries if query['sql'].lstrip().upper().startswith(('INSERT', 'UPDATE', 'DELETE'))], [])
+        self.assertEqual({row['id'] for row in choices.json()['results']}, {badge.pk for badge in badges})
+        self.assertTrue(all(row['catalog_available'] for row in choices.json()['results']))
+        self.assertEqual(summary.json()['total_badges'], len(badges))
+        self.assertTrue(all(row['available_for_new_user'] is False for row in catalog['results']))
+        self.assertEqual({row['id'] for row in audit['findings'] if row['code'] == 'invalid_badge_criteria'}, {badge.pk for badge in badges})
+        for case in LEVEL_CASES[:3]:
+            for required in (0, -1, -0.5, False):
+                badge = self.badge(case, max(XP_THRESHOLDS), save=False)
+                badge.criteria_value['categories' if case[0] == 'skill_categories_breadth' else 'count'] = required
+                body = {key: getattr(badge, key) for key in ('name', 'description', 'criteria_type', 'criteria_value', 'xp_bonus', 'award_coins')}
+                self.assertIn('error', self.wire('create_badge', body))
+        self.assertEqual(self.state(), before)
+
+    def test_zero_count_does_not_bypass_unusable_levels_or_mastery(self):
+        for case in LEVEL_CASES[:3]:
+            for level in ('bad', None, '7.0'):
+                with self.subTest(kind=case[0], level=level):
+                    badge = self.count_badge(case, level, 0)
+                    self.assertFalse(badge_goal_is_available(badge, self.child))
+                    with self.assertRaises(ValueError):
+                        BadgeService.evaluate_badges(self.child, scopes={'skill_xp'})
+                    self.assertFalse(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+                    badge.delete()
+        for level in (7, '7', 7.1):
+            for extra in ({'count': 0}, {'categories': False}):
+                with self.subTest(mastery_level=level, extra=extra):
+                    badge = self.badge(LEVEL_CASES[3], level, save=False)
+                    badge.criteria_value.update(extra)
+                    self.assertFalse(BadgeService._check_criteria(self.child, badge))
+                    self.assertFalse(badge_goal_is_available(badge, self.child))
+
+    def test_positive_or_nonnumeric_legacy_counts_do_not_bypass_level_cap(self):
+        for case in LEVEL_CASES[:3]:
+            for level in (7, '7', 7.1):
+                for required in (1, True, 0.5, '0', None, [], {}):
+                    with self.subTest(kind=case[0], level=level, required=required):
+                        badge = self.count_badge(case, level, required)
+                        self.assertFalse(badge_goal_is_available(badge, self.child))
+                        if isinstance(required, (int, float)):
+                            self.assertFalse(BadgeService._check_criteria(self.child, badge))
+                        else:
+                            with self.assertRaises(TypeError):
+                                BadgeService._check_criteria(self.child, badge)
+                        badge.delete()

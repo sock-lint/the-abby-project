@@ -13,6 +13,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Value
 
 from apps.achievements.models import Skill, SkillCategory, SkillPrerequisite, Subject
 from apps.achievements.taxonomy import validate_new_taxonomy_references
@@ -70,6 +71,55 @@ def _canonical_lookup(model, lookup):
     return result
 
 
+def _validate_category_alias_reuse(obj):
+    # Existing members of a current-name union can keep their namespace. Only
+    # a genuinely renamed source reserves a new incoming case-insensitive name.
+    current = SkillCategory.objects.filter(name__iexact=obj.name)
+    if obj.pk and current.filter(pk=obj.pk).exists():
+        return
+    sources = RPGContentOverride.objects.filter(
+        model_label="achievements.skillcategory",
+        source_lookup__name__iexact=obj.name,
+        values___authoring={"version": 1, "source": "mcp"},
+    ).exclude(object_id=obj.pk).exclude(object_id__in=current.values("pk"))
+    for source in sources:
+        if (isinstance(source.source_lookup, dict)
+                and set(source.source_lookup) == {"name"}
+                and isinstance(source.source_lookup["name"], str)
+                and SkillCategory.objects.filter(pk=source.object_id).exists()):
+            raise ContentPackError("This category name is retained by another renamed entry; choose another name.")
+
+
+def _validate_direct_category_source(obj, previous):
+    """Predict the first source that record_direct_override will preserve."""
+    if previous is None:
+        return
+    source = RPGContentOverride.objects.filter(
+        model_label="achievements.skillcategory", object_id=obj.pk,
+    ).first()
+    lookup = source.source_lookup if source else natural_lookup(previous)
+    if not isinstance(lookup, dict) or set(lookup) != {"name"} or not isinstance(lookup["name"], str):
+        return
+    name = lookup["name"]
+    # Let the database apply the same iexact semantics used by native payouts,
+    # including backend-specific Unicode comparisons, to the candidate name.
+    if SkillCategory.objects.filter(pk=obj.pk).annotate(
+        _candidate_name=Value(obj.name),
+    ).filter(_candidate_name__iexact=name).exists():
+        return
+    if not SkillCategory.objects.filter(name__iexact=name).exclude(pk=obj.pk).exists():
+        return
+    was_retained = not SkillCategory.objects.filter(pk=obj.pk, name__iexact=name).exists()
+    was_valid = source and RPGContentOverride.objects.filter(
+        pk=source.pk, values___authoring={"version": 1, "source": "mcp"},
+    ).exists()
+    if was_retained and was_valid:
+        # Already-persisted ambiguity keeps the established fail-closed policy;
+        # unrelated metadata/retirement edits do not introduce a new conflict.
+        return
+    raise ContentPackError("This edit would retain a category name used by another current entry; choose another name.")
+
+
 def validate_source_identity(obj):
     """Keep current names disjoint from another object's retained source name.
 
@@ -80,6 +130,8 @@ def validate_source_identity(obj):
     label = obj._meta.label_lower
     if label not in AUTHORING_MODELS | {"quests.questdefinition"}:
         return
+    if label == "achievements.skillcategory":
+        _validate_category_alias_reuse(obj)
     lookup = natural_lookup(obj)
     sources = RPGContentOverride.objects.filter(model_label=label).exclude(object_id=obj.pk)
     if label == "quests.questdefinition":
@@ -106,6 +158,8 @@ def validate_catalog_object(obj):
     label = obj._meta.label_lower
     validate_source_identity(obj)
     previous = type(obj).objects.filter(pk=obj.pk).first() if obj.pk else None
+    if label == "achievements.skillcategory":
+        _validate_direct_category_source(obj, previous)
     try:
         if label in {"achievements.skill", "achievements.subject"}:
             validate_new_taxonomy_references(SkillCategory, [obj.category_id],

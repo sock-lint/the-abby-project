@@ -28,6 +28,7 @@ import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
 import retainedLevelBadges from '../../../contracts/api/fixtures/badges-retained-unreachable-level.json';
 import reachableLegacyLevels from '../../../contracts/api/fixtures/badges-reachable-legacy-levels.json';
+import retainedCategoryBadges from '../../../contracts/api/fixtures/badges-retained-category-tie.json';
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
@@ -177,6 +178,20 @@ describe('current owned-art API contracts', () => {
     ]));
     expect(response.results.every(({ catalog_available }) => catalog_available === true)).toBe(true);
     expect(response.results.some(({ id }) => id === 960)).toBe(false);
+  });
+  it('retains earned category badges while omitting ambiguous unearned goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, retainedCategoryBadges);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(retainedCategoryBadges);
+    expect(response.results.map(({ id }) => id).sort()).toEqual([961, 963]);
+    expect(response.results.find(({ id }) => id === 961)).toMatchObject({
+      criteria_type: 'category_mastery',
+      criteria_value: { category: 'Fixture named category', min_level: 1 },
+      catalog_available: false,
+    });
+    expect(response.results.find(({ id }) => id === 963).catalog_available).toBe(true);
   });
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
     server.use(

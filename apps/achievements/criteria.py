@@ -152,33 +152,8 @@ def _projects_completed(user, c):
 
 def _project_category_ids(name):
     """Keep current-name unions while admitting only unambiguous renamed sources."""
-    from apps.achievements.models import SkillCategory
-    from apps.rpg.models import RPGContentOverride
-
-    if not isinstance(name, str):
-        return ()
-    current = SkillCategory.objects.filter(name__iexact=name)
-    # A current category's own authoring override does not turn its current
-    # label into a competing historical identity. Legacy iexact rules count
-    # the union of all current case variants, including MCP-authored rows.
-    # Only genuinely renamed source rows need the bounded ambiguity check.
-    sources = list(RPGContentOverride.objects.filter(
-        model_label="achievements.skillcategory", source_lookup__name__iexact=name,
-        values___authoring={"version": 1, "source": "mcp"},
-    ).exclude(object_id__in=current.values("pk"))
-        .order_by("pk").values_list("object_id", "source_lookup")[:1001])
-    if len(sources) > 1000:
-        return ()
-    retained_ids = [object_id for object_id, lookup in sources
-                    if isinstance(lookup, dict) and set(lookup) == {"name"}
-                    and isinstance(lookup["name"], str)]
-    retained = list(SkillCategory.objects.filter(pk__in=retained_ids)
-                    .order_by("pk").values_list("pk", flat=True)[:2])
-    if retained:
-        # A distinct current row must never take over a renamed promise, nor
-        # may multiple renamed categories compete for the same original name.
-        return retained if len(retained) == 1 and not current.exists() else ()
-    return current.values_list("pk", flat=True)
+    from .source_identity import project_category_resolution
+    return project_category_resolution(name).category_ids
 
 
 @criterion(Badge.CriteriaType.CATEGORY_PROJECTS, scopes={"project"})

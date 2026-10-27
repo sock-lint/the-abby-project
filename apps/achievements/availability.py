@@ -36,8 +36,16 @@ def _skill_level_goal_is_reachable(kind, criteria):
     if kind not in _SKILL_LEVEL_GOALS:
         return True
     level = native_badge_skill_level(kind, criteria)
+    if level is None:
+        return False
+    if kind != "category_mastery":
+        # These native count comparisons can qualify with no matching rows.
+        # Their ORM lookup must still accept the saved level first.
+        required = criteria.get("categories", 4) if kind == "skill_categories_breadth" else criteria.get("count", 1)
+        if isinstance(required, (int, float)) and required <= 0:
+            return True
     from .models import XP_THRESHOLDS
-    return level is not None and level <= max(XP_THRESHOLDS)
+    return level <= max(XP_THRESHOLDS)
 
 
 class BadgeGoalAvailability:
@@ -46,6 +54,7 @@ class BadgeGoalAvailability:
     def __init__(self, user=None):
         self.user = user
         self._item_availability = {}
+        self._category_ambiguity = {}
 
     @cached_property
     def pet_pairs(self):
@@ -86,12 +95,38 @@ class BadgeGoalAvailability:
             self._item_availability[item.pk] = item_is_available(item)
         return self._item_availability[item.pk]
 
+    def named_category_goal_is_reachable(self, kind, criteria):
+        """Hide native category ties without redefining older missing-name rules."""
+        if kind not in {"category_projects", "category_mastery"} or not isinstance(criteria, dict):
+            return True
+        if kind == "category_projects":
+            if criteria.get("categories") or criteria.get("category") is None:
+                return True
+            required = criteria.get("count", 3)
+            if isinstance(required, (int, float)) and required <= 0:
+                # The native comparison can qualify even with empty resolved IDs.
+                return True
+        name = criteria.get("category")
+        if not isinstance(name, str):
+            return True
+        key = (kind, name)
+        if key not in self._category_ambiguity:
+            from .models import SkillCategory
+            from .source_identity import project_category_resolution, source_identity_matches
+            self._category_ambiguity[key] = (
+                project_category_resolution(name).ambiguous if kind == "category_projects"
+                else len(source_identity_matches(SkillCategory, {"name": name})) > 1
+            )
+        return not self._category_ambiguity[key]
+
     def is_available(self, badge):
         kind = badge.criteria_type
         criteria = badge.criteria_value or {}
         if not _skill_level_goal_is_reachable(kind, criteria):
             # Unusable or genuinely unreachable thresholds stay in earned
             # history without being advertised as a future goal.
+            return False
+        if not self.named_category_goal_is_reachable(kind, criteria):
             return False
         if kind in {"pets_hatched", "pet_species_owned", "mounts_evolved"}:
             pairs = self.pet_pairs | self.owned_pets

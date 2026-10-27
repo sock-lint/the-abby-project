@@ -18,11 +18,16 @@ New content validation bounds badge `level`/`min_level` requirements by that
 curve (currently maximum 6), preserving strict whole numbers and the positive
 minimum. Legacy visibility instead follows the native checkers' integer
 coercion: saved numeric strings, fractions, zero and booleans remain available
-when their effective threshold is reachable. Unusable values and effective
-thresholds beyond the curve hide unearned goals; earned rows remain in history
+when their effective threshold is reachable. The three count-based skill goals
+also retain native zero/negative-count eligibility above the curve, after the
+level has been successfully converted. This exception does not apply to mastery.
+Unusable values and genuinely unreachable requirements hide unearned goals;
+earned rows remain in history
 with `catalog_available=false`, without rewriting criteria or rewards. The MCP
-catalog uses that same availability, while its strict content audit can still
-report legacy authoring errors.
+catalog applies the same level compatibility, then still strictly validates
+every other criterion field. It can report a legacy row unavailable when another
+field fails authoring validation, even if the native checker can award it. Its
+strict content audit also reports the saved authoring errors.
 
 Unreachable unearned goals are omitted by `visible_badges` from child catalog
 and summary surfaces. Earned badges remain visible, counted and eligible for
@@ -68,7 +73,20 @@ uncategorized completed projects. Exact versioned MCP provenance may retain an
 original name after a rename; distinct renamed identities, or a renamed identity
 competing with another current category, fail closed. Retirement preserves
 eligibility and earned badge history; plural project-category counts keep their
-existing behavior.
+existing behavior. Named goals blocked by those identity ties are hidden from
+new goal choices and Lab snapshots. Earned badges remain in history with
+`catalog_available=false`. Resolving the tie restores goal availability on the
+next read; it does not replay awards. This ambiguity check preserves the older
+missing-name policy and uncategorized, plural-category and zero-count rules.
+
+Direct category authoring rejects a rename that would newly turn a current
+case-variant union into a competing retained/current identity. New category names
+also cannot reuse a genuinely renamed retained source with different casing.
+Current-only unions and case-only renames remain supported. The new guards leave
+unrelated metadata edits and explicit repairs under their existing validation
+and ownership rules; saved awards are intact.
+The shared source-name guard also applies to reviewed pack loads, while ordinary
+keyed YAML updates do not invent direct-edit provenance.
 
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be

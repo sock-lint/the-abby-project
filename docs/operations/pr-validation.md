@@ -152,10 +152,18 @@ The real `badges-retained-unreachable-level.json` producer/React pair checks the
 same retained catalog response; reads cannot rewrite rewards or history.
 `test_category_projects_compatibility` and `test_legacy_runtime_level_visibility`
 under `apps.achievements.tests` retain current case-variant category unions,
-uncategorized-project rules and native-compatible saved level thresholds.
+uncategorized-project rules and native-compatible saved level thresholds,
+including count-based goals that qualify with zero matching rows.
 `apps.rpg.tests.test_progression_legacy_runtime_levels` compares those thresholds
 with native eligibility, including integer-query rounding and missing progress.
 The catalog producer/React pair also consumes `badges-reachable-legacy-levels.json`.
+`apps.achievements.tests.test_named_goal_ambiguity` checks that retained/current
+category ties stop being offered as goals while earned history remains visible;
+current-name unions and uncategorized, plural and zero-count rules remain valid.
+The real producer/React pair consumes `badges-retained-category-tie.json`.
+`apps.mcp_server.tests.test_category_rename_admission` covers atomic rejection
+through MCP, REST and reviewed pack preview/publication, preserving current-name
+unions, case-only renames, first-source identity and legacy repair rules.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

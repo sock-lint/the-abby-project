@@ -136,6 +136,50 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assertEqual(list(SkillProgress.objects.order_by("pk").values()), before["achievements.skillprogress"])
         self.assertEqual(list(CoinLedger.objects.order_by("pk").values()), before["rewards.coinledger"])
 
+    def test_earned_named_badge_survives_category_identity_tie(self):
+        from apps.achievements import criteria
+        from apps.rpg.models import RPGContentOverride
+
+        original = "Fixture named category"
+        category = SkillCategory.objects.create(id=931, name=original)
+        skill = Skill.objects.create(id=932, category=category, name="Fixture named practice")
+        earned = Badge.objects.create(id=961, name="Retained earned category badge",
+            description="Previously earned named recognition", criteria_type="category_mastery",
+            criteria_value={"category": original, "min_level": 1}, xp_bonus=0, award_coins=False)
+        SkillService.award_xp(self.child, skill, XP_THRESHOLDS[1])
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"}), [earned])
+        marker = UserBadge.objects.values().get(user=self.child, badge=earned)
+        unearned = Badge.objects.create(id=962, name="Hidden tied category badge",
+            criteria_type="category_mastery", criteria_value=earned.criteria_value,
+            xp_bonus=0, award_coins=False)
+        reachable = Badge.objects.create(id=963, name="Reachable independent skill badge",
+            criteria_type="skill_level_reached", criteria_value={"level": 1, "count": 1},
+            xp_bonus=0, award_coins=False)
+        category.name = "Fixture renamed category"
+        category.save(update_fields=["name"])
+        RPGContentOverride.objects.create(model_label="achievements.skillcategory", object_id=category.pk,
+            source_lookup={"name": original}, values={"_authoring": {"version": 1, "source": "mcp"}})
+        SkillCategory.objects.create(id=933, name=original)
+        self.assertFalse(criteria.check(self.child, unearned))
+        self.assertTrue(criteria.check(self.child, reachable))
+        models = (Badge, UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory, RPGContentOverride)
+        before = {model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in models}
+        response = self.client.get("/api/badges/")
+        self.assertEqual(response.status_code, 200)
+        rows = {row["id"]: row for row in response.json()["results"]}
+        self.assertEqual(set(rows), {earned.pk, reachable.pk})
+        self.assertFalse(rows[earned.pk]["catalog_available"])
+        self.assertEqual(rows[earned.pk]["criteria_value"], earned.criteria_value)
+        self.assertTrue(rows[reachable.pk]["catalog_available"])
+        history = self.client.get("/api/badges/earned/")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["results"][0]["badge"]["id"], earned.pk)
+        self.assertFalse(history.json()["results"][0]["badge"]["catalog_available"])
+        self.assertEqual(UserBadge.objects.values().get(user=self.child, badge=earned), marker)
+        self.assertEqual({model._meta.label_lower: list(model.objects.order_by("pk").values())
+                          for model in models}, before)
+        self.assert_response_fixture(response, "badges-retained-category-tie.json")
+
     def test_current_catalog_response(self):
         catalog = self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-supported-catalog.json")
         self.assertEqual(len(catalog["species"]), 15)

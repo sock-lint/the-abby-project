@@ -1,5 +1,11 @@
 # Shared API response fixtures
 
+`badges-retained-category-tie.json` retains an actually earned mastery badge
+after its current and retained category identities compete. The producer checks
+native failure on the tie, hides an unearned copy, preserves raw criteria and
+history, and proves reads change no awards. Its React consumer preserves the
+server's availability flags and the independent reachable goal.
+
 `badges-reachable-legacy-levels.json` preserves native-reachable legacy level
 values in a real child badge response, including numeric strings, fractions,
 zero and false. The producer checks native eligibility, excludes a genuinely

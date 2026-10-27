@@ -1,6 +1,7 @@
 """Detached Lab criteria preserve native legacy IntegerField threshold semantics."""
 from collections import Counter
 from copy import deepcopy
+import json
 
 from django.test import TestCase, override_settings
 
@@ -145,3 +146,102 @@ class ProgressionLegacyRuntimeLevelTests(TestCase):
             trial.daily(1)
         self.assertEqual(trial.source_totals["reading"]["xp"], 15)
         self.assertFalse(trial.badges)
+
+    def test_nonpositive_saved_counts_keep_native_awardable_goals_in_lab_and_earn_once(self):
+        badges = []
+        for kind, field, _other in LEVEL_CRITERIA[:3]:
+            count_field = "categories" if kind == "skill_categories_breadth" else "count"
+            for raw_level in (7, "7", 7.1):
+                for required in (0, -1, -0.5, False):
+                    case = (kind, field, {count_field: required})
+                    badge = self.badge(case, raw_level, save=True)
+                    with self.subTest(kind=kind, threshold=raw_level, required=required):
+                        # Native count comparison succeeds with no matching progress,
+                        # but still parses the persisted threshold before counting.
+                        self.assertTrue(BadgeService._check_criteria(self.child, badge))
+                    badges.append(badge)
+        original = {badge.pk: deepcopy(badge.criteria_value) for badge in badges}
+        catalog = load_catalog()
+        self.assertEqual({badge.pk for badge in catalog.badges}, set(original))
+        trial = Trial(quiet_config(reading_minutes=10), catalog, 1)
+        self.assertEqual(trial.finite_keys, {f"badge:{pk}" for pk in original})
+        self.assertFalse(trial.badges)
+        with self.assertNumQueries(0):
+            trial.daily(1)
+            trial.daily(2)
+            trial.evaluate_badges(scopes={"skill_xp"})
+        self.assertEqual(trial.badges, set(original))
+        self.assertEqual(
+            Counter(event["target"] for event in trial.events if event["source"] == "badge_earned"),
+            Counter({badge.name: 1 for badge in badges}),
+        )
+        self.assertEqual(
+            {badge.pk for badge in BadgeService.evaluate_badges(self.child, scopes={"skill_xp"})},
+            trial.badges,
+        )
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"}), [])
+        self.assertEqual(set(UserBadge.objects.filter(user=self.child).values_list("badge_id", flat=True)), trial.badges)
+        self.assertEqual(
+            json.dumps(dict(Badge.objects.values_list("pk", "criteria_value")), sort_keys=True),
+            json.dumps(original, sort_keys=True),
+        )
+        self.assertEqual(
+            json.dumps({badge.pk: dict(badge.criteria_value) for badge in catalog.badges}, sort_keys=True),
+            json.dumps(original, sort_keys=True),
+        )
+
+    def test_count_vacuity_never_skips_invalid_conversion_or_mastery_requirements(self):
+        rejected = []
+        for kind, field, _other in LEVEL_CRITERIA[:3]:
+            count_field = "categories" if kind == "skill_categories_breadth" else "count"
+            for raw_level in ("bad-level", None, "7.0"):
+                badge = self.badge((kind, field, {count_field: 0}), raw_level, save=True)
+                with self.subTest(kind=kind, threshold=raw_level):
+                    with self.assertRaises((TypeError, ValueError)):
+                        BadgeService._check_criteria(self.child, badge)
+                    trial = Trial(quiet_config(reading_minutes=10), self.catalog, 1)
+                    with self.assertNumQueries(0), self.assertRaises((TypeError, ValueError)):
+                        trial._badge_matches(_record(badge))
+                rejected.append(badge)
+        for raw_level in (7, "7"):
+            for unused in ({"count": 0}, {"categories": False}):
+                kind, field, other = LEVEL_CRITERIA[-1]
+                badge = self.badge((kind, field, {**other, **unused}), raw_level, save=True)
+                self.assertFalse(BadgeService._check_criteria(self.child, badge))
+                rejected.append(badge)
+        original = {badge.pk: deepcopy(badge.criteria_value) for badge in rejected}
+        catalog = load_catalog()
+        self.assertFalse(catalog.badges)
+        trial = Trial(quiet_config(reading_minutes=10), catalog, 1)
+        with self.assertNumQueries(0):
+            trial.daily(1)
+        self.assertEqual(trial.source_totals["reading"]["xp"], 15)
+        self.assertFalse(trial.badges)
+        self.assertEqual(dict(Badge.objects.values_list("pk", "criteria_value")), original)
+
+    def test_positive_counts_above_cap_do_not_take_the_nonpositive_count_shortcut(self):
+        rejected = []
+        accepted = []
+        for kind, field, _other in LEVEL_CRITERIA[:3]:
+            count_field = "categories" if kind == "skill_categories_breadth" else "count"
+            for required in (1, True):
+                badge = self.badge((kind, field, {count_field: required}), 7, save=True)
+                rejected.append(badge)
+            accepted.append(self.badge((kind, field, {count_field: 1}), 2, save=True))
+        SkillProgress.objects.create(user=self.child, skill=self.skill, level=2, xp_points=XP_THRESHOLDS[2])
+        for badge in rejected:
+            self.assertFalse(BadgeService._check_criteria(self.child, badge))
+        for badge in accepted:
+            self.assertTrue(BadgeService._check_criteria(self.child, badge))
+        catalog = load_catalog()
+        self.assertEqual({badge.pk for badge in catalog.badges}, {badge.pk for badge in accepted})
+        trial = Trial(quiet_config(reading_minutes=10), catalog, 1)
+        self.assertEqual(trial.finite_keys, {f"badge:{badge.pk}" for badge in accepted})
+        with self.assertNumQueries(0):
+            for day in range(1, 21):
+                trial.daily(day)
+        self.assertEqual(trial.badges, {badge.pk for badge in accepted})
+        self.assertEqual(
+            {badge.pk for badge in BadgeService.evaluate_badges(self.child, scopes={"skill_xp"})},
+            trial.badges,
+        )

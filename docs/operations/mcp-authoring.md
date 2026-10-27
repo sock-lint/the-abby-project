@@ -304,13 +304,19 @@ level 1. A rejected draft can be corrected and previewed again. Existing badge
 goals keep the native checkers' integer coercion for saved thresholds, so a
 legacy numeric string, fraction, zero or boolean remains visible if it is
 reachable. This read compatibility does not allow those values in new badge
-authoring or rewrite saved criteria and awards.
+authoring or rewrite saved criteria and awards. Retained count-based skill goals
+with nonpositive counts stay visible when the native checker can award them,
+even above the curve; an unusable level remains unavailable. Mastery still
+requires its actual category skills to reach the threshold.
 
 Public challenge drafts check name collisions within the public definition
 namespace. A private household challenge may share a public title and does not
 block an unrelated public edit selected by ID. Genuine public collisions,
 retained source identities and named badge dependencies still require explicit
-resolution.
+resolution. A named project or mastery badge with competing current/retained
+category identities is hidden from new goal choices until the tie is resolved.
+Its earned history remains available. A later read reflects the resolved
+identity without rewriting earlier awards.
 
 Reconciliation removes owned obsolete drop rules and retires removed shop
 offers. Quest reward links are reconciled to the new definition. Owned
@@ -559,6 +565,14 @@ counts uncategorized completed projects; `categories` keeps its distinct-categor
 count. Renamed source identities remain eligible when unambiguous, and cannot
 redirect a saved rule to another category with the old name. Existing earned
 badge receipts and payouts are preserved.
+
+Category authoring rejects case-insensitive reuse of a genuinely renamed source
+and a direct rename that would introduce a retained/current identity conflict.
+This includes renaming a case-variant duplicate of an otherwise unchanged badge
+category. The rejected edit saves nothing. Current-only case variants and
+case-only renames remain supported. Create a distinct category and retire the
+old choice when a rename would overlap another source identity. Unrelated
+metadata changes and explicit repairs keep their existing validation rules.
 
 Existing badges with unreachable skill-level requirements are unavailable for
 new goals and reported by the catalog audit. Earned badges remain readable and

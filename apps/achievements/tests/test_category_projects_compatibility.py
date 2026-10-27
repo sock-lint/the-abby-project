@@ -122,9 +122,9 @@ class CategoryProjectsCompatibilityTests(TestCase):
     def test_renamed_retained_identity_competing_with_current_union_still_fails_closed(self):
         retained = self.category("Practice")
         self.wire("update_category", {"category_id": retained.pk, "name": "Renamed retained practice"})
-        # Case variants remain authorable; their distinct retained predecessor
-        # makes this historical name ambiguous and must never redirect credit.
-        current = [self.category(name) for name in ("PRACTICE", "practice")]
+        # Persisted legacy aliases remain ambiguous even though authenticated
+        # writers now prevent creating this retained/current conflict.
+        current = [SkillCategory.objects.create(name=name) for name in ("PRACTICE", "practice")]
         badge = self.badge({"category": "pRaCtIcE", "count": 1})
         for category in [retained, *current]:
             self.completed(category)
@@ -133,8 +133,10 @@ class CategoryProjectsCompatibilityTests(TestCase):
 
     def test_distinct_renamed_retained_identities_still_fail_closed(self):
         first, second = self.category("Practice"), self.category("PRACTICE")
-        self.wire("update_category", {"category_id": first.pk, "name": "Retained original one"})
-        self.wire("update_category", {"category_id": second.pk, "name": "Retained original two"})
+        # Reconstruct the legacy state without bypassing writer admission in
+        # the workflow under test; its original source overrides stay intact.
+        SkillCategory.objects.filter(pk=first.pk).update(name="Retained original one")
+        SkillCategory.objects.filter(pk=second.pk).update(name="Retained original two")
         badge = self.badge({"category": "practice", "count": 1})
         self.completed(first)
         self.completed(second)
