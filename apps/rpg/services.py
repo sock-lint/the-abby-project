@@ -781,7 +781,8 @@ def _step_drops(user, trigger_type, context, result):
         )
 
 
-def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=False, expected_quest_id=None):
+def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=False, expected_quest_id=None,
+                         category_context=None):
     """Step 5: advance the user's active quest if any matches the trigger."""
     if defer_coop:
         from apps.quests.models import QuestParticipant
@@ -790,6 +791,10 @@ def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=Fals
         ).exclude(user=user).values_list("quest_id", flat=True).first()
         if coop_quest_id is not None:
             committed_context = dict(context)
+            from apps.quests.activity import resolve_category_context
+            # Source tags may change before this callback runs. Keep category
+            # evidence captured while the accepted source transaction is open.
+            category_context = resolve_category_context(user, trigger_type, context)
 
             def advance_after_commit():
                 # Keep progress, all participant payouts and the completion
@@ -799,6 +804,7 @@ def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=Fals
                     _step_quest_progress(
                         user, trigger_type, committed_context, pending_result,
                         expected_quest_id=coop_quest_id,
+                        category_context=category_context,
                     )
                 result["quest"] = pending_result["quest"]
                 result["notifications"].extend(pending_result["notifications"])
@@ -810,7 +816,9 @@ def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=Fals
     if expected_quest_id is None:
         quest_result = QuestService.record_progress(user, trigger_type, context)
     else:
-        quest_result = QuestService.record_progress(user, trigger_type, context, quest_id=expected_quest_id)
+        quest_result = QuestService.record_progress(
+            user, trigger_type, context, quest_id=expected_quest_id, category_context=category_context,
+        )
     result["quest"] = quest_result
     if quest_result and quest_result.get("completed"):
         result["notifications"].append(
@@ -1228,11 +1236,11 @@ class ConsumableService:
             # Milestone reading and distinct-day definitions progress
             # automatically; neither can start a legacy countdown here.
             from apps.achievements.models import UserBadge
-            from apps.quests.goals import FACT_TRIGGERS
+            from apps.quests.progress_sources import has_progress_source
             from apps.quests.models import ChallengeGoal, Quest
             from apps.quests.queries import active_system_definitions
             from apps.quests.reference_locks import definitions_with_available_taxonomy
-            from apps.quests.services import QuestService, TRIGGER_DAMAGE
+            from apps.quests.services import QuestService
             from apps.quests.availability import definition_is_available
             from apps.quests.milestone_eligibility import has_milestone_gate
             if Quest.objects.filter(
@@ -1268,9 +1276,7 @@ class ConsumableService:
                 # Accomplishment awards grant loot without replaying the game
                 # loop. A selected campaign needs a real activity producer;
                 # bosses additionally need a trigger that deals damage.
-                and any(trigger in FACT_TRIGGERS
-                        and (q.quest_type != "boss" or TRIGGER_DAMAGE.get(trigger, 0) > 0)
-                        for trigger in ((q.trigger_filter or {}).get("allowed_triggers") or FACT_TRIGGERS))
+                and has_progress_source(q.quest_type, q.trigger_filter)
                 and (q.trigger_filter or {}).get("distinct_active_days") is not True
                 and definition_is_available(q)
                 and not has_milestone_gate(q)

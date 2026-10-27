@@ -16,6 +16,21 @@ deletion's table/row lock order. Missing IDs roll back the definition and any MC
 receipt; identical UUID replay retains its original response. Regression coverage
 is in `tests/test_category_reference_safety.py`.
 
+New manual solo/co-op starts, private authoring, rerolls and automatic offers
+share `progress_sources.has_progress_source`: at least one actual saved-work
+trigger must match, and bosses need positive damage from that trigger. Reward
+awards do not replay the game loop. Keep this gate outside saved progress,
+history and UUID recovery; new-start rejection consumes no scroll or reward.
+Private MCP authoring checks inside its create callback, after saved replay.
+Unavailable retained definitions expose `catalog_available: false`.
+
+Source resolution freezes each skill tag's category identity. Both legacy and
+automatic category restrictions use that saved evidence, retaining older scalar
+category context without resolving historical tags against today's taxonomy.
+REST/MCP habit handlers pass the exact new log identity internally; no source ID
+is added to the public tap result. Deferred co-op progress carries the already
+frozen evidence. Do not backfill old facts or replay campaign progress.
+
 ## Supported rewards and reachable prerequisites (October 2026)
 
 The owner-authorized prelaunch retirement is a narrow exception to the promise

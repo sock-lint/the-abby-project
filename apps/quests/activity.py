@@ -10,6 +10,16 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+SOURCE_KEYS = {
+    "clock_out": "time_entry_id", "chore_complete": "completion_id",
+    "homework_complete": "submission_id", "homework_created": "assignment_id",
+    "habit_log": "habit_log_id", "movement_session": "session_id",
+    "project_complete": "project_id", "milestone_complete": "milestone_id",
+    "creation_logged": "creation_id", "journal_entry": "entry_id",
+    "savings_goal_complete": "savings_goal_id", "expedition_returned": "expedition_id",
+    "reading_logged": "reading_reward_id",
+}
+
 
 def household_timezone(user):
     try:
@@ -19,7 +29,8 @@ def household_timezone(user):
 
 
 def _tags(manager, weight="xp_weight"):
-    return [{"skill_id": tag.skill_id, "xp_weight": getattr(tag, weight, 1)} for tag in manager.all()]
+    return [{"skill_id": tag.skill_id, "category_id": tag.skill.category_id,
+             "xp_weight": getattr(tag, weight, 1)} for tag in manager.select_related("skill")]
 
 
 def _homework_work_day(submission):
@@ -40,27 +51,28 @@ def resolve_activity(user, trigger_type, context):
     """Only accepted source records count; incoming arbitrary quantities do not."""
     trigger = str(trigger_type)
     sources = {
-        "clock_out": ("time_entry_id", "timecards.TimeEntry", {"user": user, "status": "completed"}),
-        "chore_complete": ("completion_id", "chores.ChoreCompletion", {"user": user, "status": "approved"}),
-        "homework_complete": ("submission_id", "homework.HomeworkSubmission", {"user": user, "status": "approved"}),
-        "homework_created": ("assignment_id", "homework.HomeworkAssignment", {"assigned_to": user, "is_active": True}),
-        "habit_log": ("habit_log_id", "habits.HabitLog", {"user": user, "direction": 1}),
-        "movement_session": ("session_id", "movement.MovementSession", {"user": user}),
-        "project_complete": ("project_id", "projects.Project", {"assigned_to": user, "status": "completed"}),
-        "milestone_complete": ("milestone_id", "projects.ProjectMilestone", {"project__assigned_to": user, "is_completed": True}),
-        "creation_logged": ("creation_id", "creations.Creation", {"user": user}),
-        "journal_entry": ("entry_id", "chronicle.ChronicleEntry", {"user": user, "kind": "journal"}),
-        "savings_goal_complete": ("savings_goal_id", "projects.SavingsGoal", {
+        "clock_out": ("timecards.TimeEntry", {"user": user, "status": "completed"}),
+        "chore_complete": ("chores.ChoreCompletion", {"user": user, "status": "approved"}),
+        "homework_complete": ("homework.HomeworkSubmission", {"user": user, "status": "approved"}),
+        "homework_created": ("homework.HomeworkAssignment", {"assigned_to": user, "is_active": True}),
+        "habit_log": ("habits.HabitLog", {"user": user, "direction": 1}),
+        "movement_session": ("movement.MovementSession", {"user": user}),
+        "project_complete": ("projects.Project", {"assigned_to": user, "status": "completed"}),
+        "milestone_complete": ("projects.ProjectMilestone", {"project__assigned_to": user, "is_completed": True}),
+        "creation_logged": ("creations.Creation", {"user": user}),
+        "journal_entry": ("chronicle.ChronicleEntry", {"user": user, "kind": "journal"}),
+        "savings_goal_complete": ("projects.SavingsGoal", {
             "user": user, "completed_at__isnull": False, "reward_qualifies": True,
         }),
-        "expedition_returned": ("expedition_id", "pets.MountExpedition", {"mount__user": user, "status": "claimed"}),
-        "reading_logged": ("reading_reward_id", "reading.ReadingDailyReward", {
+        "expedition_returned": ("pets.MountExpedition", {"mount__user": user, "status": "claimed"}),
+        "reading_logged": ("reading.ReadingDailyReward", {
             "user": user, "awarded_at__isnull": False,
         }),
     }
     if trigger not in sources:
         return None
-    key, model_name, filters = sources[trigger]
+    key = SOURCE_KEYS[trigger]
+    model_name, filters = sources[trigger]
     pk = context.get(key)
     if not pk:
         return None
@@ -116,6 +128,31 @@ def resolve_activity(user, trigger_type, context):
         occurred_on = timezone.localdate(occurred_at, timezone=zone)
     return {"source_type": trigger, "source_id": str(source.pk), "trigger_type": trigger,
             "occurred_at": occurred_at, "occurred_on": occurred_on, "context": safe_context}
+
+
+def resolve_category_context(user, trigger_type, context):
+    """Prefer the exact saved source snapshot, never incoming category claims.
+
+    Older internal progress calls can still supply their scalar category when
+    they have no saved-source selector. A supplied invalid/foreign source fails
+    closed. Existing facts without category evidence stay historical unknowns.
+    """
+    from .models import ChallengeActivity
+
+    trigger = str(trigger_type)
+    key = SOURCE_KEYS.get(trigger)
+    if key is None or key not in context:
+        return {"skill_category_id": context.get("skill_category_id")}
+    source_id = context.get(key)
+    if not source_id:
+        return {}
+    fact = ChallengeActivity.objects.filter(
+        user=user, source_type=trigger, source_id=str(source_id), trigger_type=trigger,
+    ).first()
+    if fact is not None:
+        return {} if fact.voided else fact.context
+    data = resolve_activity(user, trigger, context)
+    return data["context"] if data is not None else {}
 
 
 @transaction.atomic

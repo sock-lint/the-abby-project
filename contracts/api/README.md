@@ -1221,6 +1221,12 @@ and a rejected nonrepeatable restart cannot repay the campaign. The React
 consumer preserves that ordinary habit response and the restart error through
 `logHabitTap` and `startQuest`.
 
+That co-op producer restricts the campaign to the saved habit tag's category,
+verifying the ordinary tap still completes and pays each participant once.
+`quest-unreachable-start.json` is the real HTTP 400 rejection for a reward-only
+campaign, produced before any accepted quest or payout. The same React consumer
+preserves its error through `startQuest`.
+
 ## Guide copy under the child surprise rule
 
 `config.tests.test_lorebook_api_contract_fixtures` produces

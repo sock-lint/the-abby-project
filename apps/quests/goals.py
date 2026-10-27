@@ -172,7 +172,9 @@ def _first_pending_catalog_fact(user, definition, cutoff, offered_at):
         user=user, processed_at__isnull=True, voided=False, trigger_type__in=allowed,
         occurred_at__gte=cutoff, occurred_at__lte=offered_at,
     ).filter(~Q(trigger_type__in=["homework_created", "creation_logged"]) | Q(context__catalog_eligible=True))
-    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+    # Category evidence can be frozen on several source tags; _amount applies
+    # that predicate after the bounded source/window query.
+    for key in ("project_id", "savings_goal_id"):
         if filters.get(key):
             query = query.filter(**{f"context__{key}": filters[key]})
     if filters.get("chore_ids"):
@@ -253,8 +255,8 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             continue
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
-        allowed = (definition.trigger_filter or {}).get("allowed_triggers")
-        if allowed and not any(trigger in FACT_TRIGGERS for trigger in allowed):
+        from .progress_sources import has_progress_source, require_current_progress_source
+        if not has_progress_source(definition.quest_type, definition.trigger_filter):
             continue
         if not definition.is_repeatable and any(
             (definition.pk, status) in legacy_statuses for status in ("active", "completed")
@@ -264,6 +266,7 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         try:
             admit_definition_choices(definition)
             admit_definition_identity(definition)
+            require_current_progress_source(definition)
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy
             # windows and existing goals retain their reward references.
@@ -423,9 +426,12 @@ def _amount(snapshot, activity):
         return Decimal(0)
     if not allowed and trigger not in EFFORT_TRIGGERS:
         return Decimal(0)
-    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+    for key in ("project_id", "savings_goal_id"):
         if filters.get(key) and filters[key] != context.get(key):
             return Decimal(0)
+    from .category_matching import matches_category
+    if filters.get("skill_category_id") and not matches_category(context, filters["skill_category_id"]):
+        return Decimal(0)
     if filters.get("chore_ids") and context.get("chore_id") not in filters["chore_ids"]:
         return Decimal(0)
     if filters.get("on_time") and not context.get("on_time"):
