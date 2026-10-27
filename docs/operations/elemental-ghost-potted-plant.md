@@ -36,13 +36,17 @@ The private application readback receipt has SHA-256
 `263501577570df96c7fc88bc85e5c3d7287da70c307915b84c59b51ac1c5c8d8`;
 its canonical summary has SHA-256
 `174570bc528ffc1e425afa31bce68723637157ef1d6721434a243ab85ea5dcb8`.
-These are application receiving proofs, not publisher execution proofs. The
-scoped publisher, permanent-coordinator claims and manifest-last ordering are
-not observable through the application reader; their operator receipt has not
-been returned. Do not report those checks as passed from runtime GET results.
-There are no unresolved application readback/access holds in the verified
-inventory. The earlier 20:53 UTC `NoSuchKey` / HTTP 404 metadata probes remain
-historical evidence from before canonical delivery appeared.
+These are application receiving proofs. Separately, the completed canonical
+publication receipt was retrieved read-only from **Prepare Fire and Ice assets**,
+turn `01a17f26-fa7d-7061-a004-bd984ed93c4d`; its locally retained source record has
+SHA-256 `4baf9dac66c6a29b41616a56991d6b9282b4778fd974b231240137e79cd5775c`. The publisher reports its scoped publisher and permanent
+coordinator passed, the immutable version was reserved first, the manifest was
+published last, all 156 publisher readbacks and permanent canonical claims
+verified, and all 5,488 prior claims and 9,430 protected files remained unchanged.
+These operator checks come from that publication receipt, not an inference from
+the application reader. No unresolved publication or access hold remains.
+The earlier 20:53 UTC `NoSuchKey` / HTTP 404 probes and the earlier unreturned
+operator-receipt status remain historical snapshots from before completion.
 
 `frontend/assets.lock.json` adds only this exact fifteenth pin, retaining every
 previous family/version/digest. Use normal `npm run assets:import` and
