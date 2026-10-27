@@ -35,6 +35,9 @@ Existing reward approval and delivery steps still apply.
 Your own chores are confirmed when you mark them done. Children still submit
 chores for parent review. New personal chores and projects do not promise
 allowance or cash payments; their personal progression uses XP and Coins.
+Imported projects belong to you in My space. Personal project and milestone
+completion earns progression without adding cash payments; previously recorded
+payments stay in the payment history.
 School homework and grades remain in the child experience and Family tools.
 Family cooperative challenge assignments continue to select children.
 

@@ -586,11 +586,16 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
+        from config.participation import is_personal_space
+
         project = self.get_object()
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         previous_status = project.status
         project.status = "completed"
+        if is_personal_space(request):
+            project.bonus_amount = 0
+            project.hourly_rate_override = 0
         project.save()
         if previous_status != "completed":
             record_action(
@@ -643,10 +648,30 @@ class ProjectMilestoneViewSet(
     serializer_class = ProjectMilestoneSerializer
     queryset = ProjectMilestone.objects.all()
 
+    def perform_create(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {"project": self.get_project()}
+        if is_personal_space(self.request):
+            extras["bonus_amount"] = 0
+        serializer.save(**extras)
+
+    def perform_update(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {"bonus_amount": 0} if is_personal_space(self.request) else {}
+        serializer.save(**extras)
+
     @action(detail=True, methods=["post"])
     def complete(self, request, project_pk=None, pk=None):
+        from config.participation import is_personal_space
+
         milestone = self.get_object()
         milestone.is_completed = True
+        if is_personal_space(request):
+            # Existing Family-authored bonuses must not pay cash when the
+            # parent completes their own milestone in My space.
+            milestone.bonus_amount = 0
         milestone.save()
         return Response(ProjectMilestoneSerializer(milestone).data)
 
