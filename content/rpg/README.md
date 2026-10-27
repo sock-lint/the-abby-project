@@ -194,4 +194,7 @@ are zero. Ghost retains Rare rarity and Potted Plant Common. Default loading
 keeps 31 approved pairs and sixteen elemental guarantees. Current-policy
 explicit loading rejects the unsupported compatibility atomically; only scoped
 synthetic test support permits this future pack before real acceptance.
+The verified private candidate now has a separate evaluation pin for owner app
+review. That pin changes neither default loading nor the positive support policy;
+artwork acceptance and canonical publication remain separate.
 See [receiving, validation and later activation](../../docs/operations/elemental-ghost-potted-plant.md).

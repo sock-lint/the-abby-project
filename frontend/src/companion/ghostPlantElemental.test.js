@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveCompanionAppearance, validateAssetPackManifest } from '@abby-assets/contracts';
 import activeLock from '../../assets.lock.json';
+import evaluationLock from '../../assets.ghost-potted-plant.evaluation.lock.json';
 import support from '../../../shared/catalog/asset-support.json';
 import preparation from '../../../shared/catalog/elemental-ghost-potted-plant.json';
 import { resolveAppearance } from './appearance';
@@ -63,9 +64,9 @@ describe('Ghost/Potted Plant preparation with synthetic contract data only', () 
   });
 
   it('keeps runtime delivery and acquisition disabled even if a caller offers an unverified pin', () => {
-    expect(preparation.preparation).toEqual({ state: 'awaiting_private_assets', acquisition_active: false,
+    expect(preparation.preparation).toEqual({ state: 'private_review_pending', candidate_verified: true, acquisition_active: false,
       artwork_accepted: false, application_ids_agreed: true });
-    expect(preparation.release.manifest_sha256).toBeNull();
+    expect(preparation.release.manifest_sha256).toBe('6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9');
     expect(activeLock.releases).toHaveLength(14);
     expect(activeLock.releases.some(({ family_id }) => family_id === GHOST_PLANT_FAMILY)).toBe(false);
     expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(31);
@@ -98,6 +99,26 @@ describe('Ghost/Potted Plant preparation with synthetic contract data only', () 
     expect(resolveElementalPreviewAppearance({ ...egg, slug: `${species}-fire-egg` }, 'baby', { slug: 'fire' }, staged)).toBeNull();
     expect(resolveElementalPreviewAppearance({ ...egg, metadata: { species: 'meshtint-bee' } }, 'baby', { slug: 'fire' }, staged)).toBeNull();
     expect(ownedAppearanceStages({ pets: [egg], mounts: [] }, { slug: species }, { slug: 'fire' })).toEqual([]);
+  });
+
+  it('permits only the separate explicit review pin while ordinary delivery stays unavailable', () => {
+    expect(evaluationLock.releases).toHaveLength(1);
+    const pin = evaluationLock.releases[0], staged = stagedGhostPlantFixture();
+    expect(pin).toEqual({ ...preparation.release,
+      directory: `${GHOST_PLANT_FAMILY}/1.0.0/${preparation.release.manifest_sha256}` });
+    // Synthetic maps establish adapter routing only. The loopback server
+    // separately verifies the actual immutable manifest and every payload.
+    const prefix = `../avatar/shared/${pin.directory}/`, manifests = { [`${prefix}manifest.json`]: staged.release };
+    const urls = Object.fromEntries(staged.release.files.map(({ path }) => [`${prefix}${path}`, staged.resolveUrl(path)]));
+    const indexes = { [`${prefix}manifest.json`]: staged.manifestUrl };
+    const explicit = stagedElementalRelease(manifests, urls, evaluationLock, indexes, GHOST_PLANT_FAMILY);
+    expect(explicit?.release).toBe(staged.release);
+    expect(stagedElementalRelease(manifests, urls, undefined, indexes, GHOST_PLANT_FAMILY)).toBeNull();
+    expect(stagedElementalRelease(manifests, {}, evaluationLock, indexes, GHOST_PLANT_FAMILY)).toBeNull();
+    expect(stagedElementalRelease(manifests, urls, evaluationLock, {}, GHOST_PLANT_FAMILY)).toBeNull();
+    for (const [species, potion, stage] of appearances) {
+      expect(resolveElementalAppearance(ghostPlantCreature(species, potion, stage), 'pet', explicit)?.key).toBe(`${species}-${potion}-${stage}`);
+    }
   });
 
   it.each(preparation.families.flatMap(({ species_slug, challenges }) => challenges.map((challenge) => [species_slug, challenge])))(

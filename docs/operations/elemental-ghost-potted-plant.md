@@ -2,16 +2,22 @@
 
 The owner requested private Fire/Ice artwork and application preparation for
 Ghost and Potted Plant after the canonical Snake/Hermit Crab release in PR #336.
-This work prepares receiving identities, future guarantees and regression checks.
-It does not accept artwork, add a runtime pin or activate new acquisition.
+This work prepares receiving identities, future guarantees and private app review.
+It does not accept artwork, add an active runtime pin or activate new acquisition.
 Pet stats remain deferred.
 
 ## Current boundary
 
 `shared/catalog/elemental-ghost-potted-plant.json` is a receiving agreement, not
-an acquisition policy. Its state is `awaiting_private_assets`, with
-`acquisition_active: false`, `artwork_accepted: false` and a null manifest digest.
-The release family is `abby-elemental-ghost-potted-plant`, version `1.0.0`.
+an acquisition policy. Its state is `private_review_pending`, with
+`candidate_verified: true`, `acquisition_active: false` and
+`artwork_accepted: false`. The exact received manifest digest identifies the
+private candidate, not a canonical publication or owner acceptance. The release
+family is `abby-elemental-ghost-potted-plant`, version `1.0.0`.
+
+The separate `frontend/assets.ghost-potted-plant.evaluation.lock.json` permits
+explicit loopback evaluation. The ordinary active lock excludes this family;
+receiving its manifest cannot enable normal delivery or acquisition.
 
 Ordinary initial content and `shared/catalog/asset-support.json` remain unchanged:
 fifteen Base families, eight accepted elemental families, **31 exact pairs and
@@ -64,10 +70,11 @@ Actual PNG resolution still requires the correct received release.
 ## Presentation and expedition preparation
 
 The existing resolver, portrait registry, sprite unavailable-art guard and
-challenge surprise rules recognize the exact receiving family. With a null
-manifest digest and no matching lock, ordinary delivery returns unavailable.
+challenge surprise rules recognize the exact receiving family. Without the
+matching family in the active lock, ordinary delivery returns unavailable.
 It does not recolor a Base portrait or substitute another creature. Explicit
-synthetic staging is test-only evidence of component routing, not artwork review.
+synthetic staging is test-only evidence of component routing. Actual private
+review passes the separately pinned release to the existing app components.
 
 The existing child rule remains exact species + potion ownership, limited to
 server-confirmed reached stages. Missing stable reads unlock nothing. Future
@@ -92,6 +99,32 @@ and share the existing two-expeditions-per-child family-local-day cap. Frozen
 loot, sibling/family scoping, return/claim behavior and care rewards remain intact.
 
 ## Receiving and activation gates
+
+The received private candidate is pinned by review-index SHA-256
+`12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76`
+(4,994 bytes) and manifest SHA-256
+`6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9`
+(292,313 bytes). The index location is recorded in the receiving descriptor.
+The GET-only reader verified the index and all six artifacts, both safe ZIP
+inventories and all 1,039 declared workspace/authoring members. Offline Node 22
+`verify-candidate.mjs` passed without npm or network access. Runtime inventory
+is **154 files / 51,889,149 bytes: 138 GLBs and 16 transparent 256px PNGs**.
+No canonical version index or release publication is part of this review.
+
+All 138 explicit v1 binding rows and twelve default idles are retained. Plant
+Middle additionally preserves `source-idle-02` / action `idle-02` / clip
+`Idle 02`. Ghost Middle uses `source-slash-left-attack` and
+`source-slash-right-attack`; Grown uses the differently ordered
+`source-left-slash-attack` and `source-right-slash-attack`. Do not normalize
+these IDs. Eight descriptive growth edges retain the same element's destination
+idle; there are no supplied transition payloads or invented Evolve takes.
+
+Authoring delivery includes editable masters and reproducible staged inputs,
+but formal source backup/restoration remains pending. Owner artwork acceptance,
+physical-phone/native-shell acceptance and full receiving-app acceptance must
+be reported separately from successful transport and workshop QA. The supported
+handoff's historical `preparing` status reflects its pending canonical-publication
+gate; it does not negate the verified private delivery.
 
 The private asset lane is **Prepare Fire and Ice assets**; the application team
 keeps the established GET-only reader. Return the immutable review index URI,
@@ -150,3 +183,10 @@ and accepted rewards. Preserve pending incubation promises, frozen challenge
 rewards, eggs, potions, care and expedition loot. Do not blindly revert an entire
 release after saved promises exist, delete canonical objects, migrate identities,
 reroll or re-grant rewards.
+
+For withdrawal of this private review alone, return to preparation commit
+`2c21a861e67543042254624791d620de9f635ca3`: remove only the new evaluation
+pin/allowlist and restore the unset receiving digest. Preserve the verified
+external archives, review evidence and source recovery bundle. The approved
+application baseline remains PR #336's `1ab5101d61c708f3a3b7e06dc58fbde654716c7a`;
+its fourteen runtime pins, server offers and saved promises are untouched.

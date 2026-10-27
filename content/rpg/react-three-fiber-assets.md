@@ -360,12 +360,14 @@ animation, and failures retain the functional DOM customization fallback.
 
 ## Ghost and Potted Plant receiving preparation
 
-The receiving agreement for `abby-elemental-ghost-potted-plant` 1.0.0 has a null
-manifest digest and no runtime pin. It defines twelve Fire/Ice appearances,
+The receiving agreement for `abby-elemental-ghost-potted-plant` 1.0.0 pins the
+verified private manifest in a separate evaluation lock, with no active runtime
+pin. It defines twelve Fire/Ice appearances,
 exact natural egg identities, Baby-only challenge handles and existing native
 stage names. Production remains on fourteen canonical releases and 31 supported
-pairs. No model, portrait, shader or publication acceptance is introduced here.
-Private candidate review, exact inventory checks, actual app/source drift, owner
-approval and canonical publication/readback remain required. Existing package
+pairs. Private transport and inventory verification passed for all 154 runtime
+files; this grants no owner artwork, shader or publication acceptance. Actual app
+review, source drift, owner approval and canonical publication/readback remain
+separate gates. Formal backup and physical-phone acceptance are pending. Existing package
 versions and integrity pins remain unchanged. See
 [the preparation runbook](../../docs/operations/elemental-ghost-potted-plant.md).

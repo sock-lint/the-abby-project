@@ -28,6 +28,9 @@ from config.tests.factories import make_family
 
 
 PACK = "content/rpg/prepared/elemental-ghost-potted-plant"
+PRIVATE_RELEASE_FAMILY = "abby-elemental-ghost-potted-plant"
+PRIVATE_MANIFEST_SHA256 = "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
+PRIVATE_REVIEW_INDEX_SHA256 = "12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76"
 SPECIES = {"meshtint-ghost", "meshtint-potted-plant"}
 PATHS = {
     "Ember Wisp": ("meshtint-ghost", "fire", "review-ghost-fire-acquisition-icon"),
@@ -123,10 +126,18 @@ class GhostPlantPreparationBoundaryTests(TestCase):
 
     def test_descriptor_receiving_handles_require_system_collection_identity(self):
         descriptor = json.loads(POLICY_PATH.with_name("elemental-ghost-potted-plant.json").read_text())
-        self.assertEqual(descriptor["preparation"]["state"], "awaiting_private_assets")
+        self.assertEqual(descriptor["preparation"]["state"], "private_review_pending")
+        self.assertTrue(descriptor["preparation"]["candidate_verified"])
         self.assertFalse(descriptor["preparation"]["acquisition_active"])
         self.assertFalse(descriptor["preparation"]["artwork_accepted"])
-        self.assertIsNone(descriptor["release"]["manifest_sha256"])
+        self.assertEqual(descriptor["release"], {
+            "family_id": PRIVATE_RELEASE_FAMILY,
+            "release_version": "1.0.0",
+            "manifest_sha256": PRIVATE_MANIFEST_SHA256,
+        })
+        self.assertEqual(descriptor["private_review"]["index_sha256"], PRIVATE_REVIEW_INDEX_SHA256)
+        self.assertEqual(descriptor["private_review"]["index_bytes"], 4994)
+        self.assertEqual(descriptor["private_review"]["canonical_publication"], "not_performed")
         for name, (_species, _potion, icon) in PATHS.items():
             with self.subTest(name=name):
                 definition = QuestDefinition(name=name, quest_type="collection", is_system=True)
@@ -135,6 +146,46 @@ class GhostPlantPreparationBoundaryTests(TestCase):
                 self.assertIsNone(challenge_catalog_icon(definition))
                 definition.is_system, definition.quest_type = True, "boss"
                 self.assertIsNone(challenge_catalog_icon(definition))
+
+    def test_verified_private_pin_leaves_default_catalog_and_prepared_loading_inactive(self):
+        active = json.loads((settings.BASE_DIR / "frontend/assets.lock.json").read_text())["releases"]
+        evaluation = json.loads((settings.BASE_DIR / "frontend/assets.ghost-potted-plant.evaluation.lock.json").read_text())
+        self.assertEqual(len(active), 14)
+        self.assertNotIn(PRIVATE_RELEASE_FAMILY, {release["family_id"] for release in active})
+        self.assertEqual(evaluation, {"schema_version": 1, "releases": [{
+            "family_id": PRIVATE_RELEASE_FAMILY,
+            "release_version": "1.0.0",
+            "manifest_sha256": PRIVATE_MANIFEST_SHA256,
+            "directory": f"{PRIVATE_RELEASE_FAMILY}/1.0.0/{PRIVATE_MANIFEST_SHA256}",
+        }]})
+        policy = json.loads(POLICY_PATH.read_text())
+        self.assertNotIn(PRIVATE_RELEASE_FAMILY, {source["id"] for source in policy["sources"]})
+
+        # A verified receiving candidate is presentation evidence, not authority
+        # to publish offers, change default content, or grant rewards.
+        call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+        self.assertEqual(QuestDefinition.objects.filter(
+            is_system=True, reward_items__item__item_type="potion",
+            reward_items__item__potion_type__slug__in=("fire", "ice"),
+        ).distinct().count(), 16)
+        child = make_family("Private candidate reader", children=[{"username": "private-candidate-reader"}]).children[0]
+        client = APIClient()
+        client.force_authenticate(child)
+        inventory = list(UserInventory.objects.order_by("pk").values())
+        response = client.get("/api/pets/codex/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["totals"]["mounts_possible"], 31)
+        for species in response.data["species"]:
+            if species["slug"] in SPECIES:
+                self.assertEqual({potion["slug"] for potion in species["available_potions"]}, {"base"})
+        with self.assertRaisesRegex(CommandError, "compatibility"):
+            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
+        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(list(UserInventory.objects.order_by("pk").values()), inventory)
+        self.assertFalse(ChallengeGoal.objects.exists())
 
     def test_previous_facts_do_not_replay_into_future_prepared_goals(self):
         child = make_family("Before Ghost preparation", children=[{"username": "before-ghost"}]).children[0]

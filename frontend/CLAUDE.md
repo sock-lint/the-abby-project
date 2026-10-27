@@ -363,10 +363,14 @@ idle. Missing exact art retains care/claim controls. Physical-phone and native
 shell acceptance remain separate from desktop/browser evidence.
 
 Ghost/Potted Plant receiving preparation uses
-`shared/catalog/elemental-ghost-potted-plant.json`, with its manifest unset and
-acquisition/artwork acceptance disabled. Neither an active nor an evaluation
-release pin exists yet. Ordinary runtime delivery stays unavailable; synthetic
-tests supply an explicit fixture and establish contract behavior only. The
+`shared/catalog/elemental-ghost-potted-plant.json`, with the verified private
+manifest pinned and acquisition/artwork acceptance disabled. The separate
+`assets.ghost-potted-plant.evaluation.lock.json` enables explicit loopback review;
+the family is absent from the fourteen-release active lock, so ordinary runtime
+delivery stays unavailable. Candidate bytes remain outside the checkout and the
+evaluation plugin verifies every file before serving only loopback GET/HEAD.
+Synthetic tests establish contract behavior only; actual component browser
+checks use the exact private candidate. Neither establishes phone acceptance. The
 exact natural eggs remain `meshtint-ghost-egg` and
 `meshtint-potted-plant-egg`; their form names and server-confirmed stages remain
 Ghost/Spook/Phantom and Seed/Sprout/Flower Pot Monster. Future challenge image
