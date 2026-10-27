@@ -1231,10 +1231,11 @@ class ConsumableService:
             # Milestone reading and distinct-day definitions progress
             # automatically; neither can start a legacy countdown here.
             from apps.achievements.models import UserBadge
+            from apps.quests.goals import FACT_TRIGGERS
             from apps.quests.models import ChallengeGoal, Quest
             from apps.quests.queries import active_system_definitions
             from apps.quests.reference_locks import definitions_with_available_taxonomy
-            from apps.quests.services import QuestService
+            from apps.quests.services import QuestService, TRIGGER_DAMAGE
             from apps.quests.availability import definition_is_available
             from apps.quests.milestone_eligibility import has_milestone_gate
             if Quest.objects.filter(
@@ -1267,6 +1268,12 @@ class ConsumableService:
                     "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
                 )
                 if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                # Accomplishment awards grant loot without replaying the game
+                # loop. A selected campaign needs a real activity producer;
+                # bosses additionally need a trigger that deals damage.
+                and any(trigger in FACT_TRIGGERS
+                        and (q.quest_type != "boss" or TRIGGER_DAMAGE.get(trigger, 0) > 0)
+                        for trigger in ((q.trigger_filter or {}).get("allowed_triggers") or FACT_TRIGGERS))
                 and (q.trigger_filter or {}).get("distinct_active_days") is not True
                 and definition_is_available(q)
                 and not has_milestone_gate(q)

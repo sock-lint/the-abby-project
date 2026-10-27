@@ -10,12 +10,12 @@
   },
   "cohort": {
     "registered_within_days": null,
+    "scope": "active_family_children",
     "eligible_children": 0,
     "eligible_child_days": 0,
     "max_children": 100,
     "truncated": false,
-    "observer_family_excluded": false,
-    "scope": "active_family_children"
+    "observer_family_excluded": false
   },
   "activity": {
     "ledger_active_children": 0,
@@ -49,6 +49,17 @@
     "is_live_experiment": false,
     "coins_per_dollar": 10
   },
+  "earning_sources": [],
+  "earning_pace": {
+    "status": "insufficient_evidence",
+    "recurring_coins": 0,
+    "active_child_days": 0,
+    "coins_per_active_day": null,
+    "excluded_credits": 0,
+    "attribution_complete": false,
+    "provisional": true
+  },
+  "shop_rewards": [],
   "notes": [
     "Observed amounts use the installed uncapped economy. The 100-Coin Lab hypothesis is not live and these observations cannot validate an undeployed policy.",
     "The cohort contains all currently active, nonstaff children in your family registered by the period's end. Trusted provisioned test families are excluded.",
@@ -64,16 +75,5 @@
     "Earning pace divides identified recurring Coin credits in the period by meaningful child-days in that same period. Credits may arrive on a later approval or expedition day. Occasional bonuses, exchanges, refunds, manual grants and unknown adjustments are excluded. Actual boosts and old promised payouts remain in their recorded amounts; this is not an unboosted or future-policy forecast.",
     "Shop estimates round up the full current offer price at the observed family earning pace, starting from zero and assuming all those earnings are saved. Existing balances, spending, promised redemption prices and other purchases do not change the estimate. A stocked offer is not a delivery guarantee; an estimate with fewer than seven meaningful child-days is provisional.",
     "Observations available means selected work or ledger evidence exists, not that sample size is sufficient to approve an economy or predict retention. Unknown attribution makes the identified earning pace incomplete. No family-cost or purchase-timing guarantee is inferred."
-  ],
-  "earning_sources": [],
-  "earning_pace": {
-    "status": "insufficient_evidence",
-    "recurring_coins": 0,
-    "active_child_days": 0,
-    "coins_per_active_day": null,
-    "excluded_credits": 0,
-    "attribution_complete": false,
-    "provisional": true
-  },
-  "shop_rewards": []
+  ]
 }
