@@ -63,6 +63,9 @@ Parents keep their parent role while participating in My space. Character,
 check-in, streak, drop and inventory services already operate on the owning
 account. Scheduled Perfect Day checks and streak reminders include parents
 with a personal challenge enrollment; reminders never fan out to family members.
+Perfect Day requires the parent's own assigned daily chores. Children continue
+to require their assigned and shared family daily chores. The required set must
+be nonempty and every qualifying completion must be approved.
 
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.

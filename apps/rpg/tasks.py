@@ -65,13 +65,18 @@ def _award_perfect_day(child, today):
     from apps.rpg.models import CharacterProfile, PerfectDayReceipt
 
     # Use the same user -> profile lock order as the other reward paths.
-    User.objects.select_for_update(no_key=True).get(pk=child.pk)
+    child = User.objects.select_for_update(no_key=True).get(pk=child.pk)
     profile = CharacterProfile.objects.select_for_update().filter(user=child).first()
     if not profile or profile.last_active_date != today:
         return False
 
+    # Parents can complete only their assigned personal chores. Shared family
+    # chores remain part of the child's existing daily requirements.
+    assignments = Q(assigned_to=child)
+    if child.role == "child":
+        assignments |= Q(assigned_to__isnull=True)
     daily_chores = [chore for chore in Chore.objects.filter(
-        Q(assigned_to=child) | Q(assigned_to__isnull=True),
+        assignments,
         family_id=child.family_id, is_active=True, pending_parent_review=False,
         recurrence=Chore.Recurrence.DAILY,
     ) if ChoreService.is_active_this_week(chore, today)]
