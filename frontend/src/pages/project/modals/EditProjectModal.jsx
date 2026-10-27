@@ -4,13 +4,16 @@ import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useApi } from '../../../hooks/useApi';
 import { useFormState } from '../../../hooks/useFormState';
+import { useSpace } from '../../../hooks/useSpace';
 import Button from '../../../components/Button';
 import { TextField, SelectField, TextAreaField, DueDateChips } from '../../../components/form';
 import { normalizeList } from '../../../utils/api';
 
 export default function EditProjectModal({ project, onClose, onSaved }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personal = isParentAccount && isPersonalSpace;
   const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
-  const { data: childrenData } = useApi(getChildren);
+  const { data: childrenData } = useApi(personal ? () => Promise.resolve([]) : getChildren, [personal]);
   const categories = normalizeList(categoriesData);
   const children = normalizeList(childrenData);
 
@@ -35,14 +38,21 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
     setSaving(true);
     setError(null);
     try {
-      await updateProject(project.id, {
+      const payload = {
         ...form,
         difficulty: parseInt(form.difficulty),
         category_id: form.category_id || null,
         assigned_to_id: form.assigned_to_id || null,
         hourly_rate_override: form.hourly_rate_override || null,
         due_date: form.due_date || null,
-      });
+      };
+      if (personal) {
+        delete payload.assigned_to_id;
+        delete payload.payment_kind;
+        delete payload.bonus_amount;
+        delete payload.hourly_rate_override;
+      }
+      await updateProject(project.id, payload);
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -66,7 +76,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
           </SelectField>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {!personal && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Assign To" value={form.assigned_to_id} onChange={onField('assigned_to_id')}>
             <option value="">Unassigned</option>
             {children.map((c) => (
@@ -77,18 +87,18 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             <option value="required">Required</option>
             <option value="bounty">Optional project</option>
           </SelectField>
-        </div>
+        </div>}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <TextField
+          {!personal && <TextField
             label={form.payment_kind === 'bounty' ? 'Cash reward ($)' : 'Bonus ($)'}
             value={form.bonus_amount}
             onChange={onField('bonus_amount')}
             type="number"
             step="0.01"
             min="0"
-          />
+          />}
           <TextField label="Budget ($)" value={form.materials_budget} onChange={onField('materials_budget')} type="number" step="0.01" min="0" />
-          <TextField label="Rate Override ($)" value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} type="number" step="0.01" min="0" placeholder="Default" />
+          {!personal && <TextField label="Rate Override ($)" value={form.hourly_rate_override} onChange={onField('hourly_rate_override')} type="number" step="0.01" min="0" placeholder="Default" />}
         </div>
         <div>
           <TextField label="Due Date" value={form.due_date} onChange={onField('due_date')} type="date" />
@@ -98,7 +108,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
             className="mt-2"
           />
         </div>
-        <TextAreaField label="Parent Notes" value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
+        <TextAreaField label={personal ? 'Notes' : 'Parent Notes'} value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel

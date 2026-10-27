@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 import { getToken } from '../api/client';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -36,6 +37,8 @@ export default function ProjectIngest() {
 }
 
 function IngestForm({ userId }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personal = isParentAccount && isPersonalSpace;
   const navigate = useNavigate();
   const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const categories = normalizeList(categoriesData);
@@ -340,7 +343,7 @@ function IngestForm({ userId }) {
         description: current.draft.description,
         category_id: current.overrides.category_id || null,
         difficulty: parseInt(current.overrides.difficulty, 10) || 2,
-        bonus_amount: current.overrides.bonus_amount || '0',
+        bonus_amount: personal ? '0' : current.overrides.bonus_amount || '0',
         materials_budget: current.overrides.materials_budget || '0',
         due_date: current.overrides.due_date || null,
         milestones: current.draft.milestones,
@@ -487,6 +490,7 @@ function IngestForm({ userId }) {
       {phase === 'preview' && draft && (
         <fieldset disabled={committing || discarding} className="min-w-0">
           <ReviewStep
+            personal={personal}
             draft={draft} setDraft={setDraft}
             overrides={overrides} setOverrides={setOverrides}
             categories={categories}

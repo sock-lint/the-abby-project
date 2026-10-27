@@ -1,10 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EditProjectModal from './EditProjectModal.jsx';
 import { server } from '../../../test/server.js';
 import { buildProject } from '../../../test/factories.js';
+import { spyHandler } from '../../../test/spy.js';
+import { useSpace } from '../../../hooks/useSpace';
+import { selectDropdown } from '../../../test/selectDropdown';
+
+vi.mock('../../../hooks/useSpace', () => ({ useSpace: vi.fn() }));
+
+beforeEach(() => useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: false }));
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -12,6 +19,45 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('EditProjectModal', () => {
+  it('edits a parent’s own project without fetching children or sending family assignment and pay fields', async () => {
+    useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: true });
+    const user = userEvent.setup();
+    const children = spyHandler('get', '*/api/children/', [{ id: 7, display_name: 'Child' }]);
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    const onSaved = vi.fn();
+    server.use(children.handler, update.handler);
+    render(<EditProjectModal project={buildProject({ id: 1, assigned_to: { id: 99, role: 'parent' } })} onClose={vi.fn()} onSaved={onSaved} />);
+    for (const label of ['Assign To', 'Payment Kind', 'Bonus ($)', 'Rate Override ($)']) {
+      expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    }
+    await user.clear(screen.getByLabelText('Title'));
+    await user.type(screen.getByLabelText('Title'), 'My feeder');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0]).toMatchObject({ method: 'PATCH', body: { title: 'My feeder', materials_budget: '0' } });
+    expect(update.calls[0].url).toMatch(/\/api\/projects\/1\/$/);
+    for (const field of ['assigned_to_id', 'payment_kind', 'bonus_amount', 'hourly_rate_override']) {
+      expect(update.calls[0].body).not.toHaveProperty(field);
+    }
+    expect(children.calls).toHaveLength(0);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  });
+
+  it('keeps family assignment and pay controls and submits their values', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
+    render(<EditProjectModal project={buildProject({ assigned_to: { id: 7 } })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText('Assign To')).toHaveTextContent('Child'));
+    await selectDropdown(user, screen.getByLabelText('Assign To'), '7');
+    await user.clear(screen.getByLabelText('Bonus ($)'));
+    await user.type(screen.getByLabelText('Bonus ($)'), '5');
+    await user.type(screen.getByLabelText('Rate Override ($)'), '9');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ assigned_to_id: 7, payment_kind: 'required', bonus_amount: '5', hourly_rate_override: '9' });
+  });
+
   it('keeps a retired saved category readable and unchanged on an unrelated project edit', async () => {
     const user = userEvent.setup();
     const updates = [];
