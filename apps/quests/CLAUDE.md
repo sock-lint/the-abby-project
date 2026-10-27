@@ -244,6 +244,14 @@ continue to apply to the bonus roll.
 
 ### Explicit attempts and future weekly setup
 
+Parent goal creation rechecks active parent/child membership under Family then
+sorted account locks. REST and MCP normalize creation inputs before recovering
+an exact saved request UUID; the original family, child and fingerprint must
+still match. Recovery retains the saved occurrence, dates and reward receipt
+after its end date or reference retirement, without another backfill or payout.
+Only new requests pass current date/reference eligibility. This is separate
+from the explicit catalog retry below, which starts a newly accepted attempt.
+
 `POST /api/challenges/goal:<occurrence_id>/retry/` accepts only `{}` from the
 owning child or a same-family parent. An expired unpaid personal one-time
 catalog goal receives a fresh saved occurrence with `retry_of`; replaying that
@@ -304,6 +312,13 @@ deletion takes a full target lock and rechecks committed promises. UUID replays
 return the accepted occurrence; a pure pause can still stop legacy rules with a
 missing skill. `test_goal_skill_reference_safety` covers stale validation and
 both real PostgreSQL writer/deletion races.
+
+New parent goal writes recheck the actor and child under the family and account
+locks before recovering a saved UUID or creating rewards. REST returns 404 for
+an unavailable child and 403 when the actor loses parent authority; 409 remains
+the response for conflicting saved-request details. Deferred eligibility errors
+keep the usual field-to-message-list shape. The creation form offers active
+children only, while fresh server checks still handle changes after it opens.
 
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 

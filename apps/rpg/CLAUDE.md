@@ -153,6 +153,12 @@ snapshot; the separate commitment prototype remains hypothetical. See
 - `storage.py::sprite_storage()` — lazy-helper for the dedicated sprites STORAGES key.
 - `constants.py`: shared `TriggerType` TextChoices.
 
+Quest Reroll selects only definitions with a working activity producer; boss
+offers also require a trigger with positive damage. Reward-only badge,
+Perfect Day and quest-completion filters cannot consume a reroll. Mixed filters,
+ordinary unfiltered campaigns and explicit reading retain their existing
+eligibility; an empty candidate pool rolls back inventory consumption.
+
 Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, retains the configured local worker/streak date (currently America/Phoenix), and awards `perfect_days_count += 1`, 15 bonus coins and an Uncommon-or-better accomplishment drop once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 
 Perfect Day reads new daily chore approvals using the frozen
