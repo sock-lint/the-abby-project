@@ -1,6 +1,7 @@
 """Raw designer endpoints over fixed, synthetic global content."""
 from datetime import datetime, timezone as dt_timezone
 from unittest.mock import patch
+from uuid import uuid4
 from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from django.db import connection
@@ -8,12 +9,14 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
-from apps.achievements.models import Badge, Skill, SkillCategory
+from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress
 from apps.mcp_server.context import override_user
 from apps.mcp_server.server import mcp
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.models import DropTable, ItemDefinition
+from apps.rpg.progression.catalog import load_catalog
+from apps.rpg.progression.engine import Trial
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
 
@@ -74,6 +77,125 @@ class ProgressionLabResponseFixtureTests(APITestCase):
             coin_reward=12, xp_reward=15, is_system=True,
         )
         QuestSkillTag.objects.create(id=562, quest_definition=quest, skill=persistence, xp_weight=1)
+
+    def rename_taxonomy(self, changes):
+        with override_user(self.designer, scopes=frozenset({"mcp:publish"})):
+            for name, params in changes:
+                result = async_to_sync(mcp.call_tool)(name, {"params": params, "confirmation": True})
+                body = result[1] if isinstance(result, tuple) else result.structuredContent
+                self.assertNotIn("error", body, body)
+
+    def fixed_route_config(self, **changes):
+        return {
+            "horizon_days": 30, "trials": 1, "seed": 17, "active_days_per_week": 7,
+            "reading_minutes": 0, "project_minutes": 0, "chores_per_day": 0,
+            "habits_per_day": 0, "movement_sessions_per_day": 0, "creations_per_day": 0,
+            "journal_per_day": False, "expeditions_per_day": 0, **changes,
+        }
+
+    def pure_fixed_route_report(self, config):
+        from apps.accounts.models import User
+        from apps.chronicle.models import ChronicleEntry
+        from apps.families.models import Family
+        from apps.movement.models import MovementSession
+        from apps.quests.models import ChallengeActivity, DailyBonus
+        from apps.rewards.models import CoinLedger
+        from apps.rpg.models import CharacterProfile, UserInventory
+
+        private_models = (User, Family, SkillProgress, ChronicleEntry, MovementSession,
+                          ChallengeActivity, DailyBonus, CoinLedger, CharacterProfile, UserInventory)
+        before = [model.objects.count() for model in private_models]
+        self.client.force_authenticate(self.designer)
+        with CaptureQueriesContext(connection) as queries, patch(
+            "apps.achievements.services.AwardService.grant", side_effect=AssertionError("Forecast wrote an award"),
+        ):
+            response = self.client.post("/api/rpg/progression-lab/simulate/", config, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(before, [model.objects.count() for model in private_models])
+        for row in queries:
+            self.assertTrue(row["sql"].lstrip().upper().startswith("SELECT"), row["sql"])
+            for model in private_models:
+                self.assertNotIn(connection.ops.quote_name(model._meta.db_table), row["sql"])
+        return response
+
+    def assert_detached_native_skill_xp(self, child, config, expected):
+        self.assertEqual(dict(SkillProgress.objects.filter(user=child).values_list("skill_id", "xp_points")), expected)
+        catalog = load_catalog()
+        with self.assertNumQueries(0), patch(
+            "apps.achievements.services.AwardService.grant", side_effect=AssertionError("Detached trial wrote an award"),
+        ):
+            trial = Trial(config, catalog, 17)
+            trial.daily(1)
+        self.assertEqual(dict(trial.xp), expected)
+
+    def test_renamed_journal_keeps_native_weighted_skill_xp_contract(self):
+        Skill.objects.create(id=516, name="Creative Writing", category_id=501)
+        Skill.objects.create(id=517, name="Vocabulary", category_id=501)
+        self.rename_taxonomy((
+            ("update_category", {"category_id": 501, "name": "Language practice"}),
+            ("update_skill", {"skill_id": 516, "name": "Writing practice"}),
+            ("update_skill", {"skill_id": 517, "name": "Vocabulary practice"}),
+        ))
+        child = make_family("Synthetic journal route", family_id=32,
+                            children=[{"id": 8, "username": "fixture-journal-route-child"}]).children[0]
+        self.client.force_authenticate(child)
+        saved = self.client.post("/api/chronicle/journal/", {
+            "summary": "A synthetic journal thought.", "client_entry_id": str(uuid4()),
+        }, format="json")
+        self.assertEqual(saved.status_code, 201, saved.data)
+        self.assertEqual(saved.data["reward_receipt"]["xp_awarded"], 15)
+        self.assertEqual([(row["skill_id"], row["xp"]) for row in saved.data["reward_receipt"]["skills"]],
+                         [(516, 10), (517, 5)])
+        config = self.fixed_route_config(journal_per_day=True)
+        response = self.pure_fixed_route_report(config)
+        sources = {row["source"]: row for row in response.data["flows"]["sources"]}
+        # Check totals and exact original identities before fixture comparison;
+        # regenerating a fixture cannot bless missing or misrouted journal XP.
+        self.assertEqual(sources["journal"]["xp"], 450)
+        self.assert_detached_native_skill_xp(child, config, {516: 10, 517: 5})
+
+    def test_renamed_untagged_daily_bonus_keeps_native_fallback_contract(self):
+        from apps.movement.models import MovementType
+        from apps.quests.models import DailyBonus
+
+        # The activity has no explicit tags and no modeled Endurance source.
+        # Its fixed native daily-bonus fallback is independent from base XP.
+        Skill.objects.filter(pk=514).delete()
+        Skill.objects.create(id=516, name="Creative Writing", category_id=501)
+        Skill.objects.create(id=517, name="Vocabulary", category_id=501)
+        self.rename_taxonomy((
+            ("update_category", {"category_id": 501, "name": "Language practice"}),
+            ("update_skill", {"skill_id": 516, "name": "Writing practice"}),
+            ("update_skill", {"skill_id": 517, "name": "Vocabulary practice"}),
+            ("update_category", {"category_id": 502, "name": "Everyday practice"}),
+            ("update_skill", {"skill_id": 512, "name": "Steady practice"}),
+        ))
+        movement = MovementType.objects.create(id=571, name="Synthetic untagged walk", slug="fixture-untagged-walk")
+        child = make_family("Synthetic daily bonus route", family_id=32,
+                            children=[{"id": 8, "username": "fixture-daily-route-child"}]).children[0]
+        self.client.force_authenticate(child)
+        saved = self.client.post("/api/movement-sessions/", {
+            "movement_type_id": movement.pk, "duration_minutes": 10, "client_request_id": str(uuid4()),
+        }, format="json")
+        self.assertEqual(saved.status_code, 201, saved.data)
+        self.assertFalse(movement.skill_tags.exists())
+        self.assertEqual(DailyBonus.objects.get(user=child).xp_awarded, 20)
+        journal = self.client.post("/api/chronicle/journal/", {
+            "summary": "A synthetic journal thought.", "client_entry_id": str(uuid4()),
+        }, format="json")
+        self.assertEqual(journal.status_code, 201, journal.data)
+        self.assertEqual(journal.data["reward_receipt"]["xp_awarded"], 15)
+        self.assertEqual([(row["skill_id"], row["xp"]) for row in journal.data["reward_receipt"]["skills"]],
+                         [(516, 10), (517, 5)])
+        config = self.fixed_route_config(journal_per_day=True, movement_sessions_per_day=1, movement_minutes=10)
+        response = self.pure_fixed_route_report(config)
+        sources = {row["source"]: row for row in response.data["flows"]["sources"]}
+        self.assertEqual(sources["daily_bonus"]["xp"], 600)
+        self.assertEqual(sources["journal"]["xp"], 450)
+        self.assertNotIn("reading", sources)
+        self.assertEqual(sources["movement"]["xp"], 0)
+        self.assert_detached_native_skill_xp(child, config, {512: 20, 516: 10, 517: 5})
+        self.assert_response_fixture(response, "progression-lab-renamed-fixed-routes-report.json")
 
     def test_renamed_taxonomy_keeps_installed_reading_and_mastery_contract(self):
         with override_user(self.designer, scopes=frozenset({"mcp:publish"})):

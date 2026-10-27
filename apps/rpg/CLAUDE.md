@@ -210,8 +210,11 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
-  Reading and named category mastery resolve captured current/retained taxonomy
-  IDs. The global snapshot bounds categories and public MCP source metadata,
+  Reading, journal, untagged daily-bonus XP and named category mastery resolve
+  captured current/retained taxonomy IDs. Journal keeps the native weighted
+  split; nonempty activity tags retain priority over the daily-bonus fallback.
+  Finite badge capacity follows those same eligible XP destinations.
+  The global snapshot bounds categories and public MCP source metadata,
   freezes the identity maps, and binds category labels/maps to catalog freshness.
   Decision bindings include only consumed taxonomy provenance; household
   simulation and report work remain outside those locks.

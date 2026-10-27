@@ -215,6 +215,16 @@ producer asserts 450 Reading XP, 100 explicit challenge-tag XP and one mastery
 badge before comparing the fixture; it rejects household queries and award
 writes. The existing Lab React consumer verifies that same response and request.
 
+`progression-lab-renamed-fixed-routes-report.json` combines journal writing with
+untagged movement after registered category and skill renames. Reading is
+disabled and the modeled Endurance destination is absent, so activity tags
+cannot mask the installed daily-bonus fallback. Before fixture comparison, the
+producer verifies 450 journal XP and 600 daily-bonus XP over 30 days, the native
+journal's original 10/5 skill split and the native 20-XP Persistence destination.
+It compares those exact original skill IDs with a detached one-day trial and
+rejects household queries or award writes during the anonymous REST forecast.
+The existing Lab React consumer transports the same real response and scenario.
+
 `progression-lab-reward-budget-report.json` adds a synthetic shared daily
 expedition/pouch Coin allowance to the same endpoint. Its normalized scenario
 and report distinguish requested, credited and omitted automatic Coins,

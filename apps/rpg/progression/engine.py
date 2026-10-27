@@ -553,14 +553,13 @@ class Trial:
                 if s.category.name == category and s.name == name
             ]
             for source, names in ACTIVITY_SKILLS.items()
-            if source != "reading"
+            if source not in {"reading", "journal"}
         }
-        # Reading has an installed native destination. Resolve its detached,
-        # category-qualified source identity instead of a mutable display name.
-        reading_category = catalog.source_categories.get("Language Arts")
-        reading_id = catalog.source_skills.get((reading_category, ReadingRewardService.SKILL_NAME))
-        reading_skill = catalog.skills.get(reading_id)
-        self.tags["reading"] = [SimpleNamespace(skill=reading_skill, xp_weight=1)] if reading_skill else []
+        # Installed award routes retain captured category-qualified identities.
+        # Other scenario-assumed activity tags still use their authored labels.
+        self.tags["reading"] = self._fixed_skill_tags("Language Arts", [(ReadingRewardService.SKILL_NAME, 1)])
+        self.tags["journal"] = self._fixed_skill_tags("Language Arts", JOURNAL_SKILL_WEIGHTS)
+        self.daily_bonus_fallback = self._fixed_skill_tags("Life Skills", [("Persistence", 1)])
         self.quests = self._eligible_quests()
         self.finite_keys = self._finite_keys()
         native_quest_ids = set(self.reachable_quest_ids)
@@ -596,6 +595,18 @@ class Trial:
         self.expedition_budget.unavailable_finite_total = len(quota_removed)
         self.expedition_budget.removed_finite_targets = dict(Counter(key.split(":")[0] for key in quota_removed))
         self.completed_finite = set()
+
+    def _fixed_skill_tags(self, category_name, names):
+        category_id = self.catalog.source_categories.get(category_name)
+        if category_id is None:
+            return []
+        tags = []
+        for name, weight in names:
+            skill_id = self.catalog.source_skills.get((category_id, name))
+            skill = self.catalog.skills.get(skill_id)
+            if skill is not None:
+                tags.append(SimpleNamespace(skill=skill, xp_weight=weight))
+        return tags
 
     @property
     def level(self):
@@ -921,7 +932,7 @@ class Trial:
         earning = set()
         for source, enabled in {
             "reading": c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES,
-            "project": c["project_minutes"] >= 3,
+            "project": round(c["project_minutes"] / 60 * 10) > 0,
             "chores": c["chores_per_day"] and c["chore_xp"] > 0,
             "habits": c["habits_per_day"] and c["habit_xp"] > 0,
             "journal": c["journal_per_day"],
@@ -933,10 +944,13 @@ class Trial:
                 earning.update(tag.skill.pk for tag in self.tags[source])
         # Daily bonus uses the first qualifying source's tags, including when
         # that source itself has zero XP (e.g. a Coin-only chore).
+        bonus_tags = None
         if c["chores_per_day"] or c["project_minutes"] >= 10:
-            earning.update(tag.skill.pk for tag in self.tags["chores"])
-        elif c["movement_sessions_per_day"] * c["movement_minutes"] >= 10:
-            earning.update(tag.skill.pk for tag in self.tags["movement"])
+            bonus_tags = self.tags["chores"]
+        elif c["project_minutes"] + c["movement_sessions_per_day"] * c["movement_minutes"] >= 10:
+            bonus_tags = self.tags["movement"]
+        if bonus_tags is not None:
+            earning.update(tag.skill.pk for tag in bonus_tags or self.daily_bonus_fallback)
         for _ in range(len(self.catalog.badges) + len(self.quests) + 1):
             previous = (
                 len(potential.badges),
@@ -1210,7 +1224,7 @@ class Trial:
             return
         self.counters["daily_bonus_day"] = self.day
         self.coin_award(DAILY_BONUS_COINS, "daily_bonus")
-        self.award_xp(DAILY_BONUS_XP, tags or self.tags["chores"], "daily_bonus")
+        self.award_xp(DAILY_BONUS_XP, tags or self.daily_bonus_fallback, "daily_bonus")
         self.evaluate_badges(scopes={"coin", "skill_xp", "badges"})
 
     def advance_challenges(self, trigger, context, *, catalog_eligible=True):

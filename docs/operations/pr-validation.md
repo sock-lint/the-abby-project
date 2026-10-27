@@ -126,6 +126,16 @@ and final save, fail a decision after capture, and leave household XP activity
 unblocked during detached catalog work. The real Lab producer/React pair also
 checks a renamed-taxonomy Reading/mastery report.
 
+`apps.mcp_server.tests.test_lab_fixed_xp_routes` compares journal allocation and
+untagged daily-bonus fallback forecasts with native receipts and per-skill XP.
+It covers retained names, retirement/reparenting, ambiguity, partial resolution,
+locked destinations, nonempty activity-tag priority and finite badge capacity.
+Short-session controls use the actual rounded project XP and combined daily
+qualifying minutes when checking finite badge capacity.
+The real Lab producer/React pair also consumes the renamed fixed-route report,
+with 450 journal XP and 600 daily-bonus XP over thirty active days. Forecast
+purity checks prohibit household reads and native reward writers.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,
