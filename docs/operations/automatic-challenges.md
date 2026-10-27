@@ -163,10 +163,21 @@ trigger lists keep their existing unfiltered meaning. Retained definitions repor
 `catalog_available: false` when they cannot progress; saved campaigns, history,
 rewards and identical creation-request retries stay preserved.
 
+One activity must be able to satisfy every selected filter. On-time rules need
+approved homework, and category rules need activities with saved skill-tag
+categories. For example, a creation-only rule with a category filter cannot open
+a new campaign because creation facts do not record category evidence. Catalog
+and workbench availability, item reward hints and companion offers use that same
+check for new offers. Accepted progress and reward promises retain their saved
+fulfillment paths.
+
 Category restrictions match the category saved alongside the accepted activity's
 skill tags. Later tag edits or moving a skill into another category do not
 reinterpret that activity. Older facts without category evidence are retained
 without inventing a category or replaying their progress.
+For milestones, the milestone's own skill tags take precedence; project tags
+provide the fallback when no milestone tags are assigned. This category evidence
+is separate from the existing daily-bonus XP allocation, which stays unchanged.
 
 Default goals count effort events,
 so bonus awards do not recursively complete more goals. Expedition returns count

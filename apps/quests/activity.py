@@ -110,6 +110,10 @@ def resolve_activity(user, trigger_type, context):
         occurred_at = source.completed_at or occurred_at
         safe_context = {"project_id": source.project_id, "milestone_id": source.pk,
                         "skill_tags": _tags(source.project.skill_tags)}
+        # Native milestone XP uses its own fixed tags, with a project fallback.
+        # Keep the existing bonus-XP context while freezing separate category
+        # evidence; changing category matching must not redirect that bonus.
+        safe_context["category_skill_tags"] = _tags(source.skill_tags, "xp_amount") or safe_context["skill_tags"]
     elif trigger == "savings_goal_complete":
         occurred_at = source.completed_at
         safe_context = {"savings_goal_id": source.pk}

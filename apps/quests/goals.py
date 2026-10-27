@@ -31,7 +31,7 @@ FACT_TRIGGERS = {
 EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned", "reading_logged"}
 CONTEXT_KEYS = {
     "project_id", "skill_category_id", "chore_id", "savings_goal_id", "on_time",
-    "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags",
+    "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags", "category_skill_tags",
 }
 ACTION_PATHS = {
     "clock_out": ("Track project work", "/quests?tab=ventures"),

@@ -33,15 +33,15 @@ def supported_challenge_triggers(quest_type="collection"):
 
 def challenge_trigger_status(quest_type, filters):
     """Explain actual automatic tracking independently of legacy trigger names."""
-    from apps.quests.goals import EFFORT_TRIGGERS
+    from apps.quests.progress_sources import has_progress_source
     supported = set(supported_challenge_triggers(quest_type))
     if not isinstance(filters, dict):
         return {"available": False, "unsupported": []}
     allowed = filters.get("allowed_triggers")
     if allowed is not None and (not isinstance(allowed, list) or any(not isinstance(trigger, str) for trigger in allowed)):
         return {"available": False, "unsupported": []}
-    effective = set(allowed or EFFORT_TRIGGERS)
-    return {"available": bool(effective & supported), "unsupported": sorted(set(allowed or ()) - supported)}
+    return {"available": has_progress_source(quest_type, filters),
+            "unsupported": sorted(set(allowed or ()) - supported)}
 
 
 def challenge_trigger_findings(rows):

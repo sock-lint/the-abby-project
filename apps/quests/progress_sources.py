@@ -9,12 +9,31 @@ def has_progress_source(quest_type, trigger_filter):
     from .goals import FACT_TRIGGERS
     from .services import TRIGGER_DAMAGE
 
-    allowed = (trigger_filter or {}).get("allowed_triggers") or FACT_TRIGGERS
-    return any(
-        trigger in FACT_TRIGGERS
+    filters = trigger_filter or {}
+    allowed = filters.get("allowed_triggers") or FACT_TRIGGERS
+    candidates = {
+        trigger for trigger in allowed if trigger in FACT_TRIGGERS
         and (quest_type != "boss" or TRIGGER_DAMAGE.get(trigger, 0) > 0)
-        for trigger in allowed
-    )
+    }
+    # These fields come from resolve_activity's trusted saved-source context.
+    # One source must satisfy every active selector; separate sources that
+    # each satisfy only one restriction cannot advance the campaign together.
+    # Keep this map inside the fingerprinted admission function. It does not
+    # reinterpret accepted facts or add evidence to previously saved work.
+    selector_sources = {
+        "project_id": {"clock_out", "project_complete", "milestone_complete"},
+        "skill_category_id": {
+            "clock_out", "chore_complete", "homework_complete", "habit_log",
+            "movement_session", "project_complete", "milestone_complete",
+        },
+        "chore_ids": {"chore_complete"},
+        "on_time": {"homework_complete"},
+        "savings_goal_id": {"savings_goal_complete"},
+    }
+    for selector, sources in selector_sources.items():
+        if filters.get(selector):
+            candidates.intersection_update(sources)
+    return bool(candidates)
 
 
 def require_progress_source(quest_type, trigger_filter):

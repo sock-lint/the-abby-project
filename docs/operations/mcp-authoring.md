@@ -344,6 +344,13 @@ Catalog inspection is paginated with real totals and continuation. Iterate
 all pages for a complete audit. Availability/reachability findings use runtime
 selectors without querying a child's private ownership or progress.
 
+New challenge offers need one saved activity type that can satisfy all selected
+filters together. Category filters use categories frozen with activity skill
+tags; a project's own category does not substitute for those tags. An on-time
+filter requires approved homework. Catalog/workbench availability and new item
+or companion reward hints use the same check as assignment. Saved campaigns and
+their accepted reward promises retain their existing fulfillment paths.
+
 ## Reusable projects
 
 Project templates retain weighted project skill tags and fixed milestone XP

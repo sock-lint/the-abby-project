@@ -18,18 +18,29 @@ is in `tests/test_category_reference_safety.py`.
 
 New manual solo/co-op starts, private authoring, rerolls and automatic offers
 share `progress_sources.has_progress_source`: at least one actual saved-work
-trigger must match, and bosses need positive damage from that trigger. Reward
+trigger must satisfy every active filter, and bosses need positive damage from
+that same trigger. Category filters require saved skill-tag category evidence;
+on-time filters require an approved homework submission. A combination whose
+filters require different activities cannot start a new campaign. Reward
 awards do not replay the game loop. Keep this gate outside saved progress,
 history and UUID recovery; new-start rejection consumes no scroll or reward.
 Private MCP authoring checks inside its create callback, after saved replay.
 Unavailable retained definitions expose `catalog_available: false`.
+Workbench availability and new item/companion acquisition hints use the same
+admission check. Saved promises retain their existing fulfillment paths.
 
 Source resolution freezes each skill tag's category identity. Both legacy and
 automatic category restrictions use that saved evidence, retaining older scalar
 category context without resolving historical tags against today's taxonomy.
 REST/MCP habit handlers pass the exact new log identity internally; no source ID
-is added to the public tap result. Deferred co-op progress carries the already
+is added to the tap's top-level fields. Its `game_event` can return the source's
+saved challenge progress and receipt, including an already processed receipt
+without another award. Deferred co-op progress carries the already
 frozen evidence. Do not backfill old facts or replay campaign progress.
+Milestone category evidence uses its own fixed-XP skill tags, falling back to
+project tags only when none are assigned. New facts store this separately as
+`category_skill_tags`, preserving the existing bonus-XP tag context. Older facts
+keep their original evidence.
 
 ## Supported rewards and reachable prerequisites (October 2026)
 
