@@ -77,7 +77,8 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20, personal=
 
     Returns:
         list[NextAction] sorted by score descending with deterministic
-        tie-breaking. Parents always receive `[]`.
+        tie-breaking. Family parents receive `[]`; personal parents receive
+        their own actions with the rewards personal completion can pay.
     """
     if user.role != "child" and not (personal and user.role == "parent"):
         return []
@@ -97,7 +98,7 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20, personal=
         hour = timezone.localtime(now).hour
 
     actions = []
-    actions.extend(_chore_actions(user, target_date))
+    actions.extend(_chore_actions(user, target_date, personal=personal and user.role == "parent"))
     actions.extend(_homework_actions(user, target_date))
     actions.extend(_habit_actions(user, habit_date, hour=hour, show_all=True)
                    if personal else _habit_actions(user, habit_date, hour=hour))
@@ -118,19 +119,20 @@ def _available_chores(user, target_date):
     return list(ChoreService.get_available_chores(user, target_date))
 
 
-def _chore_reward(chore):
-    if not chore.reward_amount and not chore.coin_reward:
+def _chore_reward(chore, *, personal=False):
+    money = "0.00" if personal else str(chore.reward_amount)
+    if (personal or not chore.reward_amount) and not chore.coin_reward:
         return None
     return {
-        "money": str(chore.reward_amount),
+        "money": money,
         "coins": int(chore.coin_reward),
     }
 
 
-def _chore_subtitle(chore):
-    if chore.reward_amount and chore.coin_reward:
+def _chore_subtitle(chore, *, personal=False):
+    if not personal and chore.reward_amount and chore.coin_reward:
         return f"chore · ${chore.reward_amount} · {chore.coin_reward} coins"
-    if chore.reward_amount:
+    if not personal and chore.reward_amount:
         return f"chore · ${chore.reward_amount}"
     if chore.coin_reward:
         return f"chore · {chore.coin_reward} coins"
@@ -151,7 +153,7 @@ def _chore_score(chore, target_date):
     return 0
 
 
-def _chore_actions(user, target_date):
+def _chore_actions(user, target_date, *, personal=False):
     actions = []
     for chore in _available_chores(user, target_date):
         if chore.is_done_today:
@@ -160,10 +162,10 @@ def _chore_actions(user, target_date):
             kind="chore",
             id=chore.pk,
             title=chore.title,
-            subtitle=_chore_subtitle(chore),
+            subtitle=_chore_subtitle(chore, personal=personal),
             score=_chore_score(chore, target_date),
             due_at=None,
-            reward=_chore_reward(chore),
+            reward=_chore_reward(chore, personal=personal),
             icon=chore.icon or "Sparkles",
             tone="moss",
             action_url="/chores",

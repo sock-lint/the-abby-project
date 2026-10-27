@@ -154,7 +154,7 @@ export default function ProjectHeader({
               Start project
             </Button>
           )}
-          {isAssigned && project.status === 'in_progress' && !personal && (
+          {!isParent && isAssigned && project.status === 'in_progress' && !personal && (
             // Royal tone marks the child's one hand-off action apart from the
             // parent's teal actions beside it; the `!` overrides ride on the
             // Button primitive so height, disabled and focus behavior stay in
@@ -167,11 +167,11 @@ export default function ProjectHeader({
               Submit for review
             </Button>
           )}
-          {personal && isAssigned && project.status === 'in_progress' && <Button variant="success" size="sm" onClick={() => onAction('approve')}>Complete project</Button>}
+          {isParent && isAssigned && project.status === 'in_progress' && <Button variant="success" size="sm" onClick={() => onAction('approve')}>Complete project</Button>}
           {isParent && project.status === 'in_review' && (
             <>
               <Button variant="success" size="sm" onClick={() => onAction('approve')}>
-                {personal ? 'Complete project' : 'Approve'}
+                {personal || isAssigned ? 'Complete project' : 'Approve'}
               </Button>
               {!personal && <Button variant="secondary" size="sm" onClick={() => onAction('request-changes')}>
                 Request changes

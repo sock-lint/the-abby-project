@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { STORAGE_KEYS } from '../constants/storage';
 import { usePulse } from '../providers/pulseContext';
 import { useAuth } from './useApi';
+import { useSpaceForUser } from './useSpace';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_APPROVAL_TOASTS;
 
@@ -65,7 +66,7 @@ function persistSeen(set) {
  * the toast and still see the row in the bell. Seen IDs persist in
  * localStorage so a refresh doesn't re-toast.
  *
- * Parents never see these — child-only by role gate.
+ * Personal participants see their own decisions; Family keeps its review UI.
  *
  * Returns `{ toasts, dismiss }` — same contract as `useDropToasts` and
  * `useSavingsCompletionToasts`. Toast shape:
@@ -73,6 +74,7 @@ function persistSeen(set) {
  */
 export function useApprovalToasts() {
   const { user } = useAuth();
+  const { isPersonalSpace } = useSpaceForUser(user);
   const { pulse } = usePulse();
   const [toasts, setToasts] = useState([]);
   const seenRef = useRef(loadSeen());
@@ -80,7 +82,7 @@ export function useApprovalToasts() {
 
   useEffect(() => {
     if (!pulse) return;
-    if (!user || user.role !== 'child') return;
+    if (!user || !isPersonalSpace) return;
 
     const list = Array.isArray(pulse.notifications) ? pulse.notifications : [];
     const approvalRows = list.filter((n) => APPROVAL_TYPES.has(n.notification_type));
@@ -110,7 +112,7 @@ export function useApprovalToasts() {
         positive: POSITIVE_TYPES.has(n.notification_type),
       })),
     ]);
-  }, [pulse, user]);
+  }, [pulse, user, isPersonalSpace]);
 
   const dismiss = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
 

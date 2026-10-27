@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -70,3 +71,48 @@ class ParentPersonalTaskTests(TestCase):
         streak_at_risk_warning_task()
         self.assertEqual(Notification.objects.filter(user=self.parent, notification_type="streak_at_risk").count(), 1)
         self.assertFalse(Notification.objects.filter(user=self.coparent).exists())
+
+    def test_parent_streak_reminder_suggests_personal_activities_and_push_opens_my_space(self):
+        profile = self.parent.character_profile
+        profile.login_streak = 5
+        profile.last_active_date = timezone.localdate() - timedelta(days=1)
+        profile.save(update_fields=["login_streak", "last_active_date"])
+
+        with patch("apps.notifications.push.push_enabled", return_value=True), patch(
+            "apps.notifications.tasks.send_push_notification.delay",
+        ) as push:
+            streak_at_risk_warning_task()
+            streak_at_risk_warning_task()
+
+        note = Notification.objects.get(user=self.parent, notification_type="streak_at_risk")
+        with self.subTest(surface="activity_copy"):
+            self.assertIn("5-day streak", note.message)
+            self.assertNotIn("homework", note.message.lower())
+            for activity in ("your chores", "habit", "reading", "movement", "My space"):
+                self.assertIn(activity, note.message)
+        with self.subTest(surface="saved_destination"):
+            self.assertEqual(note.link, "/quests?space=personal")
+        with self.subTest(surface="push_destination"):
+            push.assert_called_once_with(
+                self.parent.pk, note.title, note.message, "/quests?space=personal", "streak_at_risk",
+            )
+        self.assertFalse(Notification.objects.filter(user=self.coparent).exists())
+
+    def test_child_streak_reminder_retains_existing_activity_copy_and_destination(self):
+        child = type(self.parent).objects.create_user(
+            username="reminder-child", role="child", family=self.parent.family,
+        )
+        profile = child.character_profile
+        profile.login_streak = 5
+        profile.last_active_date = timezone.localdate() - timedelta(days=1)
+        profile.save(update_fields=["login_streak", "last_active_date"])
+
+        streak_at_risk_warning_task()
+
+        note = Notification.objects.get(user=child, notification_type="streak_at_risk")
+        self.assertEqual(note.message, (
+            "Your 5-day streak ends tonight unless you log something — "
+            "a chore, a habit tap, or homework counts."
+        ))
+        self.assertEqual(note.link, "/quests")
+        self.assertFalse(Notification.objects.filter(user__in=[self.parent, self.coparent]).exists())

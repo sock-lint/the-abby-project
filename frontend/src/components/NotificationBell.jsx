@@ -9,7 +9,7 @@ import IconButton from './IconButton';
 import BottomSheet from './BottomSheet';
 import Button from './Button';
 import useIsDesktop from '../hooks/useIsDesktop';
-import { metaForNotification, notificationSpace } from './notifications.constants';
+import { destinationForNotification, metaForNotification } from './notifications.constants';
 import { useSpaceForUser } from '../hooks/useSpace';
 
 // Mirror the unread count onto the installed-PWA home-screen icon
@@ -30,6 +30,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const [markAllError, setMarkAllError] = useState('');
+  const [navigationError, setNavigationError] = useState('');
   const ref = useRef(null);
   const triggerRef = useRef(null);
   const popoverId = useId();
@@ -38,6 +39,13 @@ export default function NotificationBell() {
 
 
   const handleNotificationClick = async (notification) => {
+    const { target, space: destinationSpace } = destinationForNotification(notification, { isParentAccount });
+    const changesSpace = Boolean(target && destinationSpace && destinationSpace !== space);
+    if (changesSpace && switchSpace(destinationSpace, target) === false) {
+      setNavigationError('Save or close your current form, then try this notification again.');
+      return;
+    }
+    setNavigationError('');
     if (!notification.is_read) {
       try {
         await markNotificationRead(notification.id);
@@ -49,13 +57,9 @@ export default function NotificationBell() {
         syncAppBadge(next);
       } catch { /* network errors here are non-fatal */ }
     }
-    const { defaultRoute } = metaForNotification(notification);
-    const target = notification.link || defaultRoute;
     if (target) {
       setOpen(false);
-      const destinationSpace = isParentAccount ? notificationSpace(notification) : null;
-      if (destinationSpace && destinationSpace !== space) switchSpace(destinationSpace, target);
-      else navigate(target);
+      if (!changesSpace) navigate(target);
     }
   };
 
@@ -83,6 +87,9 @@ export default function NotificationBell() {
     <p role="alert" className="text-caption text-ember-deep">
       {markAllError}
     </p>
+  ) : null;
+  const navigationBanner = navigationError ? (
+    <p role="alert" className="text-caption text-ember-deep">{navigationError}</p>
   ) : null;
 
   // Both the count and the list ride the shared heartbeat now — the bell used
@@ -181,7 +188,7 @@ export default function NotificationBell() {
     >
       <IconButton
         ref={triggerRef}
-        onClick={() => { if (!open) { refresh(); setMarkAllError(''); } setOpen(!open); }}
+        onClick={() => { if (!open) { refresh(); setMarkAllError(''); setNavigationError(''); } setOpen(!open); }}
         variant="ghost"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
         aria-expanded={open}
@@ -210,6 +217,7 @@ export default function NotificationBell() {
             </Button>
           )}
           {markAllBanner}
+          {navigationBanner}
           {/* Bleed to the sheet's edges so rows are full-width tap targets. */}
           <div className="-mx-4">{listBody}</div>
         </BottomSheet>
@@ -240,6 +248,9 @@ export default function NotificationBell() {
             </div>
             {markAllError && (
               <div className="px-3 py-2 border-b border-ink-page-shadow shrink-0">{markAllBanner}</div>
+            )}
+            {navigationError && (
+              <div className="px-3 py-2 border-b border-ink-page-shadow shrink-0">{navigationBanner}</div>
             )}
             <div className="min-h-0 overflow-y-auto overscroll-contain">{listBody}</div>
           </motion.div>

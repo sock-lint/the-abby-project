@@ -128,8 +128,6 @@ class ModernChallengeMutationAuthorityTests(ChallengeMutationFixtures):
             users.filter(pk=member.pk).update(**change)
             try:
                 for tool, payload in operations:
-                    if member == self.child and change == {"role": "parent"} and tool in {"pin_challenge", "unpin_challenge"}:
-                        continue  # A currently selected co-parent remains an authorized same-family target.
                     with self.subTest(member=member.username, change=change, tool=tool):
                         error, result = self.call(tool, payload)
                         self.assertTrue(error, result)
@@ -139,7 +137,7 @@ class ModernChallengeMutationAuthorityTests(ChallengeMutationFixtures):
         self.assertEqual(before, (list(ChallengeGoal.objects.values()), list(ChallengeOccurrence.objects.values()),
                                   list(ChallengePin.objects.values()), list(CoinLedger.objects.values())))
 
-    def test_pin_role_change_after_resolution_is_denied_but_current_coparent_target_remains_allowed(self):
+    def test_pin_role_change_is_denied_before_and_after_resolution(self):
         saved = self.create()
         params = {"user_id": self.child.pk, "challenge_id": saved["id"]}
         self.assertEqual(self.call("pin_challenge", params), (False, {"pin": saved["id"]}))
@@ -159,7 +157,11 @@ class ModernChallengeMutationAuthorityTests(ChallengeMutationFixtures):
             self.assertEqual(payload["error"]["code"], "not_found")
         self.assertEqual(before, list(ChallengePin.objects.values()))
         get_user_model().objects.filter(pk=self.child.pk).update(role="parent")
-        self.assertEqual(self.call("unpin_challenge", params), (False, {"pin": None}))
+        for tool in ("pin_challenge", "unpin_challenge"):
+            error, payload = self.call(tool, params)
+            self.assertTrue(error, payload)
+            self.assertEqual(payload["error"]["code"], "not_found")
+        self.assertEqual(before, list(ChallengePin.objects.values()))
 
     def test_child_self_pin_and_parent_explicit_target_keep_saved_state(self):
         saved = self.create()

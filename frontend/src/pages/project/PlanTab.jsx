@@ -11,7 +11,7 @@ import { ResourcePill, StepCard } from './ProjectPlanItems';
 const LOOSE_KEY = '__loose__';
 
 export default function PlanTab({
-  project, isParent,
+  project, isParent, personal = false,
   pendingMilestoneId,
   onCompleteMilestone, onDeleteMilestone,
   onToggleStep, onDeleteStep, onMoveStep,
@@ -125,7 +125,7 @@ export default function PlanTab({
                     >
                       {ms.title}
                     </div>
-                    {!project.is_homework_plan && ms.bonus_amount && (
+                    {!project.is_homework_plan && !personal && ms.bonus_amount && (
                       <span className="font-rune text-caption text-moss flex items-center gap-0.5">
                         <DollarSign size={12} />{ms.bonus_amount}
                       </span>

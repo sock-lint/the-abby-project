@@ -212,11 +212,15 @@ def streak_at_risk_warning_task():
             title="Your streak is at risk!",
             message=(
                 f"Your {profile.login_streak}-day streak ends tonight unless "
+                "you log something. Complete one of your chores, tap a habit, "
+                "log reading, or log movement in My space."
+            ) if child.role == "parent" else (
+                f"Your {profile.login_streak}-day streak ends tonight unless "
                 "you log something — a chore, a habit tap, or homework "
                 "counts."
             ),
             notification_type=NotificationType.STREAK_AT_RISK,
-            link="/quests",
+            link="/quests?space=personal" if child.role == "parent" else "/quests",
         )
         warned += 1
 

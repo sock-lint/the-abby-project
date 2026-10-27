@@ -31,13 +31,16 @@ def build_dashboard(user, *, request=None) -> dict[str, Any]:
     from config.participation import is_personal_space
     personal = is_personal_space(request)
     if user.role == "child" or personal:
-        payload.update(_child_extras(user, today))
+        payload.update(_child_extras(user, today, personal=personal))
         payload["since_last_visit"] = _since_last_visit(user, last_seen)
     elif user.role == "parent":
         payload.update(_parent_extras(user, today))
     payload["rpg"] = _rpg_block(user, today, request=request)
     payload["next_actions"] = _next_actions(user, personal=personal)
-    _stamp_last_seen(user)
+    # Family dashboard refreshes also run in the background. Only visiting
+    # the personal dashboard consumes that account's personal catch-up gap.
+    if user.role == "child" or personal:
+        _stamp_last_seen(user)
     return payload
 
 
@@ -125,7 +128,7 @@ def _recent_badges(user) -> list[dict[str, Any]]:
 # Child-only fields
 # ---------------------------------------------------------------------------
 
-def _child_extras(user, today) -> dict[str, Any]:
+def _child_extras(user, today, *, personal=False) -> dict[str, Any]:
     from apps.chores.services import ChoreService
     from apps.timecards.models import Timecard
 
@@ -135,7 +138,7 @@ def _child_extras(user, today) -> dict[str, Any]:
             "id": c.pk,
             "title": c.title,
             "icon": c.icon,
-            "reward_amount": str(c.reward_amount),
+            "reward_amount": "0.00" if personal else str(c.reward_amount),
             "coin_reward": c.coin_reward,
             "is_done": c.is_done_today,
             "status": c.today_completion_status,

@@ -4,6 +4,7 @@ import { getChallenges } from '../../api';
 import { getToken } from '../../api/client';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
+import { useSpace } from '../../hooks/useSpace';
 import AchievementCard from '../cards/AchievementCard';
 import ProgressBar from '../ProgressBar';
 import Button from '../Button';
@@ -12,15 +13,17 @@ import PedestalImage from '../../pedestal/PedestalImage';
 import '../../pedestal/storybook-accents.css';
 
 export default function DailyChallengeCard({ refreshKey, challenge }) {
-  const { isChild, user } = useRole();
+  const { user } = useRole();
+  const { isPersonalSpace } = useSpace();
+  const participant = Boolean(user?.id && isPersonalSpace && ['child', 'parent'].includes(user.role));
   const navigate = useNavigate();
   const account = `${user?.id}:${getToken()}`;
-  const fetch = useCallback(() => isChild && challenge === undefined
+  const fetch = useCallback(() => participant && challenge === undefined
     ? getChallenges().then((result) => result.daily_bonus ? { ...result.daily_bonus, _bonusAccount: account } : null)
-    : Promise.resolve(null), [isChild, challenge, account]);
-  const { data, error, reload } = useApi(fetch, [account, isChild, refreshKey, challenge]);
+    : Promise.resolve(null), [participant, challenge, account]);
+  const { data, error, reload } = useApi(fetch, [account, participant, refreshKey, challenge]);
   const bonus = challenge === undefined ? data?._bonusAccount === account ? data : null : challenge;
-  if (!isChild) return null;
+  if (!participant) return null;
   if (error) return <AchievementCard variant="tall"><p role="alert" className="font-body text-body text-ink-secondary">{error}</p><Button variant="secondary" onClick={reload}>Retry today&apos;s bonus</Button></AchievementCard>;
   if (!bonus?.date) return null;
   return (

@@ -49,6 +49,13 @@ def _validated_goal(params, parent, *, defer_current_eligibility=False):
     return serializer.validated_data
 
 
+def _challenge_target(actor, requested_id):
+    target = resolve_target_user(actor, requested_id)
+    if target.pk != actor.pk and target.role != "child":
+        raise MCPNotFoundError(f"User {requested_id} not found.")
+    return target
+
+
 @tool()
 @safe_tool
 def get_voyager_feedback(params: GetVoyagerFeedbackIn) -> dict[str, Any]:
@@ -122,7 +129,7 @@ def list_challenges(params: ListChallengesIn) -> ChallengeListResult:
     awards anything, and exposes no private journal text or source contexts.
     """
     actor = get_current_user()
-    target = resolve_target_user(actor, params.user_id)
+    target = _challenge_target(actor, params.user_id)
     with authorized_household(actor, target, allow_inactive_target=True) as (fresh_actor, fresh_target):
         return _saved_challenge_page(fresh_actor, fresh_target, params)
 
@@ -202,7 +209,7 @@ def create_challenge_goal(params: CreateChallengeGoalIn) -> dict[str, Any]:
 def pin_challenge(params: PinChallengeIn) -> dict[str, Any]:
     """Pin a saved challenge for self or a parent's same-family child. Awards nothing."""
     actor = get_current_user()
-    target = resolve_target_user(actor, params.user_id)
+    target = _challenge_target(actor, params.user_id)
     with authorized_household(actor, target) as (_actor, fresh_target):
         return set_pin(fresh_target, params.challenge_id)
 
@@ -212,6 +219,6 @@ def pin_challenge(params: PinChallengeIn) -> dict[str, Any]:
 def unpin_challenge(params: PinChallengeIn) -> dict[str, Any]:
     """Clear a matching saved pin; progress, periods and reward promises stay intact."""
     actor = get_current_user()
-    target = resolve_target_user(actor, params.user_id)
+    target = _challenge_target(actor, params.user_id)
     with authorized_household(actor, target) as (_actor, fresh_target):
         return set_pin(fresh_target, params.challenge_id, clear=True)

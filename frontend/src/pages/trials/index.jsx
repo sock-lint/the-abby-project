@@ -20,7 +20,8 @@ import GoalScheduleControls from './GoalScheduleControls';
 import { REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
 
 function TrackedChallengeDetail({ user, onConfirmed, ...props }) {
-  useChallengeOpening(props.goal, { user, onConfirmed });
+  const { isPersonalSpace } = useSpace();
+  useChallengeOpening(props.goal, { user, onConfirmed, personal: isPersonalSpace });
   return <ChallengeGoalDetail {...props} />;
 }
 

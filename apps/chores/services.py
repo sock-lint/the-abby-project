@@ -204,13 +204,13 @@ class ChoreService:
             subject=user,
             target=completion,
             breakdown=[
-                {"label": "reward", "value": str(chore.reward_amount), "op": "note"},
+                {"label": "reward", "value": str(completion.reward_amount_snapshot), "op": "note"},
                 {"label": "coins", "value": chore.coin_reward, "op": "note"},
             ],
             extras={
                 "chore_id": chore.pk,
                 "chore_title": chore.title,
-                "reward_snapshot": str(chore.reward_amount),
+                "reward_snapshot": str(completion.reward_amount_snapshot),
                 "coin_snapshot": chore.coin_reward,
             },
         )
@@ -298,13 +298,20 @@ class ChoreService:
             badge_scopes={"chore", "skill_xp", "coin", "money", "badges"},
         )
 
-        # Notify child.
+        own_parent_completion = (
+            completion.user.role == "parent"
+            and parent.pk == completion.user_id
+            and not completion.reward_amount_snapshot
+        )
         notify(
             completion.user,
-            title=f"Chore approved: {completion.chore.title}",
+            title=(f"Chore completed: {completion.chore.title}" if own_parent_completion
+                   else f"Chore approved: {completion.chore.title}"),
             message=(
-                f'Your chore "{completion.chore.title}" was approved! '
-                f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins."
+                f'You completed "{completion.chore.title}".' if own_parent_completion else (
+                    f'Your chore "{completion.chore.title}" was approved! '
+                    f"You earned ${completion.reward_amount_snapshot} and {completion.coin_reward_snapshot} coins."
+                )
             ),
             notification_type=NotificationType.CHORE_APPROVED,
             link="/chores",

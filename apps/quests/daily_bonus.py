@@ -130,10 +130,10 @@ def process_daily_bonus(user, activity):
 
 
 def settle_legacy_bonuses(limit=100):
-    """Pay genuinely completed old bonuses once, outside schema migrations."""
+    """Pay children's genuinely completed old bonuses once, outside migrations."""
     from django.db.models import F, Q
     rows = DailyChallenge.objects.filter(
-        current_progress__gte=F("target_value"), user__role__in=["child", "parent"], user__is_active=True,
+        current_progress__gte=F("target_value"), user__role="child", user__is_active=True,
     ).filter(Q(coin_reward__gt=0) | Q(xp_reward__gt=0)).select_related("user__family").order_by("pk")[:limit]
     settled = 0
     for legacy in rows:

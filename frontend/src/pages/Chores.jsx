@@ -535,7 +535,7 @@ function ChoresWorkspace({ context }) {
         <section>
           <ChapterRubric
             index={nextRubric()}
-            name={isParent ? 'All chores' : "Today's chores"}
+            name={isParent ? 'All chores' : personalParent ? 'My chores' : "Today's chores"}
             icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
           />
           {chores.length > 0 && (
@@ -573,7 +573,7 @@ function ChoresWorkspace({ context }) {
                     <div className="flex-1 min-w-0">
                       <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                         {chore.title}
-                        {isParent && !chore.is_active && (
+                        {(isParent || personalParent) && !chore.is_active && (
                           <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
                         )}
                       </div>
@@ -587,9 +587,9 @@ function ChoresWorkspace({ context }) {
                           ~130px at 360px — wraps like its Study and Forge
                           siblings instead of painting past the card edge. */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-script text-caption text-ink-whisper">
-                        <span className="flex items-center gap-0.5">
+                        {!personalParent && <span className="flex items-center gap-0.5">
                           <DollarSign size={10} />{chore.reward_amount}
-                        </span>
+                        </span>}
                         <span className="flex items-center gap-0.5">
                           <CoinIcon size={10} />{chore.coin_reward}
                         </span>
@@ -702,7 +702,7 @@ function ChoresWorkspace({ context }) {
                       </div>
                       <SubmissionTiming record={c} kind="chore" timezone={context.user.family?.timezone} />
                       <div className="font-script text-caption text-ink-whisper">
-                        ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                        {!personalParent && <>${c.reward_amount_snapshot} + </>}{c.coin_reward_snapshot} coins
                       </div>
                     </div>
                   </div>

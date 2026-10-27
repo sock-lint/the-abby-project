@@ -35,5 +35,11 @@ the existing locked approval/award service in the same submission transaction,
 with a zero money snapshot even for older money-bearing chores. Parent personal
 availability excludes shared and child chores; children still submit pending
 completions. The account role and Family management permissions do not change.
+Personal catalog/detail, dashboard, next-action rewards and submission audit
+project zero cash even when a legacy Family chore retains a money reward;
+stored Family configuration and historical completion snapshots stay intact.
+Personal lists also include own inactive published chores as unavailable so
+they can be edited/re-enabled; those rows stay out of dashboard actions and
+cannot be completed until active. `?pending=true` remains pending-only.
 - `services.py` — `ChoreService` (all business logic).
 - `models.py` — `Chore.WeekSchedule`, `ChoreCompletion.Status`.

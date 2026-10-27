@@ -29,6 +29,12 @@ parents too. Family can still read explicitly shared household journals/grades;
 co-parents cannot read private entries or alter another author's sharing.
 Academic grade capture and the Meadow projection remain child-only.
 
+Manual memories owned by a parent are owner-only in both My space and Family,
+including REST list/detail/edit/delete and shared MCP readers and entry actions.
+Their `is_private` value does not enable co-parent access; manual memories have
+no sharing action. Family parents retain normal read/edit/delete access to
+child-owned manual memories. Journal and grade sharing rules remain separate.
+
 - `ChronicleViewSet` at `/api/chronicle/` — `summary`, `pending-celebration`, `mark-viewed`, parent-only manual CRUD, self-scoped journal POST (exact UUID retries return the saved entry; unrelated second-of-day attempts return 409) + same-day text PATCH + historical sharing PATCH + today lookup GET.
 - Journal action is `IsAuthenticated`, binds writes to `request.user` so `user_id` in body is ignored.
 - `GET /api/chronicle/journal/today/` — returns today's local-day journal entry for `request.user`, or `204` when none yet.

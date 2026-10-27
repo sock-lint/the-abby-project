@@ -80,6 +80,13 @@ mount and expedition endpoints as children; supplied child IDs never substitute
 for the authenticated owner. The codex includes earnable acquisition offers for
 an active parent when `X-Abby-Space: personal` is present, with only that parent's
 saved challenge attempts. Family catalog administration keeps its prior shape.
+Child evolution and expedition notifications sent to parents link to that
+child's Family overview. The owner's own receipt keeps the personal Pets
+destination, so the parent space switch does not open their own collection for
+an update about a child.
+New parents' own companion receipts carry `space=personal` in their Pets link.
+Historical pet notifications without an identified audience open the Family
+overview for a parent; their old rows cannot reliably identify the pet owner.
 
 - `PetService` — `start_incubation`, `current_incubation`, `hatch_incubation`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.

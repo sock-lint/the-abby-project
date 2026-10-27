@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { getAllCategories, getChildren, updateProject } from '../../../api';
 import TaxonomyOptions from '../../../components/form/TaxonomyOptions';
 import BottomSheet from '../../../components/BottomSheet';
@@ -16,6 +17,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
   const { data: childrenData } = useApi(personal ? () => Promise.resolve([]) : getChildren, [personal]);
   const categories = normalizeList(categoriesData);
   const children = normalizeList(childrenData);
+  const rateEdited = useRef(false);
 
   const { form, set, saving, setSaving, error, setError } = useFormState({
     title: project.title || '',
@@ -31,7 +33,20 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
     parent_notes: project.parent_notes || '',
   });
 
-  const onField = (k) => (e) => set({ [k]: e.target.value });
+  const onField = (k) => (e) => {
+    const value = e.target.value;
+    if (k === 'hourly_rate_override') rateEdited.current = true;
+    const patch = { [k]: value };
+    // My space uses zero to prevent parent wages. Giving that project to a
+    // child should use their normal rate unless the parent chooses an override.
+    if (k === 'assigned_to_id' && !rateEdited.current
+      && project.assigned_to?.role === 'parent'
+      && project.hourly_rate_override != null && Number(project.hourly_rate_override) === 0
+      && children.some((child) => String(child.id) === String(value))) {
+      patch.hourly_rate_override = '';
+    }
+    set(patch);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

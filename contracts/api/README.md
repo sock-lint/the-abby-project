@@ -9,6 +9,11 @@ profile response, with saved skills, badges, companion collections and total
 counts. It exposes no journal bodies and awards nothing on read. The existing
 parent fixture producer and React consumer verify both raw responses and the
 client's explicit Family override when reading a child profile from My space.
+`parent-personal-pet-notification.json` and
+`parent-child-pet-notification.json` are raw authenticated notification detail
+responses after real parent and child evolutions. The former identifies the
+owner's personal Pets destination; the latter identifies the child's Family
+overview. The same parent producer and React consumer verify both destinations.
 
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment

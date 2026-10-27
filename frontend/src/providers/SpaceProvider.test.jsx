@@ -41,8 +41,8 @@ function Probe() {
   </>;
 }
 
-function tree(blocked = false) {
-  return <MemoryRouter initialEntries={['/']}><PwaStatusContext.Provider value={{ updateBlocked: blocked }}>
+function tree(blocked = false, path = '/') {
+  return <MemoryRouter initialEntries={[path]}><PwaStatusContext.Provider value={{ updateBlocked: blocked }}>
     <SpaceProvider><Probe /></SpaceProvider>
   </PwaStatusContext.Provider></MemoryRouter>;
 }
@@ -93,6 +93,35 @@ describe('Family and My space as one unchanged parent identity', () => {
     expect(screen.getByRole('button', { name: 'My space' })).toBeDisabled();
     expect(screen.getByText(/Save or close your current form/)).toBeVisible();
     expect(screen.getByTestId('space')).toHaveTextContent('family');
+  });
+
+  it.each(['/quests?space=personal', '/bestiary?tab=mounts&space=personal'])(
+    'opens a parent personal notification in the correct space from a new tab: %s', async (path) => {
+      sessionStorage.setItem(`abby:spaces:${auth.user.family?.id}:${auth.user.id}`, JSON.stringify({ space: 'family' }));
+      render(tree(false, path));
+      await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
+      expect(screen.getByTestId('space')).toHaveTextContent('personal');
+      expect(screen.getByTestId('role')).toHaveTextContent('parent');
+      expect(screen.getByTestId('location')).toHaveTextContent(path);
+      expect(requestSpace(getToken())).toBe('personal');
+    },
+  );
+
+  it.each(['/manage?space=personal', '/quests?space=unknown', '/quests?space=personal&space=family'])(
+    'keeps a parent Family launch for unsupported or ambiguous hints: %s', async (path) => {
+      render(tree(false, path));
+      await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
+      expect(screen.getByTestId('space')).toHaveTextContent('family');
+    },
+  );
+
+  it('keeps a child personal launch without changing child API authority for a notification hint', async () => {
+    auth.user = buildUser();
+    render(tree(false, '/quests?space=personal'));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
+    expect(screen.getByTestId('space')).toHaveTextContent('personal');
+    expect(screen.getByTestId('role')).toHaveTextContent('child');
+    expect(requestSpace(getToken())).toBe('family');
   });
 
   it('does not offer children a Family space and never changes their role', async () => {

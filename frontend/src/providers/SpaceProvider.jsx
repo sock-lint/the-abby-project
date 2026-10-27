@@ -10,6 +10,12 @@ function readPreferences(key) {
   try { return JSON.parse(sessionStorage.getItem(key)) || {}; } catch { return {}; }
 }
 
+function personalNotificationLaunch(location) {
+  const spaces = new URLSearchParams(location.search).getAll('space');
+  return ['/quests', '/bestiary'].includes(location.pathname)
+    && spaces.length === 1 && spaces[0] === 'personal';
+}
+
 function safePath(path, personal = false) {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return '/';
   const parsed = new URL(path, window.location.origin);
@@ -35,7 +41,7 @@ function AccountSpaces({ user, token, children }) {
   const [initialPreferences] = useState(() => readPreferences(storageKey));
   const preferences = useRef(initialPreferences);
   const [space, setSpace] = useState(() => isParentAccount
-    ? (initialPreferences.space === 'personal' ? 'personal' : 'family') : 'personal');
+    ? (personalNotificationLaunch(location) || initialPreferences.space === 'personal' ? 'personal' : 'family') : 'personal');
   const [revision, setRevision] = useState(0);
 
   // Every new workspace mounts with its own fetches and forms. Layout effects

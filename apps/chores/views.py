@@ -200,12 +200,18 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             return super().list(request, *args, **kwargs)
         if user.role == "child" or is_personal_space(request):
             chores = ChoreService.get_available_chores(user)
+            if is_personal_space(request):
+                # Pausing a personal chore must leave a way to edit/re-enable
+                # it. Keep inactive rows out of actionable service results.
+                chores.extend(self.get_queryset().filter(
+                    is_active=False, pending_parent_review=False,
+                ))
             data = []
             for chore in chores:
-                serialized = ChoreSerializer(chore).data
-                serialized["is_available"] = not chore.is_done_today
-                serialized["today_status"] = chore.today_completion_status
-                serialized["today_completion_id"] = chore.today_completion_id
+                serialized = self.get_serializer(chore).data
+                serialized["is_available"] = chore.is_active and not getattr(chore, "is_done_today", False)
+                serialized["today_status"] = getattr(chore, "today_completion_status", None)
+                serialized["today_completion_id"] = getattr(chore, "today_completion_id", None)
                 data.append(serialized)
             return Response(data)
         return super().list(request, *args, **kwargs)
@@ -279,7 +285,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 link="/chores",
             )
 
-        return Response(ChoreSerializer(chore).data)
+        return Response(self.get_serializer(chore).data)
 
 
 class ChoreCompletionViewSet(

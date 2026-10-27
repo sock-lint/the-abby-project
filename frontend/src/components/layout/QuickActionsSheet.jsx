@@ -424,24 +424,24 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
                   tone="moss"
                   onClick={() => { onClose(); navigate('/trials'); }}
                 />
-              <ActionRow
+              {!isParentAccount && <ActionRow
                 icon={<Box size={18} />}
                 label="Ask for a print"
                 hint="3D print request — parent approves it"
                 tone="teal"
                 onClick={() => { onClose(); navigate('/treasury?tab=forge&new=1'); }}
-              />
+              />}
               <ActionRow
                 icon={<Sparkles size={18} />}
-                label="Suggest a chore"
-                hint="Suggest a chore — parent sets the reward"
+                label={isParentAccount ? 'New chore' : 'Suggest a chore'}
+                hint={isParentAccount ? 'Set your own task and schedule' : 'Suggest a chore — parent sets the reward'}
                 tone="gold"
                 onClick={() => { onClose(); navigate('/quests?tab=duties&propose=1'); }}
               />
               <ActionRow
                 icon={<Feather size={18} />}
-                label="Suggest a habit"
-                hint="Suggest a habit — parent sets the XP"
+                label={isParentAccount ? 'New habit' : 'Suggest a habit'}
+                hint={isParentAccount ? 'Create a habit for yourself' : 'Suggest a habit — parent sets the XP'}
                 tone="royal"
                 onClick={() => { onClose(); navigate('/quests?tab=rituals&propose=1'); }}
               />

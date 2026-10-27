@@ -80,7 +80,7 @@
     "system_challenges": 2,
     "nonrepeatable_challenges": 2
   },
-  "rules_fingerprint": "22ae86f06ee107ed6c48cc2d6c76448f7054820297d82dd1acdf9e87beafc10c",
+  "rules_fingerprint": "ccf77162d52a0a47049bfa8450c7935229eee5eccc697f3161380576ccc66ca4",
   "engine_version": "2026-10-23.1",
   "source_commit": "unavailable",
   "coverage": {

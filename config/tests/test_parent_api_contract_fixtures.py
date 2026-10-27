@@ -27,6 +27,68 @@ FIXED_NOW = datetime(2026, 10, 19, 2, tzinfo=timezone.utc)
 class ParentApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
 
+    def test_pet_evolution_notifications_keep_personal_and_child_family_destinations(self):
+        from apps.notifications.models import Notification
+        from apps.pets.models import PetSpecies, PotionType, UserPet
+        from apps.pets.services import PetService
+
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            household = make_family(
+                "Companion Notification Fixture", family_id=65,
+                parents=[{"id": 6, "username": "pet-fixture-parent", "display_name": "Alex"},
+                         {"id": 8, "username": "pet-fixture-coparent"}],
+                children=[{"id": 7, "username": "pet-fixture-child", "display_name": "Abby"}],
+            )
+            parent, child = household.parents[0], household.children[0]
+            outsider = make_family(
+                "Other Companion Fixture", family_id=66,
+                parents=[{"id": 99, "username": "pet-fixture-outsider"}],
+            ).parents[0]
+            species = PetSpecies.objects.create(id=801, slug="fixture-notification-wolf", name="Woodland Wolf")
+            potion = PotionType.objects.create(id=802, slug="fixture-notification-base", name="Base")
+            for owner, pet_id in ((parent, 803), (child, 804)):
+                type(owner).objects.select_for_update().get(pk=owner.pk)
+                pet = UserPet.objects.create(
+                    id=pet_id, user=owner, species=species, potion=potion, growth_points=100,
+                )
+                mount = PetService._save_growth(pet, update_fields=["growth_points"])
+                self.assertEqual(mount.user_id, owner.pk)
+                pet.refresh_from_db()
+                self.assertTrue(pet.evolved_to_mount)
+
+            def fixed_notification_id(title, wire_id):
+                receipt = Notification.objects.get(user=parent, notification_type="pet_evolved", title=title)
+                if receipt.pk != wire_id:
+                    # Preserve actual service rows while pinning wire identities
+                    # independently of the full PostgreSQL suite's sequences.
+                    occupied = Notification.objects.filter(pk=wire_id)
+                    if occupied.exists():
+                        occupied.update(id=Notification.objects.latest("pk").pk + 1)
+                    Notification.objects.filter(pk=receipt.pk).update(id=wire_id)
+                return wire_id
+
+            own_id = fixed_notification_id("Woodland Wolf evolved into a mount!", 901)
+            child_id = fixed_notification_id("Abby's pet evolved", 902)
+            self.client.force_authenticate(parent)
+            own = self.assert_response_fixture(
+                self.client.get(f"/api/notifications/{own_id}/", HTTP_X_ABBY_SPACE="personal"),
+                "parent-personal-pet-notification.json",
+            )
+            child_update = self.assert_response_fixture(
+                self.client.get(f"/api/notifications/{child_id}/"),
+                "parent-child-pet-notification.json",
+            )
+            self.assertEqual(own["link"], "/bestiary?tab=mounts&space=personal")
+            self.assertEqual(child_update["link"], "/family?child=7")
+            child_receipt = Notification.objects.get(user=child, notification_type="pet_evolved")
+            self.client.force_authenticate(child)
+            self.assertEqual(self.client.get(f"/api/notifications/{child_receipt.pk}/").json()["link"],
+                             "/bestiary?tab=mounts")
+            self.assertFalse(Notification.objects.filter(user=outsider).exists())
+            self.client.force_authenticate(outsider)
+            for receipt_id in (own_id, child_id):
+                self.assertEqual(self.client.get(f"/api/notifications/{receipt_id}/").status_code, 404)
+
     def test_personal_parent_dashboard_uses_own_progress_without_changing_role(self):
         from apps.habits.models import Habit
         from apps.rewards.models import CoinLedger

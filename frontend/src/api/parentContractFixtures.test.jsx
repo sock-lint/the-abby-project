@@ -18,8 +18,21 @@ import childOverview from '../../../contracts/api/fixtures/family-child-overview
 import { getChildOverview } from './index';
 import { setRequestSpace } from './space';
 import { getToken } from './client';
+import ownPetNotification from '../../../contracts/api/fixtures/parent-personal-pet-notification.json';
+import childPetNotification from '../../../contracts/api/fixtures/parent-child-pet-notification.json';
+import { destinationForNotification } from '../components/notifications.constants';
 
 describe('parent dashboard response through the real React API client', () => {
+  it('routes actual own-pet and child-pet server receipts to their identified spaces', () => {
+    expect(destinationForNotification(ownPetNotification, { isParentAccount: true })).toEqual({
+      space: 'personal', target: '/bestiary?tab=mounts&space=personal',
+    });
+    expect(destinationForNotification(childPetNotification, { isParentAccount: true })).toEqual({
+      space: 'family', target: '/family?child=7',
+    });
+    expect(ownPetNotification.notification_type).toBe('pet_evolved');
+    expect(childPetNotification.notification_type).toBe('pet_evolved');
+  });
   it('reads personal progression with the original parent identity', async () => {
     let hint;
     server.use(http.get('*/api/dashboard/', ({ request }) => {

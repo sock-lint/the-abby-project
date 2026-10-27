@@ -19,6 +19,32 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('EditProjectModal', () => {
+  it('restores a child’s default hourly rate when assigning an unchanged personal zero override', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
+    render(<EditProjectModal project={buildProject({ assigned_to: { id: 99, role: 'parent' }, hourly_rate_override: '0.00' })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await selectDropdown(user, screen.getByLabelText('Assign To'), '7');
+    expect(screen.getByLabelText('Rate Override ($)')).toHaveDisplayValue('');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ assigned_to_id: '7', hourly_rate_override: null });
+  });
+
+  it.each(['before', 'after'])('preserves an intentionally entered zero rate %s choosing the child', async (when) => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
+    render(<EditProjectModal project={buildProject({ assigned_to: { id: 99, role: 'parent' }, hourly_rate_override: '0.00' })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const editRate = async () => { await user.clear(screen.getByLabelText('Rate Override ($)')); await user.type(screen.getByLabelText('Rate Override ($)'), '0'); };
+    if (when === 'before') await editRate();
+    await selectDropdown(user, screen.getByLabelText('Assign To'), '7');
+    if (when === 'after') await editRate();
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ assigned_to_id: '7', hourly_rate_override: '0' });
+  });
+
   it('edits a parent’s own project without fetching children or sending family assignment and pay fields', async () => {
     useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: true });
     const user = userEvent.setup();
