@@ -6,10 +6,11 @@ from uuid import uuid4
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import User
-from apps.achievements.models import Skill, SkillCategory
+from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.chores.models import Chore, ChoreCompletion
 from apps.creations.models import Creation
 from apps.families.models import LiveTestFamily
@@ -66,6 +67,59 @@ class ProgressionObservationsTests(TestCase):
         self.assertEqual(result["status"], "observations_available")
         self.assertEqual(result["earning_pace"]["status"], "insufficient_evidence")
         self.assertIsNone(result["earning_pace"]["coins_per_active_day"])
+
+    def test_declined_creation_bonus_keeps_meaningful_work_day_and_baseline_xp(self):
+        from apps.creations.services import CreationService
+
+        skill = Skill.objects.create(name="Retained drawing", category=SkillCategory.objects.create(name="Art & Crafts"))
+        with patch("django.utils.timezone.now", return_value=self.now), timezone.override("America/Phoenix"), patch(
+            "apps.rpg.services.GameLoopService.on_task_completed",
+        ):
+            creation = CreationService.log_creation(
+                self.child, image="creations/synthetic-retained.png", primary_skill_id=skill.pk,
+            )
+            CreationService.submit_for_bonus(creation)
+            before = self.observe()
+            xp_before = SkillProgress.objects.get(user=self.child, skill=skill).xp_points
+            coins_before = list(CoinLedger.objects.filter(user=self.child).values())
+            CreationService.reject_bonus(creation, self.parent, notes="Bonus declined; the creation remains saved.")
+            after = self.observe()
+        creation.refresh_from_db()
+        self.assertGreater(xp_before, 0)
+        self.assertEqual(creation.xp_awarded, CreationService.BASELINE_XP)
+        self.assertEqual(creation.status, Creation.Status.REJECTED)
+        self.assertEqual(before["activity"]["meaningful_active_child_days"], 1)
+        self.assertEqual(after["activity"]["meaningful_active_child_days"], 1)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=skill).xp_points, xp_before)
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child).values()), coins_before)
+
+    def test_creation_and_movement_saved_together_count_one_household_day_outside_phoenix(self):
+        from apps.creations.services import CreationService
+        from apps.movement.services import MovementSessionService
+
+        self.family.family.timezone = "Asia/Tokyo"
+        self.family.family.save(update_fields=["timezone"])
+        self.child.refresh_from_db()
+        skill = Skill.objects.create(name="Local drawing", category=SkillCategory.objects.create(name="Art & Crafts"))
+        movement_type = MovementType.objects.create(name="Local movement", slug="local-observation")
+        with patch("django.utils.timezone.now", return_value=self.now), timezone.override("America/Phoenix"), patch(
+            "apps.rpg.services.GameLoopService.on_task_completed",
+        ):
+            creation = CreationService.log_creation(
+                self.child, image="creations/synthetic-local.png", primary_skill_id=skill.pk,
+            )
+            movement = MovementSessionService.log_session(
+                self.child, movement_type=movement_type, duration_minutes=1,
+            )
+            result = self.observe()
+        # The source's immutable quota/chapter date remains Phoenix-based;
+        # it is not a user-selected work date and must not split this report.
+        self.assertEqual(creation.occurred_on, date(2026, 10, 18))
+        self.assertEqual(movement.occurred_on, date(2026, 10, 19))
+        self.assertEqual(result["period"]["timezone"], "Asia/Tokyo")
+        self.assertEqual(result["activity"]["meaningful_active_child_days"], 1)
+        previous = self.observe(since=date(2026, 10, 18), until=date(2026, 10, 18))
+        self.assertEqual(previous["activity"]["meaningful_active_child_days"], 0)
 
     def test_empty_active_cohort_is_insufficient_not_a_passing_experiment(self):
         User.objects.filter(pk=self.child.pk).update(is_active=False)
@@ -201,8 +255,9 @@ class ProgressionObservationsTests(TestCase):
         MovementSession.objects.create(user=self.child, movement_type=movement_type, duration_minutes=1,
                                        intensity="low", occurred_on=first.date(), xp_awarded=0)
         skill = Skill.objects.create(name="Synthetic making", category=SkillCategory.objects.create(name="Synthetic craft"))
-        Creation.objects.create(user=self.child, image="synthetic-not-written.png", occurred_on=second.date(),
-                                primary_skill=skill, xp_awarded=0)
+        creation = Creation.objects.create(user=self.child, image="synthetic-not-written.png", occurred_on=second.date(),
+                                            primary_skill=skill, xp_awarded=0)
+        Creation.objects.filter(pk=creation.pk).update(created_at=second)
         habit = Habit.objects.create(user=self.child, created_by=self.parent, name="Synthetic habit")
         positive = HabitLog.objects.create(user=self.child, habit=habit, direction=1)
         negative = HabitLog.objects.create(user=self.child, habit=habit, direction=-1)
@@ -226,7 +281,7 @@ class ProgressionObservationsTests(TestCase):
         ChoreCompletion.objects.filter(pk=completion.pk).update(status="rejected")
         Creation.objects.filter(user=self.child).update(status="rejected")
         HabitLog.objects.filter(pk=positive.pk).delete()
-        self.assertEqual(self.observe()["activity"]["meaningful_active_child_days"], 2)
+        self.assertEqual(self.observe()["activity"]["meaningful_active_child_days"], 3)
 
     def test_reading_corrections_and_deletion_do_not_rewrite_earned_coins_or_count_receipts(self):
         from apps.quests.models import ChallengeActivity

@@ -42,6 +42,7 @@ describe('Observed family Coin economy', () => {
     expect(within(sources).getByRole('row', { name: /Birthdays.*Occasional bonus.*200.*1/ })).toBeVisible();
     expect(screen.getByText(/Small sample: fewer than 7 active child-days/)).toBeVisible();
     expect(screen.getByText(/240 Coins excluded/)).toBeVisible();
+    expect(screen.getByText(/Some historical earnings have unknown sources/)).toBeVisible();
     const shop = screen.getByRole('table', { name: 'Active days to earn each shop reward' });
     expect(within(shop).getByRole('row', { name: /Practice outing.*51.*11.*Available/ })).toBeVisible();
     expect(within(shop).getByRole('row', { name: /Movie night.*100.*20.*Out of stock/ })).toBeVisible();
@@ -62,6 +63,28 @@ describe('Observed family Coin economy', () => {
     expect(screen.getByText(/accounts registered within 90 days/)).toBeVisible();
     expect(screen.getByText(/This saved report predates activity and shop estimates/)).toBeVisible();
     expect(screen.queryByRole('table', { name: 'Active days to earn each shop reward' })).not.toBeInTheDocument();
+    expect(screen.getByText('Children with Coin entries').nextElementSibling).toHaveTextContent('1');
+    expect(screen.getByText('Typed automatic-source Coins').nextElementSibling).toHaveTextContent('0');
+    expect(screen.getByText('Typed-source child-days above 100').nextElementSibling).toHaveTextContent('0');
+  });
+
+  it('does not label an empty or zero-credit activity report as missing historical earnings', () => {
+    const { rerender } = renderWithProviders(<ProgressionObservations observations={empty} />);
+    expect(screen.queryByText(/Some historical earnings have unknown sources/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Attribution is incomplete/)).not.toBeInTheDocument();
+    rerender(<ProgressionObservations observations={{ ...empty, status: 'observations_available', activity: { ...empty.activity, meaningful_active_children: 1, meaningful_active_child_days: 3 }, earning_pace: { ...empty.earning_pace, active_child_days: 3 } }} />);
+    expect(screen.queryByText(/Some historical earnings have unknown sources/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Attribution is incomplete/)).not.toBeInTheDocument();
+  });
+
+  it('keeps accounting metrics and actual attribution gaps visible alongside activity coverage', () => {
+    renderWithProviders(<ProgressionObservations observations={earned} />);
+    expect(screen.getByText('Children with Coin entries').nextElementSibling).toHaveTextContent('1');
+    expect(screen.getByText('Typed automatic-source Coins').nextElementSibling).toHaveTextContent('10');
+    expect(screen.getByText('Typed-source child-days above 100').nextElementSibling).toHaveTextContent('0');
+    expect(screen.getByText(/Attribution is incomplete/)).toBeVisible();
+    const accounting = screen.getByText((_, element) => element.tagName === 'PRE');
+    expect(JSON.parse(accounting.textContent).activity).toEqual(earned.activity);
   });
 
   it('withholds partial source and shop results when a capacity limit is reached', () => {

@@ -150,7 +150,7 @@ describe('Progression experiment notebook', () => {
   });
   it('does not validate an undeployed policy using uncapped Coin observations', async () => {
     setup();
-    server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json({ ...observations, status: 'observations_available', cohort: { ...observations.cohort, eligible_children: 2 }, ledger: { ...observations.ledger, credits: 300 } })));
+    server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json({ ...observations, status: 'observations_available', cohort: { ...observations.cohort, eligible_children: 2 }, ledger: { ...observations.ledger, credits: 300 }, automatic_sources: { ...observations.automatic_sources, unattributed_positive_adjustments: 300 } })));
     renderWithProviders(<ProgressionExperimentNotebook routine={draft.config} />);
     await screen.findByText('Observed installed-economy Coins');
     expect(screen.getByText(/Attribution is incomplete/)).toBeVisible();

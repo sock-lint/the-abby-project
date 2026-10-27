@@ -23,7 +23,7 @@ function EarningSources({ sources }) {
   </div>;
 }
 
-function ShopEarningDays({ pace, rewards }) {
+function ShopEarningDays({ pace, rewards, hasUnknownCredits }) {
   return <section aria-label="Shop earning estimates" className="space-y-3">
     <h4 className="font-semibold">Shop earning estimates</h4>
     {pace.status === 'available' ? <>
@@ -31,7 +31,7 @@ function ShopEarningDays({ pace, rewards }) {
       {pace.provisional && <p role="status" className="text-ember-deep">Small sample: fewer than 7 active child-days. Treat these estimates as provisional.</p>}
     </> : <p role="status">More saved activity and identified regular earnings are needed before estimating earning days.</p>}
     <p className="text-caption text-ink-secondary">{number(pace.excluded_credits)} Coins excluded from this pace: occasional bonuses, manual grants, money exchanges, refunds and unknown sources. Regular earnings can vary and include random rewards and delayed approvals.</p>
-    {!pace.attribution_complete && <p role="status" className="text-ember-deep">Some historical earnings have unknown sources. The measured pace may be lower and earning times longer than the full history would show.</p>}
+    {hasUnknownCredits && <p role="status" className="text-ember-deep">Some historical earnings have unknown sources. The measured pace may be lower and earning times longer than the full history would show.</p>}
     <p className="text-caption text-ink-secondary">Each estimate earns the full price from zero using the family’s average across active child-days, rounded up. It ignores existing balances and spending. It is a planning estimate, not a promise or a count of calendar days.</p>
     <div className="overflow-x-auto" role="region" aria-label="Shop estimates, horizontally scrollable" tabIndex={0}>
       <table className={tableClass}>
@@ -50,6 +50,9 @@ function ShopEarningDays({ pace, rewards }) {
 export default function ProgressionObservedEconomy({ observations, loading }) {
   const limited = observations?.status?.endsWith('_limit_exceeded');
   const modern = Boolean(observations?.earning_pace);
+  const hasUnknownCredits = observations?.earning_sources?.some((source) => source.kind === 'unattributed' && source.coins > 0);
+  const hasUnattributedAutomaticCredits = observations?.automatic_sources?.unattributed_positive_adjustments > 0
+    || observations?.automatic_sources?.unattributed_expedition_coins > 0;
   return <ParchmentCard as="section" aria-label="Observed family coin economy" className="space-y-4">
     <SectionHeader as="h3" title="Observed family coin economy">Saved family activity and actual Coin credits, separate from simulation results.</SectionHeader>
     {loading && <p role="status">Loading observed Coin evidence…</p>}
@@ -60,22 +63,25 @@ export default function ProgressionObservedEconomy({ observations, loading }) {
         <h4 className="font-semibold">Observed installed-economy Coins</h4>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[
           ['Eligible children', observations.cohort.eligible_children],
+          ['Children with Coin entries', observations.activity.ledger_active_children],
           ...(modern ? [['Children with saved work', observations.activity.meaningful_active_children], ['Active child-days with saved work', observations.activity.meaningful_active_child_days]] : []),
           ['Child-days with Coin entries', observations.activity.ledger_active_child_days],
           ['Opening Coins', observations.ledger.opening_balance], ['Coin credits', observations.ledger.credits],
           ['Coin debits', observations.ledger.debits], ['Closing Coins', observations.ledger.closing_balance],
+          ['Typed automatic-source Coins', observations.automatic_sources.coins],
+          ['Typed-source child-days above 100', observations.automatic_sources.child_days_over_100],
         ].map(([label, value]) => <div key={label}><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold">{number(value)}</dd></div>)}</dl>
         {modern ? <>
           <p className="text-caption text-ink-secondary">An active child-day has saved reading, movement, a creation, a positive habit check-in, completed project time, or a pending or approved chore or homework submission. Several activities by one child on the same day count once, even with no Coins. This measures selected saved work, not time spent in the app.</p>
           <EarningSources sources={observations.earning_sources ?? []} />
-          <ShopEarningDays pace={observations.earning_pace} rewards={observations.shop_rewards ?? []} />
+          <ShopEarningDays pace={observations.earning_pace} rewards={observations.shop_rewards ?? []} hasUnknownCredits={hasUnknownCredits} />
         </> : <p>This saved report predates activity and shop estimates. Its recorded Coin totals and cohort remain unchanged.</p>}
-        {!observations.automatic_sources.attribution_complete && <p role="status" className="text-ember-deep">Attribution is incomplete. Historical adjustments cannot establish the full earning-source mix.</p>}
+        {hasUnattributedAutomaticCredits && <p role="status" className="text-ember-deep">Attribution is incomplete. Historical adjustments cannot establish the full earning-source mix.</p>}
       </>}
       <p className="text-caption text-ink-secondary">{observations.policy.coins_per_dollar != null && `Money exchange: ${number(observations.policy.coins_per_dollar)} Coins per dollar. `}The 100-Coin policy is not live. These observations cannot validate that proposed policy or measure retention.</p>
       <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Observation coverage and accounting</summary>
         <ul className="list-disc pl-5 space-y-2 text-caption text-ink-secondary">{observations.notes.map((note) => <li key={note}>{note}</li>)}</ul>
-        <pre className="overflow-auto max-h-80 text-caption mt-3">{JSON.stringify({ ledger: observations.ledger, automatic_sources: observations.automatic_sources, cohort: observations.cohort, policy: observations.policy }, null, 2)}</pre>
+        <pre className="overflow-auto max-h-80 text-caption mt-3">{JSON.stringify({ ledger: observations.ledger, activity: observations.activity, automatic_sources: observations.automatic_sources, cohort: observations.cohort, policy: observations.policy }, null, 2)}</pre>
       </details>
     </>}
   </ParchmentCard>;

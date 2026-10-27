@@ -5,7 +5,7 @@ anonymous new child's progression. The workbench reads the currently loaded
 global content and supported-acquisition policy. Forecasts create no accounts,
 inventory, awards or notifications. The experiment notebook saves private
 design evidence separately; its observation panel reads only your family's
-recent-child Coin ledger aggregates.
+Coin ledger and saved-work aggregates for all active family children.
 
 ## Save findings and act on them
 
@@ -61,12 +61,14 @@ live-check families are excluded. It accepts no household or child selectors.
 reading, positive-duration movement, a creation, a positive habit check-in,
 completed project time, or a pending or approved chore/homework submission.
 Several activities by the same child on the same day count once; activities
-can count even when they earn no Coins. Reading, movement and creations use
-their saved work dates; habit and submission timestamps and project close
-times use the family's current local calendar. Rejected submissions, voided
-time, deleted records, visits, purchases and reward cascades do not establish
-activity. Private journals and grades are not read or counted. This measures
-selected saved work, including records maintained by a parent, rather than
+can count even when they earn no Coins. Reading and movement use their saved
+work dates. Creation save timestamps, habit and submission timestamps and
+project close times use the family's current local calendar. A creation still
+counts if its extra bonus was declined: the saved work and baseline XP remain
+valid. Its quota date is not used as its activity date. Rejected chore/homework
+submissions, voided time, deleted records, visits, purchases and reward cascades
+do not establish activity. Private journals and grades are not read or counted.
+This measures selected saved work, including records maintained by a parent, rather than
 attention, app visits or retention. Ledger-active days remain a separate count
 of any Coin transaction, including spending and transfers.
 

@@ -290,7 +290,7 @@ def capture_progression_observation(params: ProgressionExperimentMutationIn) -> 
 @tool()
 @safe_tool
 def get_progression_observations(params: ProgressionObservationsIn) -> ProgressionObservationsOut:
-    """Read bounded recent-child accounting aggregates for the current family.
+    """Read bounded accounting and saved-work aggregates for all active family children.
 
     Requires mcp:read, accepts no account or family selector, and reads no journal
     or transaction prose. These are observations of installed rules, distinct

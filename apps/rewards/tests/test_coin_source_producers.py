@@ -1,4 +1,5 @@
 """Real Coin producers keep their amounts and once-only gates when attributed."""
+from copy import deepcopy
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.achievements.services import AwardService
+from apps.activity.models import ActivityEvent
 from apps.chronicle.models import ChronicleEntry
 from apps.chronicle.services import ChronicleService
 from apps.chronicle.tasks import chronicle_birthday_check
@@ -21,7 +23,7 @@ from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
 from apps.pets.models import PetSpecies, PotionType, UserMount
 from apps.projects.savings_service import SavingsGoalService
-from apps.quests.goals import ingest_activity
+from apps.quests.goals import _occurrence, ingest_activity
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, QuestDefinition, QuestRewardItem
 from apps.quests.services import QuestService
 from apps.rewards.models import CoinLedger
@@ -66,12 +68,12 @@ class CoinSourceProducerTests(TestCase):
             "source", "reason", "amount",
         ))
 
-    def owned_egg(self):
+    def owned_egg(self, user=None):
         species = PetSpecies.objects.create(
             slug="source-species", name="Source species", sprite_key="source-sprite",
         )
         potion = PotionType.objects.create(slug="source-base", name="Source base")
-        UserMount.objects.create(user=self.child, species=species, potion=potion)
+        UserMount.objects.create(user=user or self.child, species=species, potion=potion)
         return ItemDefinition.objects.create(
             slug="source-egg", name="Promised egg", item_type="egg", pet_species=species,
             coin_value=13,
@@ -144,6 +146,103 @@ class CoinSourceProducerTests(TestCase):
         self.assertEqual(self.entries(), [
             ("legacy_quest", "adjustment", 9), ("legacy_quest", "adjustment", 26),
         ])
+
+    def test_automatic_zero_quantity_egg_keeps_accepted_reward_and_replay_receipt(self):
+        egg = self.owned_egg()
+        now = timezone.now()
+        goal = ChallengeGoal.objects.create(
+            user=self.child, family=self.household.family, created_by=self.parent,
+            name="Accepted zero-quantity egg", metric="count", target=1,
+            trigger_filter={"allowed_triggers": ["habit_log"]},
+            timezone_name="America/Phoenix", starts_at=now - timedelta(minutes=1),
+            ends_at=now + timedelta(days=1), coin_reward=7, xp_reward=0,
+            reward_items=[{"item_id": egg.pk, "quantity": 0}],
+        )
+        occurrence = _occurrence(goal, now)
+        accepted_snapshot = deepcopy(occurrence.snapshot)
+
+        ingest_activity(self.child, "habit_log", "zero-egg-habit", "habit_log", occurred_at=now)
+        occurrence.refresh_from_db()
+        saved_receipt = deepcopy(occurrence.reward_receipt)
+        self.assertEqual(occurrence.status, "completed")
+        self.assertIsNotNone(occurrence.awarded_at)
+        self.assertEqual(occurrence.snapshot, accepted_snapshot)
+        self.assertEqual((saved_receipt["coins"], saved_receipt["xp"]), (7, 0))
+        self.assertEqual((saved_receipt["items"][0]["quantity"],
+                          saved_receipt["items"][0]["salvaged_to_coins"]), (0, 0))
+
+        ingest_activity(self.child, "habit_log", "zero-egg-habit", "habit_log", occurred_at=now)
+        ingest_activity(self.child, "habit_log", "another-zero-egg-habit", "habit_log", occurred_at=now)
+
+        occurrence.refresh_from_db()
+        self.assertEqual(occurrence.snapshot, accepted_snapshot)
+        self.assertEqual(occurrence.reward_receipt, saved_receipt)
+        self.assertEqual(self.entries(), [("automatic_challenge", "adjustment", 7)])
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+
+    def test_legacy_zero_quantity_egg_keeps_base_reward_without_zero_credit(self):
+        egg = self.owned_egg()
+        definition = QuestDefinition.objects.create(
+            name="Legacy zero-quantity egg", created_by=self.parent, quest_type="collection",
+            target_value=1, duration_days=7, coin_reward=9, xp_reward=0,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+        )
+        QuestRewardItem.objects.create(quest_definition=definition, item=egg, quantity=0)
+        quest = QuestService.start_quest(self.child, definition.pk)
+        accepted_items = deepcopy(quest.reward_items_snapshot)
+
+        result = QuestService.record_progress(self.child, "chore_complete")
+
+        quest.refresh_from_db()
+        self.assertEqual(quest.status, "completed")
+        self.assertEqual(quest.reward_items_snapshot, accepted_items)
+        self.assertEqual((result["rewards"]["coins"], result["rewards"]["xp"]), (9, 0))
+        self.assertEqual((result["rewards"]["items"][0]["quantity"],
+                          result["rewards"]["items"][0]["salvaged_to_coins"]), (0, 0))
+        self.assertIsNone(QuestService.record_progress(self.child, "chore_complete"))
+        self.assertIsNone(QuestService._complete_quest(quest, self.child))
+        self.assertEqual(self.entries(), [("legacy_quest", "adjustment", 9)])
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+
+    def test_coop_zero_quantity_egg_keeps_each_recipients_original_outcome(self):
+        family = make_family(
+            "Zero-quantity co-op", parents=[{"username": "zero-egg-parent"}],
+            children=[{"username": "zero-egg-owner"}, {"username": "zero-egg-finisher"}],
+        )
+        owner, finisher = family.children
+        egg = self.owned_egg(user=owner)
+        definition = QuestDefinition.objects.create(
+            name="Co-op zero-quantity egg", created_by=family.parents[0], quest_type="collection",
+            target_value=1, duration_days=7, coin_reward=9, xp_reward=0,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+        )
+        QuestRewardItem.objects.create(quest_definition=definition, item=egg, quantity=0)
+        quest = QuestService.start_co_op_quest(definition.pk, [finisher, owner])
+        accepted_items = deepcopy(quest.reward_items_snapshot)
+
+        result = QuestService.record_progress(finisher, "chore_complete")
+
+        quest.refresh_from_db()
+        self.assertEqual(quest.status, "completed")
+        self.assertEqual(quest.reward_items_snapshot, accepted_items)
+        self.assertEqual((result["rewards"]["coins"], result["rewards"]["xp"]), (9, 0))
+        self.assertEqual(result["rewards"]["items"][0]["quantity"], 0)
+        self.assertNotIn("salvaged_to_coins", result["rewards"]["items"][0])
+        owner_receipt = ActivityEvent.objects.get(subject=owner, event_type="quest.complete").context["extras"]
+        self.assertEqual((owner_receipt["coin_reward"], owner_receipt["xp_reward"]), (9, 0))
+        self.assertEqual((owner_receipt["item_rewards"][0]["quantity"],
+                          owner_receipt["item_rewards"][0]["salvaged_to_coins"]), (0, 0))
+        self.assertFalse(UserInventory.objects.filter(user=owner, item=egg).exists())
+        # A nonduplicate zero-quantity grant retains its historical empty stack.
+        self.assertEqual(UserInventory.objects.get(user=finisher, item=egg).quantity, 0)
+
+        for child in family.children:
+            self.assertIsNone(QuestService.record_progress(child, "chore_complete"))
+            self.assertIsNone(QuestService._complete_quest(quest, child))
+            self.assertEqual(list(CoinLedger.objects.filter(user=child).values_list(
+                "source", "reason", "amount",
+            )), [("legacy_quest", "adjustment", 9)])
+            self.assertEqual(ActivityEvent.objects.filter(subject=child, event_type="quest.complete").count(), 1)
 
     def test_perfect_day_keeps_fifteen_and_one_daily_receipt_with_active_boost(self):
         chore = Chore.objects.create(

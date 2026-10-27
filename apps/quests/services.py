@@ -545,11 +545,12 @@ class QuestService:
             is_owned_egg = egg_reward_is_duplicate(user, item, (row.item for row in accepted_items))
             if is_owned_egg and item.coin_value > 0:
                 salvage = item.coin_value * reward_item.quantity
-                CoinService.award_coins(
-                    user, salvage, CoinLedger.Reason.ADJUSTMENT,
-                    description=f"Quest egg salvage: {item.display_name}",
-                    source=CoinLedger.Source.LEGACY_QUEST,
-                )
+                if salvage > 0:
+                    CoinService.award_coins(
+                        user, salvage, CoinLedger.Reason.ADJUSTMENT,
+                        description=f"Quest egg salvage: {item.display_name}",
+                        source=CoinLedger.Source.LEGACY_QUEST,
+                    )
                 rewards["coins"] += salvage
                 rewards["items"].append({
                     **details,

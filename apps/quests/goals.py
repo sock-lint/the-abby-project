@@ -486,8 +486,9 @@ def _award(occurrence, user):
         details = {"item_id": item.pk, **reward_item_details(item, snapshot=row), "quantity": quantity}
         if item.coin_value > 0 and egg_reward_is_duplicate(user, item, catalog.values()):
             salvage = item.coin_value * quantity
-            CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}",
-                                    source=CoinLedger.Source.AUTOMATIC_CHALLENGE)
+            if salvage > 0:
+                CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}",
+                                        source=CoinLedger.Source.AUTOMATIC_CHALLENGE)
             coins += salvage
             items.append({**details, "salvaged_to_coins": salvage})
         else:

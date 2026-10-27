@@ -24,8 +24,10 @@ def meaningful_activity_days(*, family_id, child_ids, since, until, zone,
                              starts_at, ends_before, max_rows):
     """Return private child/day keys; callers expose anonymous counts only.
 
-    Explicit work dates own reading, movement and creation days. Submission,
-    habit and completed work timestamps use the family's current timezone.
+    Explicit work dates own reading and movement days. Creation saves,
+    submissions, habit and completed work timestamps use the family's current
+    timezone. A creation's occurred_on is its source quota/chapter clock,
+    not a user-selected work date; a bonus decision does not erase its work.
     Nothing here validates payouts, advances challenges or reads source prose.
     """
     owners = {"user_id__in": child_ids, "user__family_id": family_id}
@@ -39,8 +41,9 @@ def meaningful_activity_days(*, family_id, child_ids, since, until, zone,
             **owners, **dates, duration_minutes__gt=0,
         ), "occurred_on", False),
         (Creation.objects.filter(
-            **owners, **dates, status__in=[Creation.Status.LOGGED, Creation.Status.PENDING, Creation.Status.APPROVED],
-        ), "occurred_on", False),
+            **owners, **saved, status__in=[Creation.Status.LOGGED, Creation.Status.PENDING,
+                                          Creation.Status.APPROVED, Creation.Status.REJECTED],
+        ), "created_at", True),
         (HabitLog.objects.filter(
             **owners, **saved, direction=1, habit__user_id=F("user_id"),
         ), "created_at", True),

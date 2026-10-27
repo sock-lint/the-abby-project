@@ -226,7 +226,7 @@ best-effort policy and leave the quest retryable.
   publishes or changes rewards. Revisions plus engine/rules/catalog/evaluator
   bindings reject stale decisions; keep historical evidence readable even if
   today's catalog is unavailable. `progression/observations.py` separately
-  reads bounded own-family recent-child ledger aggregates, with typed future
+  reads bounded own-family active-child ledger and saved-work aggregates, with typed future
   attribution, incomplete-history coverage and insufficient empty cohorts.
   Preserve this separation from anonymous forecasts and MCP catalog scopes.
   `candidate_policy` selects the legacy payout envelope or fixed `commitment100`
