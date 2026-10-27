@@ -740,6 +740,36 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.client.credentials()
         self.assertEqual(self.client.get("/api/challenges/").status_code, 401)
 
+    def test_inactive_goal_child_returns_not_found_without_saving(self):
+        from apps.quests.models import ChallengeGoal, ChallengeOccurrence
+
+        before = self.state()
+        type(self.child).objects.filter(pk=self.child.pk).update(is_active=False)
+        self.assert_response_fixture(
+            self.create_goal(), "challenge-goal-child-unavailable.json", status=404,
+        )
+        self.assertFalse(ChallengeGoal.objects.exists())
+        self.assertFalse(ChallengeOccurrence.objects.exists())
+        self.assertEqual(self.state(), before)
+
+    def test_goal_authority_revoked_during_request_returns_forbidden(self):
+        from apps.quests.goals import create_goal
+        from apps.quests.models import ChallengeGoal, ChallengeOccurrence
+
+        before = self.state()
+
+        def revoke_then_create(parent, child, data, **kwargs):
+            type(parent).objects.filter(pk=parent.pk).update(role="child")
+            return create_goal(parent, child, data, **kwargs)
+
+        with patch("apps.quests.goal_views.create_goal", side_effect=revoke_then_create):
+            self.assert_response_fixture(
+                self.create_goal(), "challenge-goal-parent-unavailable.json", status=403,
+            )
+        self.assertFalse(ChallengeGoal.objects.exists())
+        self.assertFalse(ChallengeOccurrence.objects.exists())
+        self.assertEqual(self.state(), before)
+
     def test_goal_origin_uses_saved_authorship_instead_of_matching_names(self):
         spoofed = self.create_goal(name=self.catalog.name, origin="catalog")
         self.assertEqual(spoofed.status_code, 400, spoofed.content)

@@ -52,6 +52,6 @@ class NativeParentGoalAuthorityTests(TestCase):
 
         with patch("apps.quests.goal_views.create_goal", side_effect=revoke_then_create):
             response = client.post("/api/challenges/goals/", self.data, format="json")
-        self.assertEqual(response.status_code, 409, response.data)
+        self.assertEqual(response.status_code, 403, response.data)
         self.assertFalse(ChallengeGoal.objects.exists())
         self.assertFalse(CoinLedger.objects.exists())

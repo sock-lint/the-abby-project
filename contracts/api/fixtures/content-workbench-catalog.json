@@ -866,7 +866,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "3335393323c14f603cc7edf68e14ab8189f5b1bbcc6ce94c805e57578374d84f",
+    "rules_fingerprint": "d92fae07005aa936ad7b83247fdc01b7c34bafcf116c2f63a90530e41bfe82f1",
     "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "work_budget": {

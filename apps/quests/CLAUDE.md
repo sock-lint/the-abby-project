@@ -311,6 +311,13 @@ return the accepted occurrence; a pure pause can still stop legacy rules with a
 missing skill. `test_goal_skill_reference_safety` covers stale validation and
 both real PostgreSQL writer/deletion races.
 
+New parent goal writes recheck the actor and child under the family and account
+locks before recovering a saved UUID or creating rewards. REST returns 404 for
+an unavailable child and 403 when the actor loses parent authority; 409 remains
+the response for conflicting saved-request details. Deferred eligibility errors
+keep the usual field-to-message-list shape. The creation form offers active
+children only, while fresh server checks still handle changes after it opens.
+
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
 Catalog detail discovery records presentation separately from progress.

@@ -19,6 +19,8 @@ import unpinnedGoal from '../../../contracts/api/fixtures/challenge-unpinned.jso
 import firstRun from '../../../contracts/api/fixtures/challenge-run-first.json';
 import completedRun from '../../../contracts/api/fixtures/challenge-run-completed.json';
 import invalidGoal from '../../../contracts/api/fixtures/challenge-goal-invalid.json';
+import unavailableGoalChild from '../../../contracts/api/fixtures/challenge-goal-child-unavailable.json';
+import unavailableGoalParent from '../../../contracts/api/fixtures/challenge-goal-parent-unavailable.json';
 import promisedQuest from '../../../contracts/api/fixtures/quest-promised-item-active.json';
 import promisedQuestHistory from '../../../contracts/api/fixtures/quest-promised-item-history.json';
 import formerParticipantHistory from '../../../contracts/api/fixtures/quest-history-former-participant.json';
@@ -50,6 +52,17 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it.each([
+    [404, unavailableGoalChild],
+    [403, unavailableGoalParent],
+  ])('preserves a goal authority failure with status %s without replaying the request', async (status, response) => {
+    const rejected = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json(response, { status }));
+    server.use(rejected.handler);
+    await expect(createChallengeGoal({ user_id: 7, request_id: '33333333-3333-4333-8333-333333333333' }))
+      .rejects.toMatchObject({ status, response });
+    expect(rejected.calls).toHaveLength(1);
+  });
+
   it('recovers the original paid custom goal with its saved UUID and dates after the deadline', async () => {
     const payload = {
       request_id: '33333333-3333-4333-8333-333333333333',

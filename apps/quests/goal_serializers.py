@@ -75,15 +75,15 @@ class GoalWriteSerializer(serializers.Serializer):
         """Check new promises after exact saved-request recovery has been tried."""
         if data.get("movement_type_id"):
             if not MovementType.objects.filter(pk=data["movement_type_id"], is_active=True).exists():
-                raise serializers.ValidationError({"movement_type_id": "Choose an available activity type."})
+                raise serializers.ValidationError({"movement_type_id": ["Choose an available activity type."]})
         if data["period"] == "custom":
             today = timezone.localtime(timezone.now(), family_zone(self.context["request"].user)).date()
             end = data["end_date"]
             if end < today or (end - today).days > 365:
-                raise serializers.ValidationError({"end_date": "Use an end date on or after today/start, within one year."})
+                raise serializers.ValidationError({"end_date": ["Use an end date on or after today/start, within one year."]})
         ids = {tag["skill_id"] for tag in data.get("skill_tags", [])}
         if Skill.objects.filter(pk__in=ids).count() != len(ids):
-            raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
+            raise serializers.ValidationError({"skill_tags": ["Choose existing skills."]})
         return data
 
 

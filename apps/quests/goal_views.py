@@ -6,7 +6,10 @@ from rest_framework.views import APIView
 from config.permissions import IsParent, IsStaffParent
 from config.viewsets import child_not_found_response, get_child_or_404
 from .goal_serializers import GoalWriteSerializer
-from .goals import create_goal, list_goals, occurrence_payload, set_pin
+from .goals import (
+    GoalChildUnavailable, GoalParentUnavailable,
+    create_goal, list_goals, occurrence_payload, set_pin,
+)
 
 
 class ChallengesView(APIView):
@@ -43,6 +46,10 @@ class CreateGoalView(APIView):
             return child_not_found_response()
         try:
             occurrence = create_goal(request.user, child, serializer.validated_data, validate_current=True)
+        except GoalParentUnavailable as error:
+            return Response({"error": str(error)}, status=status.HTTP_403_FORBIDDEN)
+        except GoalChildUnavailable:
+            return child_not_found_response()
         except ValueError as error:
             return Response({"error": str(error)}, status=status.HTTP_409_CONFLICT)
         return Response(occurrence_payload(occurrence), status=status.HTTP_201_CREATED)

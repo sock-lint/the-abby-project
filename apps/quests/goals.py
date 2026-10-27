@@ -56,6 +56,14 @@ TRIGGER_LABELS = {
 }
 
 
+class GoalParentUnavailable(ValueError):
+    """The initiating account no longer has authority for this family."""
+
+
+class GoalChildUnavailable(ValueError):
+    """The selected account is no longer an active child in this family."""
+
+
 def lock_user(user):
     # Same first lock as AwardService; PostgreSQL FK key-share inserts remain safe.
     qs = get_user_model().objects.select_for_update(no_key=True)
@@ -627,13 +635,14 @@ def _lock_parent_goal_members(parent, child):
 
     family = Family.objects.select_for_update(no_key=True).filter(pk=parent.family_id).first()
     if family is None:
-        raise ValueError("Child not found")
+        raise GoalParentUnavailable("You can no longer create challenges for this family.")
     members = {member.pk: member for member in get_user_model().objects.select_for_update(no_key=True)
                .filter(pk__in={parent.pk, child.pk}, family=family).order_by("pk")}
     fresh_parent, fresh_child = members.get(parent.pk), members.get(child.pk)
-    if (fresh_parent is None or not fresh_parent.is_active or fresh_parent.role != "parent"
-            or fresh_child is None or not fresh_child.is_active or fresh_child.role != "child"):
-        raise ValueError("Child not found")
+    if fresh_parent is None or not fresh_parent.is_active or fresh_parent.role != "parent":
+        raise GoalParentUnavailable("You can no longer create challenges for this family.")
+    if fresh_child is None or not fresh_child.is_active or fresh_child.role != "child":
+        raise GoalChildUnavailable("Child not found")
     fresh_parent.family = fresh_child.family = family
     return fresh_parent, fresh_child
 
