@@ -100,7 +100,9 @@ def _saved_challenge_page(actor, target, params):
         "pages": pages,
         "results": results,
         "pin": pin_id,
-        "daily_bonus": get_daily_bonus_payload(target),
+        # MCP keeps its established household-audit projection. Parent personal
+        # bonuses remain available through the explicitly selected REST space.
+        "daily_bonus": get_daily_bonus_payload(target) if target.role == "child" else None,
         "recent_receipts": [occurrence_payload(row, pin_id, controls=controls) for row in receipts],
         "challenge_receipts": [context["_receipt"] for context in activities],
         "saved_state_only": True,

@@ -318,7 +318,12 @@ receipt contract remains unchanged.
 
 `list_challenges` supports bounded signed modern/legacy continuation pages, and
 `get_challenge` reads exact saved IDs. Both retain current-account locks and
-saved-state-only serialization. Pagination never calls materializing `list_goals`.
+saved-state-only serialization. Pagination never calls materializing `list_goals`. The existing MCP wire
+contract keeps `daily_bonus: null` for parent targets, including default self
+and explicit self reads. Child self reads and parent-selected child reads retain
+the child's bonus projection. A parent's My space bonus is available through
+the personal REST workspace; broadening the shared bonus service must not
+silently change this household-audit field.
 Catalog new-choice availability also uses native automatic-trigger support;
 retained unsupported definitions remain inspectable with explicit reasons.
 
