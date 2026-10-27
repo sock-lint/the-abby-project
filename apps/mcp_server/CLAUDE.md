@@ -217,6 +217,11 @@ saved-state-only audit and self/family pins. Reads never call materializing
 `list_goals`. Saved rows include retry eligibility, closed-attempt reasons,
 qualifying triggers and versioned future-week setup through the shared payload;
 the audit batches this metadata without creating attempts or weekly promises.
+Goal preview/create and pin/unpin retain fresh actor and target authority under
+Family then sorted member locks through validation, saved-result recovery and
+serialization. Exact goal-creation UUID recovery checks the original family,
+target and normalized request before applying new-goal date/reference eligibility;
+an expired custom period does not prevent recovery or open a new paid window.
 Explicit retry and schedule changes use `rpg_management.py` with confirmed
 `mcp:write` operations. The `challenges.py` reader `get_voyager_feedback` accepts only empty
 `params` and returns the bounded current-family aggregate, saved policy groups,

@@ -101,6 +101,11 @@ active after ninety elapsed days. Null means no deadline; absent timing in
 older payloads is not inferred to be untimed. The existing challenge producer
 and React consumer check this shape.
 
+`challenge-custom-goal-recovered.json` is a real parent creation-request replay
+after the custom goal's original end date. It retains the original goal ID,
+window and actual paid receipt without repeating activity or rewards. The
+existing challenge producer and React consumer check the same saved UUID/body.
+
 `challenge-family-assigned.json` and `challenges-family-completed.json` bind
 parent assignment to a real shared campaign. The producer checks the parent's
 catalog `is_cooperative` flag, assigns two same-family children, and approves ten
@@ -1120,8 +1125,13 @@ saved `{pin: <id|null>}` preference and cannot grant progress or rewards.
 Parent `POST /api/challenges/goals/` accepts the child, activity trigger, optional
 movement type, metric, target, unit, period and reward configuration. A stable
 optional `request_id` UUID makes identical parent-save retries return the same
-occurrence; changing details under that UUID returns HTTP 409. Weekly
-goals use the family's Monday-to-Sunday window, and `repeat_weekly` retains
+occurrence; changing details under that UUID returns HTTP 409.
+Unavailable children return HTTP 404; an actor who loses authority before the
+write receives HTTP 403. These are not saved-request conflicts. The real
+`challenge-goal-{child,parent}-unavailable.json` responses and React consumers
+preserve their status and message without retrying. Field validation errors
+retain lists of messages, including eligibility checked immediately before saving.
+Weekly goals use the family's Monday-to-Sunday window, and `repeat_weekly` retains
 separate occurrences. Explicit midweek weekly creation includes existing saved
 matching work in that week and may complete immediately. XP rewards require
 skill tags. Nonpositive/fractional action targets and mismatched metric/units are

@@ -10,6 +10,7 @@ export function goalUnit(unit, target) {
   if (unit === 'km') return 'km';
   if (unit === 'minutes') return Number(target) === 1 ? 'minute' : 'minutes';
   if (unit === 'damage') return 'damage';
+  if (unit === 'active days') return Number(target) === 1 ? 'active day' : 'active days';
   return Number(target) === 1 ? 'activity' : 'activities';
 }
 
