@@ -11,7 +11,15 @@ plus legacy owned pets/mounts; saved pets can still evolve. Potion-shelf goals
 include already owned typed potions, and named sets include already owned
 items. A full four-slot cosmetic goal needs an existing active accessory,
 because new accessories and accessory equip are unavailable. Other criteria,
-including independent badge and consumable collections, stay available.
+including independent badge and consumable collections, stay available when
+their skill-level requirements fit the installed XP curve.
+
+Shared content validation bounds badge `level`/`min_level` requirements by that
+curve (currently maximum 6), preserving the existing positive minimum. Native
+availability applies the same narrow level check to legacy rows without
+revalidating unrelated criterion fields. Invalid unearned goals are hidden;
+earned rows remain in history with `catalog_available=false`, with no reward
+rewrite. The MCP catalog also marks them unavailable and reports audit errors.
 
 Unreachable unearned goals are omitted by `visible_badges` from child catalog
 and summary surfaces. Earned badges remain visible, counted and eligible for

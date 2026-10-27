@@ -136,6 +136,14 @@ The real Lab producer/React pair also consumes the renamed fixed-route report,
 with 450 journal XP and 600 daily-bonus XP over thirty active days. Forecast
 purity checks prohibit household reads and native reward writers.
 
+`apps.rpg.tests.test_content_runtime_levels` and
+`apps.mcp_server.tests.test_content_runtime_levels` check runtime-derived badge
+and prerequisite bounds, atomic preview/publication rejection, native level-6
+controls and legacy level-0 YAML prerequisite compatibility. They also retain
+earned unavailable-level badges and payouts while hiding unreachable new goals.
+The real `badges-retained-unreachable-level.json` producer/React pair checks the
+same retained catalog response; reads cannot rewrite rewards or history.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,

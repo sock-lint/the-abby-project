@@ -305,6 +305,13 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 - **RPG content authoring** (`content/rpg/`): Pets, eggs, potions, items, drops, quests, badges, and the skill tree are authored as YAML in `content/rpg/initial/*.yaml` and loaded by `python manage.py loadrpgcontent` — a dependency-ordered, idempotent upsert. `seed_data` invokes this internally. The loader (`apps/rpg/content/loader.py`) is the single source of truth for cross-entity wiring: one `pet_species.yaml` entry fans out to both a `PetSpecies` row and an egg `ItemDefinition` with typed FK; same pattern for `potion_types.yaml` → potion items. Third-party packs live under `content/rpg/packs/<name>/` and are loaded with `--namespace <prefix>-` so slugs don't collide with core. When adding new RPG content, edit YAML — don't add `get_or_create` calls to Python seed code. See `content/rpg/README.md` for schema + authoring workflow.
 
+  Badge skill-level thresholds and skill prerequisite levels use the installed
+  XP curve's maximum (currently 6) during shared preview/load validation. Badge
+  thresholds keep their positive minimum; raw YAML prerequisites retain level-0
+  compatibility. Invalid reviewed candidates fail before any upsert. Native
+  badge availability hides unreachable unearned level goals while preserving
+  earned history and payouts.
+
   Unkeyed deployment loads seed missing shop offers into the explicit legacy
   `default-family` destination (or the supplied family), preserving every
   existing offer and parent edit. Names do not establish seed ownership, so

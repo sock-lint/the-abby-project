@@ -26,6 +26,7 @@ import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-ros
 import rosterHatch from '../../../contracts/api/fixtures/pet-incubation-roster-hatched.json';
 import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
+import retainedLevelBadges from '../../../contracts/api/fixtures/badges-retained-unreachable-level.json';
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
@@ -148,6 +149,21 @@ describe('current owned-art API contracts', () => {
     expect(catalog.results.find((badge) => badge.id === 101)).toMatchObject({ rarity: 'rare', coin_bonus: 35, xp_bonus: 30 });
     expect(catalog.results.find((badge) => badge.id === 102).coin_bonus).toBe(0);
     expect((await getEarnedBadges()).results[0].badge).toMatchObject({ id: 101, rarity: 'rare', coin_bonus: 35 });
+  });
+
+  it('retains earned unavailable-level badges while omitting unreachable new goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, retainedLevelBadges);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(retainedLevelBadges);
+    expect(response.results.map(({ id }) => id).sort()).toEqual([951, 953]);
+    expect(response.results.find(({ id }) => id === 951)).toMatchObject({
+      criteria_value: { level: 7 }, catalog_available: false,
+    });
+    expect(response.results.find(({ id }) => id === 953)).toMatchObject({
+      criteria_value: { level: 6 }, catalog_available: true,
+    });
   });
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
     server.use(

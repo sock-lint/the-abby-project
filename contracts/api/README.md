@@ -1,5 +1,14 @@
 # Shared API response fixtures
 
+`badges-retained-unreachable-level.json` is a real child-authenticated
+`GET /api/badges/` response. Its producer earns a valid level-6 badge through
+native services before simulating legacy level-7 criteria. The earned badge
+remains with `catalog_available: false`, a separate unearned level-7 goal is
+omitted, and a valid level-6 goal stays available. Assertions before fixture
+comparison preserve the original award, XP and Coin state. The existing
+`config.tests.test_catalog_api_contract_fixtures` producer and
+`frontend/src/api/catalogContractFixtures.test.js` consumer check the response.
+
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment
 restore and archive-replay fixtures distinguish the record's current restored

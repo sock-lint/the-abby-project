@@ -2,6 +2,8 @@
 
 from functools import cached_property
 
+from django.core.exceptions import ValidationError
+
 from apps.rpg.catalog_support import available_pet_pairs, item_is_available, potion_is_available
 
 
@@ -54,6 +56,13 @@ class BadgeGoalAvailability:
     def is_available(self, badge):
         kind = badge.criteria_type
         criteria = badge.criteria_value or {}
+        from apps.rpg.content.validation import validate_badge_runtime_levels
+        try:
+            validate_badge_runtime_levels(kind, badge.criteria_value)
+        except ValidationError:
+            # Imported invalid goals stay visible in earned history, but do
+            # not count as a new goal or suggest that more XP can reach them.
+            return False
         if kind in {"pets_hatched", "pet_species_owned", "mounts_evolved"}:
             pairs = self.pet_pairs | self.owned_pets
             if kind == "pet_species_owned":

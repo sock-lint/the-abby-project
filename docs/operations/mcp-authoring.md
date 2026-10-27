@@ -296,6 +296,12 @@ author's explicit family. Draft files are also family-owned. Unowned legacy
 draft directories require operator reconciliation rather than automatic
 adoption by the first caller.
 
+Badge skill-level goals and skill prerequisites must fit the installed XP curve,
+whose current maximum is level 6. Preview and publication reject out-of-range
+requirements before changing the catalog. Raw YAML retains its existing
+level-0 prerequisite compatibility; direct MCP prerequisite editing starts at
+level 1. A rejected draft can be corrected and previewed again.
+
 Public challenge drafts check name collisions within the public definition
 namespace. A private household challenge may share a public title and does not
 block an unrelated public edit selected by ID. Genuine public collisions,
@@ -542,6 +548,11 @@ bundled/pack definitions require reviewed source reconciliation. REST returns 40
 with a readable `detail` and `code: taxonomy_in_use`; MCP returns that structured
 code. Errors expose no private dependency names or counts. Unused caller-owned
 direct entries can be deleted with their own override metadata atomically.
+
+Existing badges with unreachable skill-level requirements are unavailable for
+new goals and reported by the catalog audit. Earned badges remain readable and
+selectable as trophies with `catalog_available: false`; saved awards, XP and
+Coins are preserved. Repairing a requirement does not replay an old payout.
 Private quest category filters recheck their explicit IDs within the creation
 transaction; a missing category rolls back both the new definition and its MCP
 receipt. Identical request replay still returns the saved original response.
