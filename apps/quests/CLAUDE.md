@@ -16,6 +16,8 @@ deletion's table/row lock order. Missing IDs roll back the definition and any MC
 receipt; identical UUID replay retains its original response. Regression coverage
 is in `tests/test_category_reference_safety.py`.
 
+Ghost/Potted Plant Wisp/Sprout guarantees are preparation only: 20/5 qualifying actions, 180 days, once, natural egg + matching global potion, zero authored Coins/XP. Their unregistered content pack cannot load under the current unsupported-pair policy; synthetic positive policy tests are not activation. Ordinary catalog and default loading remain unchanged at sixteen elemental guarantees. See [the receiving and activation boundary](../../docs/operations/elemental-ghost-potted-plant.md).
+
 ## Supported rewards and reachable prerequisites (October 2026)
 
 The owner-authorized prelaunch retirement is a narrow exception to the promise

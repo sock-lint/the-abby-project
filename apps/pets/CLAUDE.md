@@ -44,6 +44,8 @@ to available items. Before a listed mount is removed, retirement settles its
 ACTIVE unclaimed expedition from saved Coins and surviving supported item slots
 once, without rerolling, current boosts or completion rewards.
 
+Ghost/Potted Plant Fire/Ice is awaiting private artwork. Receiving/lifecycle metadata preserves Ghost → Spook → Phantom and Seed → Sprout → Flower Pot Monster without enabling their four acquisition pairs. Tests exercise future exact-pair incubation, saved receipts, growth and the existing shared species allowance plus child daily cap; no care/reward/expedition service rule changes. See [the preparation runbook](../../docs/operations/elemental-ghost-potted-plant.md).
+
 ## Breeding retirement
 
 Breeding was removed at the owner's request to keep companions focused on

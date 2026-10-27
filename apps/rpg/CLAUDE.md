@@ -59,6 +59,8 @@ positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
 come from the receiving descriptor and do not establish artwork publication.
 
+Ghost/Potted Plant preparation is described in [its runbook](../../docs/operations/elemental-ghost-potted-plant.md). The unregistered pack and receiving icon map prepare Wisp (20) and Sprout (5) guarantees within 180 days, once, with zero authored Coins/XP. Ghost remains Rare and Potted Plant Common. Their Fire/Ice pairs are not enabled: ordinary policy stays at 31 pairs/16 guarantees, all fourteen runtime pins unchanged, until exact artwork review and canonical publication/readback.
+
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.
 - `PerfectDayReceipt` — unique `(user, day)` award guard, committed atomically with the counter, 15 coins, activity and notification; `historical` identifies receipts reconstructed from typed legacy Perfect Day events without altering rewards.

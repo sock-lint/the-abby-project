@@ -184,3 +184,14 @@ These tools write directly to the `abby-sprites` Ceph bucket and the `SpriteAsse
 The **legacy local-dev path** still exists for contributors who prefer committing sprites to git: edit `scripts/sprite_manifest.yaml`, slice with `scripts/slice_rpg_sprites.py`, then call the `register_sprite_assets` MCP tool (writes to the source tree, not the DB). Both pipelines coexist; the legacy one will be removed in a future Phase 3 cleanup.
 
 See `docs/superpowers/specs/2026-04-20-chat-to-prod-sprite-authoring-design.md` for the full architecture, bucket configuration, and content-hash filename scheme.
+
+## Ghost and Potted Plant preparation
+
+`prepared/elemental-ghost-potted-plant` is deliberately unregistered. Wisp
+guarantees prepare 20 qualifying actions and Sprout five, once within 180 days,
+for the unchanged natural egg plus matching Fire/Ice potion; authored Coins/XP
+are zero. Ghost retains Rare rarity and Potted Plant Common. Default loading
+keeps 31 approved pairs and sixteen elemental guarantees. Current-policy
+explicit loading rejects the unsupported compatibility atomically; only scoped
+synthetic test support permits this future pack before real acceptance.
+See [receiving, validation and later activation](../../docs/operations/elemental-ghost-potted-plant.md).

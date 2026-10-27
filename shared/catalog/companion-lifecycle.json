@@ -255,6 +255,34 @@
         "middle": "Dragon",
         "grown": "Elder Dragon"
       }
+    },
+    {
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "potion_slugs": [
+        "fire",
+        "ice"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Ghost",
+        "middle": "Spook",
+        "grown": "Phantom"
+      }
+    },
+    {
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "potion_slugs": [
+        "fire",
+        "ice"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Seed",
+        "middle": "Sprout",
+        "grown": "Flower Pot Monster"
+      }
     }
   ]
 }

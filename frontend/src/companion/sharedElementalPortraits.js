@@ -2,6 +2,7 @@ import { ELEMENTAL_FAMILY, elementalFamilyId, stagedElementalRelease } from './s
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
+import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.json';
 
 const PORTRAIT_KEYS = new Map([
   ['cute-chick', ['chick', 'baby']],
@@ -10,7 +11,7 @@ const PORTRAIT_KEYS = new Map([
   ['meshtint-wolf', ['meshtint-wolf', 'baby']],
   ['meshtint-wolf-middle', ['meshtint-wolf', 'middle']],
   ['meshtint-wolf-mount', ['meshtint-wolf', 'grown']],
-  ...[...expansion.families, ...beeBat.families, ...snakeCrab.families].flatMap(({ sprite_key, species_slug }) => [
+  ...[...expansion.families, ...beeBat.families, ...snakeCrab.families, ...ghostPlant.families].flatMap(({ sprite_key, species_slug }) => [
     [sprite_key, [species_slug, 'baby']], [`${sprite_key}-middle`, [species_slug, 'middle']], [`${sprite_key}-mount`, [species_slug, 'grown']],
   ]),
 ]);
@@ -22,6 +23,7 @@ const UI_IMAGES = new Map([
   ...expansion.families.flatMap(({ challenges }) => challenges.map(({ catalog_icon }) => [catalog_icon, expansion.release.family_id])),
   ...beeBat.families.flatMap(({ review_icons }) => review_icons.map(({ asset_id }) => [asset_id, beeBat.release.family_id])),
   ...snakeCrab.families.flatMap(({ review_icons }) => review_icons.map(({ asset_id }) => [asset_id, snakeCrab.release.family_id])),
+  ...ghostPlant.families.flatMap(({ review_icons }) => review_icons.map(({ asset_id }) => [asset_id, ghostPlant.release.family_id])),
 ]);
 const installed = new Map();
 function stagedFamily(familyId, staged) {

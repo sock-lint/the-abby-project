@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "preparation": {
+    "state": "awaiting_private_assets",
+    "acquisition_active": false,
+    "artwork_accepted": false,
+    "application_ids_agreed": true
+  },
+  "release": {
+    "family_id": "abby-elemental-ghost-potted-plant",
+    "release_version": "1.0.0",
+    "manifest_sha256": null
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "egg_item_slug": "meshtint-ghost-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Wisp",
+          "target_count": 20,
+          "window_days": 180,
+          "catalog_icon": "review-ghost-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Wisp",
+          "target_count": 20,
+          "window_days": 180,
+          "catalog_icon": "review-ghost-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-ghost-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-ghost-ice-acquisition-icon"
+        }
+      ]
+    },
+    {
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "egg_item_slug": "meshtint-potted-plant-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Sprout",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-potted-plant-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Sprout",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-potted-plant-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-potted-plant-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-potted-plant-ice-acquisition-icon"
+        }
+      ]
+    }
+  ]
+}

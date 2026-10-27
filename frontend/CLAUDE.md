@@ -362,6 +362,19 @@ Evolve clip is supplied, so confirmed growth selects that element's destination
 idle. Missing exact art retains care/claim controls. Physical-phone and native
 shell acceptance remain separate from desktop/browser evidence.
 
+Ghost/Potted Plant receiving preparation uses
+`shared/catalog/elemental-ghost-potted-plant.json`, with its manifest unset and
+acquisition/artwork acceptance disabled. Neither an active nor an evaluation
+release pin exists yet. Ordinary runtime delivery stays unavailable; synthetic
+tests supply an explicit fixture and establish contract behavior only. The
+exact natural eggs remain `meshtint-ghost-egg` and
+`meshtint-potted-plant-egg`; their form names and server-confirmed stages remain
+Ghost/Spook/Phantom and Seed/Sprout/Flower Pot Monster. Future challenge image
+handles depict only the Baby appearance and obey the existing exact-pair child
+surprise restriction. Missing exact portraits never fall back to a tinted Base
+image. Wisp/Sprout guarantees and shared expedition limits remain server-owned;
+receiving registration cannot activate them or grant ownership.
+
 ### Collection navigation (October 2026)
 
 `TomeShelf` and `TomeSpine` retain their existing APIs while rendering wrapping Meadow collection cards. All-`vessel` sets render compact wrapping filter pills at every width. One tablist provides a single tab stop, Left/Right wrapping and Home/End selection; mount and pointer changes do not scroll the page or move unrelated focus. Badges, Lorebook and other collections share this control. Skills uses its separate Wayfinder hierarchy. See `components/README.md` for the descriptor and accessibility contract; `/__design` demonstrates both patterns with local synthetic examples.
