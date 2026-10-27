@@ -8,8 +8,10 @@ import * as apiIndex from '../api/index.js';
 import { getToken, setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
 import { prepareGoogleCallback } from '../test/googleAuthorization';
+import * as Sentry from '@sentry/react';
+import { GATEWAY_RETRY_DELAY_MS } from '../api/client.js';
 import {
-  AuthProvider, OFFLINE_MESSAGE, useApi, useAuth,
+  AuthProvider, DEFERRED_RECOVERY_DELAY_MS, OFFLINE_MESSAGE, useApi, useAuth,
 } from './useApi.js';
 
 describe('useApi', () => {
@@ -730,5 +732,79 @@ describe('AuthProvider + useAuth', () => {
     } finally {
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
     }
+  });
+});
+
+// THE-ABBY-PROJECT-3Z: boot-time GET /api/dashboard/ answered an HTML 200 on
+// both client attempts while a deploy swapped containers, and every one was
+// captured at once. The read now hands a persistent HTML 200 to useApi, which
+// waits out the rest of the window and reports only if the proxy still fails.
+describe('useApi deploy-window recovery for the dashboard read', () => {
+  const html = () => new HttpResponse('<!doctype html><title>starting</title>', {
+    status: 200, headers: { 'content-type': 'text/html' },
+  });
+  let dashboardCalls;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    setToken('dashboard-session');
+    dashboardCalls = 0;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('loads the data without reporting when the proxy recovers after the client retry', async () => {
+    server.use(http.get('*/api/dashboard/', () => {
+      dashboardCalls += 1;
+      return dashboardCalls <= 2 ? html() : HttpResponse.json({ week_total: 7 });
+    }));
+    const { result } = renderHook(() => useApi(() => apiIndex.getDashboard(), []));
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+    expect(result.current.loading).toBe(true);
+    await vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS);
+    await waitFor(() => expect(result.current.data).toEqual({ week_total: 7 }));
+    expect(result.current.error).toBeNull();
+    expect(dashboardCalls).toBe(3);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports once, with both attempts counted, when the HTML persists', async () => {
+    server.use(http.get('*/api/dashboard/', () => {
+      dashboardCalls += 1;
+      return html();
+    }));
+    const { result } = renderHook(() => useApi(() => apiIndex.getDashboard(), []));
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS + GATEWAY_RETRY_DELAY_MS);
+    await waitFor(() => expect(result.current.error).toMatch(/temporarily unavailable/i));
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'API 200 with non-JSON body: GET /dashboard/' }),
+      { extra: expect.objectContaining({ status: 200, deferredRecoveryAttempts: 2 }) },
+    );
+    expect(dashboardCalls).toBe(4);
+  });
+
+  it('does not wait or retry for errors that carry no deferred report', async () => {
+    const fn = vi.fn().mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useApi(fn, []));
+    await waitFor(() => expect(result.current.error).toBe('boom'));
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('stops quietly when the page unmounts during the wait', async () => {
+    server.use(http.get('*/api/dashboard/', () => {
+      dashboardCalls += 1;
+      return html();
+    }));
+    const { unmount } = renderHook(() => useApi(() => apiIndex.getDashboard(), []));
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+    unmount();
+    await vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS * 2);
+    expect(dashboardCalls).toBe(2);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });

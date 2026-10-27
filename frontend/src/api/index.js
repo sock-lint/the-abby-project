@@ -46,7 +46,9 @@ export const deleteOwnAccount = (data, options) => api.post('/account/lifecycle/
 export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/close-family/', data, options);
 
 // Dashboard
-export const getDashboard = () => api.get('/dashboard/');
+// retryGateway: a deploy window can answer this boot-time read with an HTML 200
+// (THE-ABBY-PROJECT-3Z); useApi reports it only if a delayed second try fails.
+export const getDashboard = () => api.get('/dashboard/', { retryGateway: true });
 // First-party usage: server-derived actors, bounded aggregate reports only.
 export const getUsageDashboard = (filters, options) => api.get(`/admin/usage/?${new URLSearchParams(filters)}`, options);
 export const recordUsageVisit = (options) => api.post('/usage/visit/', {}, options);

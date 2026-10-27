@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as Sentry from '@sentry/react';
 import { http, HttpResponse } from 'msw';
 import { renderHook, waitFor } from '@testing-library/react';
 import useParentDashboard from './useParentDashboard';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
+import { GATEWAY_RETRY_DELAY_MS, setToken } from '../api/client';
+import { DEFERRED_RECOVERY_DELAY_MS } from './useApi';
 
 describe('useParentDashboard', () => {
   it('carries the homework proof URL into the Today review queue', async () => {
@@ -249,5 +252,28 @@ describe('useParentDashboard', () => {
     const { result } = renderHook(() => useParentDashboard());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.failedSources).toEqual([]);
+  });
+});
+
+// THE-ABBY-PROJECT-3Z: the week summary is read outside useApi, so it needs the
+// same deploy-window recovery or its deferred report would vanish.
+describe('useParentDashboard week summary during a deploy window', () => {
+  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); setToken('parent-session'); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('recovers the week summary after a persistent HTML answer without reporting', async () => {
+    let calls = 0;
+    server.use(http.get('*/api/dashboard/', () => {
+      calls += 1;
+      return calls <= 2
+        ? new HttpResponse('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } })
+        : HttpResponse.json({ children: [], week_total: 3 });
+    }));
+    const { result } = renderHook(() => useParentDashboard());
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS + DEFERRED_RECOVERY_DELAY_MS);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.failedSources).not.toContain('week summary');
+    expect(calls).toBe(3);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });

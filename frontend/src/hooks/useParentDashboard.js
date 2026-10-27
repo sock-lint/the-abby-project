@@ -7,6 +7,7 @@ import {
   getPendingExchangeRequests, getAllApprovalPages, listPrintRequests, getAwaitingRedemptions,
 } from '../api';
 import { normalizeList } from '../utils/api';
+import { callWithDeferredRecovery } from './useApi';
 
 function unifyChore(c) {
   return {
@@ -126,7 +127,7 @@ const SOURCES = [
   { key: 'chores',         label: 'chore approvals',      fn: () => getAllApprovalPages(() => getChoreCompletions('pending')), fallback: [] },
   { key: 'homework',       label: 'homework approvals',   fn: () => getHomeworkDashboard(),          fallback: { pending_submissions: [] } },
   { key: 'redemptions',    label: 'reward redemptions',   fn: getPendingRedemptions,                 fallback: [] },
-  { key: 'dashboard',      label: 'week summary',         fn: () => getDashboard(),                  fallback: null },
+  { key: 'dashboard',      label: 'week summary',         fn: () => callWithDeferredRecovery(getDashboard), fallback: null },
   { key: 'creations',      label: 'creation bonuses',     fn: () => getAllApprovalPages(listPendingCreations),      fallback: [] },
   { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
   { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
