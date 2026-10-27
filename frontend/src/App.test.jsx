@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { delay, http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
+import * as Sentry from '@sentry/react';
 import App from './App.jsx';
-import { AuthProvider } from './hooks/useApi.js';
+import { AuthProvider, DEFERRED_RECOVERY_DELAY_MS } from './hooks/useApi.js';
+import { GATEWAY_RETRY_DELAY_MS } from './api/client.js';
 import { server } from './test/server.js';
 import { buildUser } from './test/factories.js';
 import * as pushSession from './pwa/pushSession.js';
@@ -214,5 +217,84 @@ describe('App — birthday celebration boot', () => {
     renderApp();
     await new Promise((r) => setTimeout(r, 100));
     expect(screen.queryByRole('alertdialog', { name: /birthday/i })).toBeNull();
+  });
+});
+
+// THE-ABBY-PROJECT-40 (GitHub #345): the boot-time streak / Perfect Day
+// celebration read answered an HTML 200 on both client attempts while a deploy
+// swapped containers. It is a best-effort read, so the app waits out the rest
+// of the window and reports only if the proxy is still failing.
+describe('App — streak celebration read during a deploy window', () => {
+  const html = () => new HttpResponse('<!doctype html><title>starting</title>', {
+    status: 200, headers: { 'content-type': 'text/html' },
+  });
+  const perfectDay = {
+    id: 31, notification_type: 'perfect_day', title: 'Perfect day', message: '',
+  };
+  let calls;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    calls = 0;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows the celebration without reporting when the proxy recovers after the client retry', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/notifications/pending-celebration/', () => {
+        calls += 1;
+        return calls <= 2 ? html() : HttpResponse.json(perfectDay);
+      }),
+    );
+    renderApp();
+    await act(() => vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS));
+    await waitFor(() => expect(calls).toBe(2));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS));
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    expect(calls).toBe(3);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports once, with both attempts counted, when the HTML persists', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/notifications/pending-celebration/', () => {
+        calls += 1;
+        return html();
+      }),
+    );
+    renderApp();
+    await act(() => vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS));
+    await waitFor(() => expect(calls).toBe(2));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS + GATEWAY_RETRY_DELAY_MS));
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'API 200 with non-JSON body: GET /notifications/pending-celebration/' }),
+      { extra: expect.objectContaining({ status: 200, deferredRecoveryAttempts: 2 }) },
+    );
+    expect(calls).toBe(4);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('stops quietly when the app unmounts during the wait', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/notifications/pending-celebration/', () => {
+        calls += 1;
+        return html();
+      }),
+    );
+    const { unmount } = renderApp();
+    await act(() => vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS));
+    await waitFor(() => expect(calls).toBe(2));
+    unmount();
+    await act(() => vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS * 2));
+    expect(calls).toBe(2);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 });
