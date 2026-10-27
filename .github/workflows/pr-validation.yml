@@ -55,9 +55,9 @@ jobs:
   backend-validation:
     name: Backend validation
     runs-on: ubuntu-latest
-    # The 5,200-test hosted run exhausted 30m during real migration tests.
-    # Include measured suite growth and setup headroom; see the validation runbook.
-    timeout-minutes: 45
+    # The 6,231-test suite passed in 43m40s, then exhausted 45m during cleanup.
+    # Include setup and cleanup headroom; see the validation runbook.
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16-alpine

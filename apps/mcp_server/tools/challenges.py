@@ -37,18 +37,16 @@ from ..shapes import to_plain
 from .rpg_management import _target as _household_target
 
 
-def _validated_goal(params):
-    parent = require_parent()
-    child = resolve_child_in_family(parent, params.user_id)
+def _validated_goal(params, parent, *, defer_current_eligibility=False):
     serializer = GoalWriteSerializer(
         data=params.model_dump(mode="json", exclude_none=True),
-        context={"request": SimpleNamespace(user=parent)},
+        context={"request": SimpleNamespace(user=parent), "defer_current_eligibility": defer_current_eligibility},
     )
     try:
         serializer.is_valid(raise_exception=True)
     except ValidationError as exc:
         raise MCPValidationError(str(exc.detail)) from None
-    return parent, child, serializer.validated_data
+    return serializer.validated_data
 
 
 @tool()
@@ -167,9 +165,12 @@ def preview_challenge_goal(params: PreviewChallengeGoalIn) -> dict[str, Any]:
     process activities or reserve a reward. Copy the reviewed fields and supply
     a stable request_id to create_challenge_goal after user confirmation.
     """
-    _, child, data = _validated_goal(params)
-    return {"valid": True, "goal": to_plain(data), "timezone": str(family_zone(child)),
-            "may_award_on_create": data["period"] in {"this_week", "custom"}, "saved": False}
+    parent = require_parent()
+    child = resolve_child_in_family(parent, params.user_id)
+    with authorized_household(parent, child) as (fresh_parent, fresh_child):
+        data = _validated_goal(params, fresh_parent)
+        return {"valid": True, "goal": to_plain(data), "timezone": str(family_zone(fresh_child)),
+                "may_award_on_create": data["period"] in {"this_week", "custom"}, "saved": False}
 
 
 @tool()
@@ -183,22 +184,32 @@ def create_challenge_goal(params: CreateChallengeGoalIn) -> dict[str, Any]:
     different details with that UUID are rejected. All progression and award
     receipts come from the existing challenge service.
     """
-    parent, child, data = _validated_goal(params)
-    occurrence = create_goal(parent, child, data)
-    return to_plain(occurrence_payload(occurrence))
+    parent = require_parent()
+    child = resolve_child_in_family(parent, params.user_id)
+    with authorized_household(parent, child) as (fresh_parent, fresh_child):
+        data = _validated_goal(params, fresh_parent, defer_current_eligibility=True)
+        try:
+            occurrence = create_goal(fresh_parent, fresh_child, data, validate_current=True)
+        except ValidationError as exc:
+            raise MCPValidationError(str(exc.detail)) from None
+        return to_plain(occurrence_payload(occurrence))
 
 
 @tool()
 @safe_tool
 def pin_challenge(params: PinChallengeIn) -> dict[str, Any]:
     """Pin a saved challenge for self or a parent's same-family child. Awards nothing."""
-    target = resolve_target_user(get_current_user(), params.user_id)
-    return set_pin(target, params.challenge_id)
+    actor = get_current_user()
+    target = resolve_target_user(actor, params.user_id)
+    with authorized_household(actor, target) as (_actor, fresh_target):
+        return set_pin(fresh_target, params.challenge_id)
 
 
 @tool()
 @safe_tool
 def unpin_challenge(params: PinChallengeIn) -> dict[str, Any]:
     """Clear a matching saved pin; progress, periods and reward promises stay intact."""
-    target = resolve_target_user(get_current_user(), params.user_id)
-    return set_pin(target, params.challenge_id, clear=True)
+    actor = get_current_user()
+    target = resolve_target_user(actor, params.user_id)
+    with authorized_household(actor, target) as (_actor, fresh_target):
+        return set_pin(fresh_target, params.challenge_id, clear=True)
