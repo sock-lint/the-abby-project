@@ -2,7 +2,7 @@ import { ELEMENTAL_FAMILY, elementalFamilyId, stagedElementalRelease } from './s
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
-import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.json';
+import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.runtime.json';
 
 const PORTRAIT_KEYS = new Map([
   ['cute-chick', ['chick', 'baby']],

@@ -3,7 +3,7 @@ import assetLock from '../../assets.lock.json';
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
-import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.json';
+import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.runtime.json';
 
 const manifests = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, import: 'default' });
 const indexes = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, query: '?url', import: 'default' });

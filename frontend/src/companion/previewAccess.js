@@ -5,7 +5,7 @@ import { companionStage } from './lifecycle';
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
-import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.json';
+import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.runtime.json';
 
 const REACHED = { baby: ['baby'], middle: ['baby', 'middle'], grown: ['baby', 'middle', 'grown'] };
 
