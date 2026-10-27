@@ -32,9 +32,10 @@ function AccountSpaces({ user, token, children }) {
   const { updateBlocked } = usePwaStatus();
   const isParentAccount = user?.role === 'parent';
   const storageKey = `abby:spaces:${user?.family?.id}:${user?.id}`;
-  const preferences = useRef(readPreferences(storageKey));
+  const [initialPreferences] = useState(() => readPreferences(storageKey));
+  const preferences = useRef(initialPreferences);
   const [space, setSpace] = useState(() => isParentAccount
-    ? (preferences.current.space === 'personal' ? 'personal' : 'family') : 'personal');
+    ? (initialPreferences.space === 'personal' ? 'personal' : 'family') : 'personal');
   const [revision, setRevision] = useState(0);
 
   // Every new workspace mounts with its own fetches and forms. Layout effects
@@ -67,7 +68,7 @@ function AccountSpaces({ user, token, children }) {
       navigate(path, { replace: true });
     });
     return true;
-  }, [isParentAccount, updateBlocked, location, space, storageKey, token, navigate]);
+  }, [isParentAccount, updateBlocked, storageKey, navigate]);
 
   return (
     <SpaceContext.Provider value={{

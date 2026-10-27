@@ -7,20 +7,25 @@ import Movement from '../Movement';
 import Reading from '../reading';
 import Trials from '../trials';
 import { useSpace } from '../../hooks/useSpace';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 /**
  * Tasks brings everyday activities, projects and challenges into one hub.
  * Legacy tab IDs stay stable for saved links and notification destinations.
  */
 export default function QuestsHub() {
-  const { isParentAccount, isPersonalSpace, isFamilySpace } = useSpace();
-  const adultPersonal = isParentAccount && isPersonalSpace;
   const [params] = useSearchParams();
   // Saved notifications and bookmarks keep working without carrying unrelated
   // query parameters into the new home.
   if (params.get('tab') === 'forge') {
     return <Navigate replace to={`/treasury?tab=forge${params.get('new') === '1' ? '&new=1' : ''}`} />;
   }
+  return <TasksHub />;
+}
+
+function TasksHub() {
+  const { isParentAccount, isPersonalSpace, isFamilySpace } = useSpace();
+  const adultPersonal = isParentAccount && isPersonalSpace;
   return (
     <ChapterHub
       title="Tasks"
@@ -39,4 +44,3 @@ export default function QuestsHub() {
     />
   );
 }
-import { Navigate, useSearchParams } from 'react-router-dom';
