@@ -807,4 +807,16 @@ describe('useApi deploy-window recovery for the dashboard read', () => {
     expect(dashboardCalls).toBe(2);
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
+
+  it('cancels the client\'s own paused retry when the page unmounts', async () => {
+    server.use(http.get('*/api/dashboard/', () => {
+      dashboardCalls += 1;
+      return html();
+    }));
+    const { unmount } = renderHook(() => useApi((signal) => apiIndex.getDashboard(signal), []));
+    await waitFor(() => expect(dashboardCalls).toBe(1));
+    unmount();
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS * 2);
+    expect(dashboardCalls).toBe(1);
+  });
 });
