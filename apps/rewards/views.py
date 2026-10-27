@@ -260,6 +260,7 @@ class CoinAdjustmentView(APIView):
         entry = CoinService.award_coins(
             child, amount, CoinLedger.Reason.ADJUSTMENT,
             description=description, created_by=request.user,
+            source=CoinLedger.Source.MANUAL_GRANT if amount > 0 else CoinLedger.Source.UNKNOWN,
         )
         return Response(
             CoinLedgerSerializer(entry).data,

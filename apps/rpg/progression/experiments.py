@@ -521,7 +521,7 @@ def prepare_observation(actor, experiment_id, revision):
     payload = economy_observations(actor)
     binding = {"source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
                "rules_fingerprint": rules_fingerprint(), "feedback_fingerprint": feedback_fingerprint(),
-               "policy": "installed_uncapped", "scope": "own_family_recent_children"}
+               "policy": "installed_uncapped", "scope": "own_family_active_children"}
     return {"payload": payload, "binding": binding}
 
 

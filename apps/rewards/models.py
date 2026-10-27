@@ -31,6 +31,16 @@ class CoinLedger(CreatedAtModel):
         EXPEDITION = "expedition", "Expedition Coins"
         EXPEDITION_SALVAGE = "expedition_salvage", "Expedition cosmetic salvage"
         COIN_POUCH = "coin_pouch", "Coin pouch"
+        DAILY_CHECK_IN = "daily_check_in", "Daily check-in"
+        AUTOMATIC_CHALLENGE = "automatic_challenge", "Automatic challenge"
+        PERFECT_DAY = "perfect_day", "Perfect Day"
+        WRITING = "writing", "Daily writing"
+        SAVINGS = "savings", "Savings milestone"
+        BIRTHDAY = "birthday", "Birthday gift"
+        LEGACY_QUEST = "legacy_quest", "Legacy quest"
+        COSMETIC_SALVAGE = "cosmetic_salvage", "Cosmetic duplicate salvage"
+        CONSUMABLE_SALVAGE = "consumable_salvage", "Consumable salvage"
+        MANUAL_GRANT = "manual_grant", "Manual grant"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

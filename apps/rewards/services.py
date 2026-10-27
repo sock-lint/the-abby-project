@@ -53,6 +53,16 @@ class CoinService(BaseLedgerService):
             CoinLedger.Source.EXPEDITION: CoinLedger.Reason.EXPEDITION,
             CoinLedger.Source.EXPEDITION_SALVAGE: CoinLedger.Reason.ADJUSTMENT,
             CoinLedger.Source.COIN_POUCH: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.DAILY_CHECK_IN: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.AUTOMATIC_CHALLENGE: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.PERFECT_DAY: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.WRITING: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.SAVINGS: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.BIRTHDAY: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.LEGACY_QUEST: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.COSMETIC_SALVAGE: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.CONSUMABLE_SALVAGE: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.MANUAL_GRANT: CoinLedger.Reason.ADJUSTMENT,
         }
         if source and (amount <= 0 or reason != source_reasons[source]):
             raise ValueError("Coin award source requires a positive award with its matching reason.")

@@ -219,7 +219,7 @@ class ProgressionExperimentTests(APITestCase):
         after = next(row for row in snapshots if row["id"] != before["id"])
         self.assertEqual(after["payload"]["automatic_sources"]["coins"], 40)
         self.assertEqual(after["status"], "observations_available")
-        self.assertEqual(after["binding"]["scope"], "own_family_recent_children")
+        self.assertEqual(after["binding"]["scope"], "own_family_active_children")
         self.assertEqual(self.client.post(url, {"revision": 1, "payload": {}}, format="json").status_code, 400)
         self.assertEqual(self.client.post(url, {"revision": 0}, format="json").status_code, 409)
         self.client.force_authenticate(self.coparent)

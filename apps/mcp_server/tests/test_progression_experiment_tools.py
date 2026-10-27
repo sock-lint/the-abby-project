@@ -58,6 +58,18 @@ class ProgressionExperimentRegistryTests(SimpleTestCase):
                 self.assertIsNotNone(entry)
                 self.assertIn(field, entry.fn_metadata.output_schema["properties"])
 
+    def test_observation_schema_exposes_new_evidence_and_accepts_historical_checkpoints(self):
+        from apps.mcp_server.experiment_schemas import ProgressionObservationsOut
+
+        schema = mcp._tool_manager.get_tool("get_progression_observations").fn_metadata.output_schema
+        for field in ("earning_sources", "earning_pace", "shop_rewards"):
+            self.assertIn(field, schema["properties"])
+        legacy = ProgressionObservationsOut(
+            schema_version=1, status="insufficient_evidence", period={}, cohort={},
+            activity={}, ledger={}, automatic_sources={}, policy={}, notes=[],
+        )
+        self.assertIsNone(legacy.earning_pace)
+
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class ProgressionExperimentToolTests(TestCase):

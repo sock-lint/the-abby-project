@@ -282,6 +282,16 @@ deletion service. Reviewed publication/versioning governs source retirement.
 
 ### Saved progression experiments
 
+Current economy observations include all active children in the caller's
+family, selected saved-work child-days, credit source groups and full-price
+shop earning estimates. No private journal or ledger prose is loaded. Typed
+sources apply prospectively; historical unknown adjustments remain unknown.
+Pace uses regular identified credits only and never subtracts existing wealth.
+The output schema accepts old immutable checkpoints without these additive
+sections; missing estimates stay unavailable. See the progression guide for
+source, denominator, stock and capacity rules. Reads never change rewards,
+balances, prices or the 10-Coins-per-dollar exchange rate.
+
 `progression_experiments.py` wraps the native private notebook: list/get,
 create/save, paired comparison/get, append-only decision, household observation
 read and saved checkpoint. Notebook tools require `mcp:author`; author-only

@@ -96,6 +96,7 @@ def _award_perfect_day(child, today):
         CoinService.award_coins(
             child, 15, CoinLedger.Reason.ADJUSTMENT,
             description="Perfect Day bonus!",
+            source=CoinLedger.Source.PERFECT_DAY,
         )
     ActivityLogService.record(
         category="system",

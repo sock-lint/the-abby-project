@@ -190,7 +190,7 @@ class SavingsGoalService:
 
         if coins > 0:
             CoinService.award_coins(goal.user, coins, CoinLedger.Reason.ADJUSTMENT,
-                description=f"Savings goal: {goal.title}")
+                description=f"Savings goal: {goal.title}", source=CoinLedger.Source.SAVINGS)
         if not goal.reward_qualifies:
             return
         BadgeService.evaluate_badges(goal.user, scopes={"savings", "badges"})

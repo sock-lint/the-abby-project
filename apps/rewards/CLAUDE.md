@@ -74,15 +74,22 @@ changed. `tests/test_digital_fulfillment.py` and
 
 ## Models
 - `CoinLedger` — append-only ledger of Coin transactions. 13 reasons: `hourly`, `project_bonus`, `bounty_bonus`, `milestone_bonus`, `badge_bonus`, `redemption`, `refund`, `adjustment`, `chore_reward`, `exchange`, `daily_challenge`, `expedition`, `reading`. Positive = earned, negative = spent/refunded. Reading's daily Adventure pays 5 base Coins with its own `reading` reason, which honors Lucky Coin; its durable source receipt prevents repeat payments.
-  Optional internal `source` attribution records new `expedition`,
-  `expedition_salvage` and `coin_pouch` awards at their existing transaction
+  Optional internal `source` attribution records new expedition Coins, expedition
+  salvage, pouch openings, daily check-ins, automatic challenge rewards and egg
+  salvage, Perfect Day, daily writing, savings milestones, birthdays, legacy
+  quest rewards and egg salvage, ordinary cosmetic salvage, owned consumable
+  salvage, and positive manual/development grants at their existing transaction
   boundaries. Blank means historical, unknown or another source; do not infer
   it from descriptions or backfill old payouts. `CoinService.award_coins`
   validates positive amounts and matching reasons for typed sources without
-  changing Lucky Coin eligibility, prices, promises or payout amounts. The
-  existing ledger REST/MCP response shapes are unchanged. Staff-parent Lab
-  observations aggregate only the caller's recent active child cohort and
-  expose incomplete attribution rather than reconstructing missing history.
+  changing Lucky Coin eligibility, prices, promises or payout amounts. Negative
+  manual adjustments remain untyped. The existing ledger REST/MCP response
+  shapes are unchanged. Staff-parent Lab observations aggregate the caller's
+  currently active, nonstaff family children, distinguish meaningful saved
+  activity days from days with Coin transactions, and expose incomplete
+  attribution rather than reconstructing missing history. Challenge attribution
+  includes both one-time and repeatable rewards; the tag alone does not establish
+  a recurring earning rate.
 - `Reward` — family-scoped shop items. Rarity tiers (common→legendary), optional stock, `requires_parent_approval`, `order`. **Digital fulfillment**: `fulfillment_kind` (`real_world` / `digital_item` / `both`) + `item_definition` FK to `rpg.ItemDefinition` — approval auto-credits the item to `UserInventory` via `_maybe_credit_digital_item`. Per-family unique constraint on `(family, name)`.
 - `RewardRedemption` — submit-then-approve workflow. Digital-only approval becomes `fulfilled`; real-world or combined approval becomes `approved` (awaiting handover), then an explicit parent delivery becomes `fulfilled`. Pending requests may become `denied` and refund; approved promises cannot be refunded through rejection. Inherits `ApprovalWorkflowModel`; `delivered_at`/`delivered_by` record handover separately from the preserved approval audit. Existing fulfilled history is not reopened or assigned an invented delivery date. Price, fulfillment kind, exact digital item and whether finite stock was reserved are frozen at request time. Nested `reward` fields in redemption responses project the saved price/kind/item; shop offer responses retain today's editable values. Other offer metadata remains current.
 

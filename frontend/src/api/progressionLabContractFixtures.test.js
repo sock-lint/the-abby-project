@@ -13,6 +13,7 @@ import commitmentComparison from '../../../contracts/api/fixtures/progression-ex
 import expeditionBudgetComparison from '../../../contracts/api/fixtures/progression-experiment-expedition-budget-comparison.json';
 import decided from '../../../contracts/api/fixtures/progression-experiment-decided.json';
 import observations from '../../../contracts/api/fixtures/progression-observations-empty.json';
+import earnedObservations from '../../../contracts/api/fixtures/progression-observations-earned.json';
 import observed from '../../../contracts/api/fixtures/progression-experiment-observed.json';
 import challengeGateReport from '../../../contracts/api/fixtures/progression-lab-challenge-gates-report.json';
 import milestoneGateComparison from '../../../contracts/api/fixtures/progression-experiment-milestone-gates-comparison.json';
@@ -47,6 +48,17 @@ function expectPairedIncubation(response) {
 }
 
 describe('Progression lab shared API fixtures', () => {
+  it('transports actual regular earnings, selected activity days and full-price shop estimates', async () => {
+    server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json(earnedObservations)));
+    const result = await getProgressionObservations();
+    expect(result.cohort).toMatchObject({ scope: 'active_family_children', registered_within_days: null });
+    expect(result.activity.meaningful_active_child_days).toBe(2);
+    expect(result.earning_sources.reduce((sum, row) => sum + row.coins, 0)).toBe(result.ledger.credits);
+    expect(result.earning_pace).toMatchObject({ recurring_coins: 25, coins_per_active_day: 12.5, excluded_credits: 365 });
+    expect(result.shop_rewards.find((row) => row.name === 'Practice outing')).toMatchObject({ cost_coins: 51, days_to_earn: 5 });
+    expect(result.policy.coins_per_dollar).toBe(10);
+  });
+
   it('transports real challenge gates and recorded availability separately from unchanged native totals', async () => {
     const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, challengeGateReport);
     server.use(simulation.handler);

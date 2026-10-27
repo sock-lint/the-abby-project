@@ -42,7 +42,7 @@ describe('Progression experiment notebook', () => {
     await user.click(screen.getByRole('button', { name: 'Run control and candidate' }));
     await screen.findByRole('region', { name: 'Saved experiment comparison' });
     expect(run.calls[0].body).toEqual({ revision: 1 });
-    expect(screen.getByText('No eligible new-user Coin observations yet.')).toBeVisible();
+    expect(screen.getByText('No eligible family activity or Coin observations yet.')).toBeVisible();
     expect(screen.getByText(/Available as an opt-in Lab prototype/)).toBeVisible();
   });
   it('saves the fixed commitment candidate and resets both control policies', async () => {
@@ -150,7 +150,7 @@ describe('Progression experiment notebook', () => {
   });
   it('does not validate an undeployed policy using uncapped Coin observations', async () => {
     setup();
-    server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json({ ...observations, status: 'observations_available', cohort: { ...observations.cohort, eligible_children: 2 }, ledger: { ...observations.ledger, credits: 300 } })));
+    server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json({ ...observations, status: 'observations_available', cohort: { ...observations.cohort, eligible_children: 2 }, ledger: { ...observations.ledger, credits: 300 }, automatic_sources: { ...observations.automatic_sources, unattributed_positive_adjustments: 300 } })));
     renderWithProviders(<ProgressionExperimentNotebook routine={draft.config} />);
     await screen.findByText('Observed installed-economy Coins');
     expect(screen.getByText(/Attribution is incomplete/)).toBeVisible();
@@ -166,7 +166,7 @@ describe('Progression experiment notebook', () => {
     await screen.findByText(/Observation checkpoint saved/);
     expect(capture.calls[0].body).toEqual({ revision: 1 });
     await user.click(screen.getByText(/Checkpoint .*insufficient evidence/));
-    expect(screen.getAllByText('No eligible new-user Coin observations yet.')).toHaveLength(2);
+    expect(screen.getAllByText('No eligible family activity or Coin observations yet.')).toHaveLength(2);
     expect(screen.getByText(/Saved experiment revision 1/)).toBeVisible();
   });
   it('discards only confirmed edits before opening evidence and protects decision notes on rerun', async () => {
@@ -213,14 +213,14 @@ describe('Progression experiment notebook', () => {
     const reads = spyHandler('get', /\/api\/rpg\/progression-lab\/observations\/$/, observations);
     server.use(reads.handler);
     const { user } = renderWithProviders(<ProgressionExperimentNotebook routine={draft.config} />);
-    await screen.findByText('No eligible new-user Coin observations yet.');
+    await screen.findByText('No eligible family activity or Coin observations yet.');
     await user.click(screen.getByRole('button', { name: 'Refresh observed evidence' }));
     await waitFor(() => expect(reads.calls).toHaveLength(2));
     server.use(http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json({ detail: 'Observation read failed.' }, { status: 503 })));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh observed evidence' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Refresh observed evidence' }));
     await screen.findByText(/Could not load observed evidence/);
-    expect(screen.getByText('No eligible new-user Coin observations yet.')).toBeVisible();
+    expect(screen.getByText('No eligible family activity or Coin observations yet.')).toBeVisible();
   });
   it('ignores a delayed save after credential replacement', async () => {
     setup();

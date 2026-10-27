@@ -272,6 +272,21 @@ fixtures contain synthetic global content and never configure live gates.
 `progression-experiment-observed.json` adds an immutable server-captured
 observation checkpoint; even saved empty evidence remains insufficient.
 
+`progression-observations-earned.json` binds the live family economy report to
+selected saved-work days, typed Coin sources and current family shop prices.
+The active-family cohort includes older accounts; `registered_within_days` is
+null with `scope: active_family_children`. Ledger-active and meaningful
+child-days remain separate. Positive credits reconcile exactly once across
+`earning_sources`; `earning_pace` excludes occasional bonuses, manual grants,
+exchanges, refunds and unknown credits. Shop `days_to_earn` rounds the full
+current price from zero upward using unrounded regular Coins per meaningful
+child-day. Null means unavailable; existing balances never reduce this value.
+The synthetic producer verifies short reading without a payout, a large
+opening balance, mixed credit types, free/stock-limited offers, unchanged
+ledgers and 10 Coins per dollar. React consumes the same raw response and
+renders source and shop tables. Historical checkpoints may lack all three
+additive sections and preserve their recorded cohort and measurements.
+
 `completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
 `completion-timing-homework-reviewed.json` and
 `completion-timing-homework-assignment.json` come from the real submission/read

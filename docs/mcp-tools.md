@@ -505,7 +505,7 @@ for source ownership, stale-plan checks, retained history and repeat cadence.
 | `create_progression_experiment` | `mcp:author` | No | — | Save a private hypothesis and bounded anonymous control/candidate recipe. |
 | `get_progression_comparison` | `mcp:author` | Yes | — | Read one saved paired report and its current freshness without simulating. |
 | `get_progression_experiment` | `mcp:author` | Yes | — | Read saved assumptions, comparison summaries and append-only decisions. |
-| `get_progression_observations` | `mcp:read` | Yes | — | Read bounded recent-child accounting aggregates for the current family. |
+| `get_progression_observations` | `mcp:read` | Yes | — | Read bounded accounting and saved-work aggregates for all active family children. |
 | `list_progression_experiments` | `mcp:author` | Yes | — | List this staff parent's private saved hypotheses, in bounded UUID order. |
 | `record_progression_decision` | `mcp:author` | No | — | Append a rationale, next action and review date against current saved evidence. |
 | `save_progression_experiment` | `mcp:author` | No | Required | Revise saved assumptions with the current revision and a stable request_id. |

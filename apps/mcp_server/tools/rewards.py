@@ -298,6 +298,7 @@ def adjust_coins(params: AdjustCoinsIn) -> dict[str, Any]:
                 CoinLedger.Reason.ADJUSTMENT,
                 description=params.description,
                 created_by=parent,
+                source=CoinLedger.Source.MANUAL_GRANT,
             )
         else:
             entry = CoinService.spend_coins(
