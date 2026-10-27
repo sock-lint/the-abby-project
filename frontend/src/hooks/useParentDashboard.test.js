@@ -276,4 +276,19 @@ describe('useParentDashboard week summary during a deploy window', () => {
     expect(calls).toBe(3);
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
+
+  it('stops recovering, and reports nothing, when the review unmounts during the wait', async () => {
+    let calls = 0;
+    server.use(http.get('*/api/dashboard/', () => {
+      calls += 1;
+      return new HttpResponse('<!doctype html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    }));
+    const { unmount } = renderHook(() => useParentDashboard());
+    await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+    await waitFor(() => expect(calls).toBe(2));
+    unmount();
+    await vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS + GATEWAY_RETRY_DELAY_MS);
+    expect(calls).toBe(2);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
 });

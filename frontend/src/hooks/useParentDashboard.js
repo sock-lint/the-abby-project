@@ -127,7 +127,7 @@ const SOURCES = [
   { key: 'chores',         label: 'chore approvals',      fn: () => getAllApprovalPages(() => getChoreCompletions('pending')), fallback: [] },
   { key: 'homework',       label: 'homework approvals',   fn: () => getHomeworkDashboard(),          fallback: { pending_submissions: [] } },
   { key: 'redemptions',    label: 'reward redemptions',   fn: getPendingRedemptions,                 fallback: [] },
-  { key: 'dashboard',      label: 'week summary',         fn: () => callWithDeferredRecovery(getDashboard), fallback: null },
+  { key: 'dashboard',      label: 'week summary',         fn: (signal) => callWithDeferredRecovery(getDashboard, signal), withSignal: true, fallback: null },
   { key: 'creations',      label: 'creation bonuses',     fn: () => getAllApprovalPages(listPendingCreations),      fallback: [] },
   { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
   { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
@@ -156,14 +156,20 @@ export function useParentDashboardData({ enabled = true, accountScope } = {}) {
   const [saved, setSaved] = useState(null);
   const sequence = useRef(0);
   const mounted = useRef(false);
+  const controllerRef = useRef(null);
   const data = saved?.scope === scope ? saved.data : EMPTY_PARENT_REVIEW;
 
   const load = useCallback(async () => {
     if (!enabled) return;
     const request = ++sequence.current;
+    // A newer load or an unmount cancels the deferred-recovery wait, so a
+    // superseded review neither re-fetches nor reports.
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
     const current = () => mounted.current && sequence.current === request && getToken() === token;
     setSaved((previous) => ({ scope, data: { ...(previous?.scope === scope ? previous.data : EMPTY_PARENT_REVIEW), loading: true, error: null } }));
-    const settled = await Promise.allSettled(SOURCES.map((source) => source.fn()));
+    const settled = await Promise.allSettled(SOURCES.map((source) => source.fn(source.withSignal ? controller.signal : undefined)));
     if (!current()) return;
     const failedSources = [];
     const values = {};
@@ -199,7 +205,7 @@ export function useParentDashboardData({ enabled = true, accountScope } = {}) {
     mounted.current = true;
     const initialSequence = sequence.current;
     void Promise.resolve().then(() => { if (mounted.current && sequence.current === initialSequence) return load(); });
-    return () => { mounted.current = false; sequence.current += 1; };
+    return () => { mounted.current = false; sequence.current += 1; controllerRef.current?.abort(); };
   }, [load]);
   return { ...data, reload: load };
 }
