@@ -1,6 +1,6 @@
-// Entirely synthetic contract data, not the verified artwork or native-take
-// inventory (still awaiting artwork). Numbered fake files and deliberately different logical/native
-// identities stress the adapter independently of the real supplied takes.
+// Entirely synthetic contract data, not the verified 154-file runtime release.
+// Numbered fake files and deliberately different logical and native identities
+// stress the adapter independently of the real artwork and supplied takes.
 export const GHOST_PLANT_FAMILY = 'abby-elemental-ghost-potted-plant';
 export const GHOST_PLANT_SPECIES = ['meshtint-ghost', 'meshtint-potted-plant'];
 export const GHOST_PLANT_REVIEW_ICONS = ['review-ghost-fire-acquisition-icon', 'review-ghost-ice-acquisition-icon',

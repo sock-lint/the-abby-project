@@ -1,4 +1,4 @@
-"""Unregistered receiving content cannot activate unsupported acquisitions."""
+"""Canonical Ghost/Plant paths preserve exact offers and accepted promises."""
 from copy import deepcopy
 from io import StringIO
 import json
@@ -28,9 +28,9 @@ from config.tests.factories import make_family
 
 
 PACK = "content/rpg/prepared/elemental-ghost-potted-plant"
-PRIVATE_RELEASE_FAMILY = "abby-elemental-ghost-potted-plant"
-PRIVATE_MANIFEST_SHA256 = "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
-PRIVATE_REVIEW_INDEX_SHA256 = "12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76"
+RELEASE_FAMILY = "abby-elemental-ghost-potted-plant"
+MANIFEST_SHA256 = "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
+REVIEW_INDEX_SHA256 = "12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76"
 SPECIES = {"meshtint-ghost", "meshtint-potted-plant"}
 PATHS = {
     "Ember Wisp": ("meshtint-ghost", "fire", "review-ghost-fire-acquisition-icon"),
@@ -46,8 +46,8 @@ TRIGGERS = {
 }
 
 
-def future_policy(*pairs):
-    """Synthetic positive support only; no new runtime release is implied."""
+def exact_pair_policy(*pairs):
+    """Select this batch while retaining every earlier adopted pair."""
     policy = deepcopy(json.loads(POLICY_PATH.read_text()))
     for row in policy["pets"]:
         if row["species_slug"] in SPECIES:
@@ -59,52 +59,72 @@ def future_policy(*pairs):
     return policy
 
 
-FUTURE_POLICY = future_policy(*[(species, potion) for species in sorted(SPECIES) for potion in ("fire", "ice")])
+PREACTIVATION_POLICY = exact_pair_policy()
 
 
 @override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
-class GhostPlantPreparationBoundaryTests(TestCase):
+class GhostPlantActivationBoundaryTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loadrpgcontent", stdout=StringIO())
 
-    def test_default_load_retains_current_policy_and_natural_base_only_identities(self):
-        self.assertEqual(len(available_pet_pairs()), 31)
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+    def item_rows(self):
+        return list(ItemDefinition.objects.order_by("pk").values(
+            "pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata"))
+
+    def test_default_load_registers_four_more_pairs_without_changing_natural_eggs(self):
+        self.assertEqual(len(available_pet_pairs()), 35)
+        self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
+        before = self.item_rows()
         for slug in SPECIES:
             species = PetSpecies.objects.get(slug=slug)
             egg = ItemDefinition.objects.get(slug=f"{slug}-egg")
             self.assertEqual((species.sprite_key, species.rarity, egg.rarity, egg.coin_value),
                              (slug, RARITIES[slug], RARITIES[slug], 3))
-            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), {"base"})
+            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
             self.assertEqual((egg.pet_species_id, egg.metadata), (species.pk, {"species": slug}))
+        call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(self.item_rows(), before)
         self.assertFalse(ChallengeGoal.objects.exists())
 
-    def test_explicit_prepared_load_under_current_policy_fails_atomically(self):
-        before_species = list(PetSpecies.objects.order_by("pk").values())
-        before_items = list(ItemDefinition.objects.order_by("pk").values())
-        before_potions = list(PetSpecies.available_potions.through.objects.order_by("pk").values())
-        before_quests = list(QuestDefinition.objects.order_by("pk").values())
-        with self.assertRaisesRegex(CommandError, "compatibility"):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertEqual(list(PetSpecies.objects.order_by("pk").values()), before_species)
-        self.assertEqual(list(ItemDefinition.objects.order_by("pk").values()), before_items)
-        self.assertEqual(list(PetSpecies.available_potions.through.objects.order_by("pk").values()), before_potions)
-        self.assertEqual(list(QuestDefinition.objects.order_by("pk").values()), before_quests)
+    def test_active_policy_records_exact_source_and_preserves_every_previous_family(self):
+        policy = json.loads(POLICY_PATH.read_text())
+        elemental = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
+                     "meshtint-snake", "meshtint-hermit-crab", *SPECIES}
+        self.assertEqual(len(policy["pets"]), 15)
+        for row in policy["pets"]:
+            self.assertEqual(set(row["potion_slugs"]), {"base", "fire", "ice"} if row["species_slug"] in elemental else {"base"})
+            if row["species_slug"] in SPECIES:
+                self.assertEqual(row["sprite_key"], row["species_slug"])
+                self.assertEqual(row["potion_sources"], {"fire": RELEASE_FAMILY, "ice": RELEASE_FAMILY})
+        source = next(row for row in policy["sources"] if row["id"] == RELEASE_FAMILY)
+        self.assertEqual((source["release_version"], source["manifest_sha256"]), ("1.0.0", MANIFEST_SHA256))
+        self.assertEqual(source["appearance_bindings_version"], 1)
+        self.assertEqual(set(source["prepared_species"]), SPECIES)
+        self.assertEqual(set(source["prepared_potion_variants"]), {"fire", "ice"})
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY)
-    def test_scoped_future_policy_loads_four_paths_idempotently_without_registration(self):
+    def test_narrow_rollback_preserves_authoring_and_natural_items_but_hides_whole_offers(self):
+        before = self.item_rows()
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
+            call_command("loadrpgcontent", stdout=StringIO())
+            self.assertEqual(len(available_pet_pairs()), 31)
+            self.assertFalse(any(definition_is_available(row) for row in QuestDefinition.objects.filter(name__in=PATHS)))
+        self.assertEqual(self.item_rows(), before)
+        self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
+        self.assertFalse(ChallengeGoal.objects.exists())
+
+    def test_explicit_prepared_pack_load_is_idempotent_without_registering_another_pack(self):
         eggs = dict(ItemDefinition.objects.filter(slug__in=[f"{slug}-egg" for slug in SPECIES]).values_list("slug", "pk"))
         for _ in range(2):
             call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
         self.assertEqual(len(available_pet_pairs()), 35)
         self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
+        self.assertEqual(QuestDefinition.objects.filter(name__in=PATHS).count(), 4)
         self.assertEqual(dict(ItemDefinition.objects.filter(slug__in=eggs).values_list("slug", "pk")), eggs)
         self.assertFalse(ChallengeGoal.objects.exists())
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY)
-    def test_forged_partial_and_unregistered_species_fail_without_writes(self):
+    def test_partial_authoring_forged_sprites_and_unadopted_species_are_rejected(self):
         source = yaml.safe_load((settings.BASE_DIR / PACK / "pet_species.yaml").read_text())["species"][0]
         candidates = [
             {**source, "available_potions": ["base", "fire"]},
@@ -119,25 +139,25 @@ class GhostPlantPreparationBoundaryTests(TestCase):
                 with self.assertRaisesRegex(CommandError, "compatibility|collision|Unknown prepared"):
                     call_command("loadrpgcontent", pack=directory, stdout=StringIO())
                 self.assertEqual(list(PetSpecies.available_potions.through.objects.order_by("pk").values()), before)
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=future_policy(("meshtint-ghost", "fire"))):
-            with self.assertRaisesRegex(CommandError, "compatibility"):
-                call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=exact_pair_policy(("meshtint-ghost", "fire"))):
+            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
+            self.assertEqual(len(available_pet_pairs()), 32)
+            self.assertEqual({row.name for row in QuestDefinition.objects.filter(name__in=PATHS)
+                              if definition_is_available(row)}, {"Ember Wisp"})
 
-    def test_descriptor_receiving_handles_require_system_collection_identity(self):
+    def test_descriptor_and_baby_icons_require_exact_system_collection_identity(self):
         descriptor = json.loads(POLICY_PATH.with_name("elemental-ghost-potted-plant.json").read_text())
-        self.assertEqual(descriptor["preparation"]["state"], "private_review_pending")
+        self.assertEqual(descriptor["preparation"]["state"], "active")
         self.assertTrue(descriptor["preparation"]["candidate_verified"])
-        self.assertFalse(descriptor["preparation"]["acquisition_active"])
-        self.assertFalse(descriptor["preparation"]["artwork_accepted"])
+        self.assertTrue(descriptor["preparation"]["acquisition_active"])
+        self.assertTrue(descriptor["preparation"]["artwork_accepted"])
         self.assertEqual(descriptor["release"], {
-            "family_id": PRIVATE_RELEASE_FAMILY,
+            "family_id": RELEASE_FAMILY,
             "release_version": "1.0.0",
-            "manifest_sha256": PRIVATE_MANIFEST_SHA256,
+            "manifest_sha256": MANIFEST_SHA256,
         })
-        self.assertEqual(descriptor["private_review"]["index_sha256"], PRIVATE_REVIEW_INDEX_SHA256)
+        self.assertEqual(descriptor["private_review"]["index_sha256"], REVIEW_INDEX_SHA256)
         self.assertEqual(descriptor["private_review"]["index_bytes"], 4994)
-        self.assertEqual(descriptor["private_review"]["canonical_publication"], "not_performed")
         for name, (_species, _potion, icon) in PATHS.items():
             with self.subTest(name=name):
                 definition = QuestDefinition(name=name, quest_type="collection", is_system=True)
@@ -147,79 +167,60 @@ class GhostPlantPreparationBoundaryTests(TestCase):
                 definition.is_system, definition.quest_type = True, "boss"
                 self.assertIsNone(challenge_catalog_icon(definition))
 
-    def test_verified_private_pin_leaves_default_catalog_and_prepared_loading_inactive(self):
+    def test_canonical_pin_and_default_catalog_expose_exact_pairs_without_granting_inventory(self):
         active = json.loads((settings.BASE_DIR / "frontend/assets.lock.json").read_text())["releases"]
         evaluation = json.loads((settings.BASE_DIR / "frontend/assets.ghost-potted-plant.evaluation.lock.json").read_text())
-        self.assertEqual(len(active), 14)
-        self.assertNotIn(PRIVATE_RELEASE_FAMILY, {release["family_id"] for release in active})
-        self.assertEqual(evaluation, {"schema_version": 1, "releases": [{
-            "family_id": PRIVATE_RELEASE_FAMILY,
+        expected_pin = {
+            "family_id": RELEASE_FAMILY,
             "release_version": "1.0.0",
-            "manifest_sha256": PRIVATE_MANIFEST_SHA256,
-            "directory": f"{PRIVATE_RELEASE_FAMILY}/1.0.0/{PRIVATE_MANIFEST_SHA256}",
-        }]})
-        policy = json.loads(POLICY_PATH.read_text())
-        self.assertNotIn(PRIVATE_RELEASE_FAMILY, {source["id"] for source in policy["sources"]})
-
-        # A verified receiving candidate is presentation evidence, not authority
-        # to publish offers, change default content, or grant rewards.
-        call_command("loadrpgcontent", stdout=StringIO())
-        self.assertEqual(len(available_pet_pairs()), 31)
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
+            "manifest_sha256": MANIFEST_SHA256,
+            "directory": f"{RELEASE_FAMILY}/1.0.0/{MANIFEST_SHA256}",
+        }
+        self.assertEqual(len(active), 15)
+        self.assertEqual(next(row for row in active if row["family_id"] == RELEASE_FAMILY), expected_pin)
+        self.assertEqual(evaluation, {"schema_version": 1, "releases": [expected_pin]})
+        self.assertEqual(len(available_pet_pairs()), 35)
         self.assertEqual(QuestDefinition.objects.filter(
             is_system=True, reward_items__item__item_type="potion",
             reward_items__item__potion_type__slug__in=("fire", "ice"),
-        ).distinct().count(), 16)
-        child = make_family("Private candidate reader", children=[{"username": "private-candidate-reader"}]).children[0]
+        ).distinct().count(), 20)
+        child = make_family("Canonical catalog reader", children=[{"username": "canonical-catalog-reader"}]).children[0]
         client = APIClient()
         client.force_authenticate(child)
         inventory = list(UserInventory.objects.order_by("pk").values())
         response = client.get("/api/pets/codex/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["totals"]["mounts_possible"], 31)
+        self.assertEqual(response.data["totals"]["mounts_possible"], 35)
         for species in response.data["species"]:
             if species["slug"] in SPECIES:
-                self.assertEqual({potion["slug"] for potion in species["available_potions"]}, {"base"})
-        with self.assertRaisesRegex(CommandError, "compatibility"):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertFalse(QuestDefinition.objects.filter(name__in=PATHS).exists())
-        self.assertEqual(len(available_pet_pairs()), 31)
+                self.assertEqual({potion["slug"] for potion in species["available_potions"]}, {"base", "fire", "ice"})
+                for potion in species["available_potions"]:
+                    if potion["slug"] != "base":
+                        name = next(name for name, pair in PATHS.items() if pair[:2] == (species["slug"], potion["slug"]))
+                        self.assertEqual([row["name"] for row in potion["acquisition_challenges"]], [name])
         self.assertEqual(list(UserInventory.objects.order_by("pk").values()), inventory)
         self.assertFalse(ChallengeGoal.objects.exists())
 
-    def test_previous_facts_do_not_replay_into_future_prepared_goals(self):
-        child = make_family("Before Ghost preparation", children=[{"username": "before-ghost"}]).children[0]
-        ingest_activity(child, "chore_complete", "before-ghost-pack", "chore_complete")
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-            rows = [row for row in list_goals(child)["results"] if row["name"] in PATHS]
+    def test_previous_facts_are_not_replayed_when_the_new_canonical_paths_activate(self):
+        child = make_family("Before Ghost activation", children=[{"username": "before-ghost"}]).children[0]
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
+            QuestDefinition.objects.filter(name__in=PATHS).delete()
+            ingest_activity(child, "chore_complete", "before-ghost-pack", "chore_complete")
+        call_command("loadrpgcontent", stdout=StringIO())
+        rows = [row for row in list_goals(child)["results"] if row["name"] in PATHS]
         self.assertEqual({row["name"] for row in rows}, set(PATHS))
         self.assertEqual({row["progress"] for row in rows}, {"0"})
 
-    def test_ordinary_reload_keeps_staged_offers_hidden_and_existing_eggs_intact(self):
-        eggs = dict(ItemDefinition.objects.filter(slug__in=[f"{slug}-egg" for slug in SPECIES]).values_list("slug", "pk"))
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY):
-            call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        call_command("loadrpgcontent", stdout=StringIO())
-        self.assertEqual(len(available_pet_pairs()), 31)
-        self.assertEqual(dict(ItemDefinition.objects.filter(slug__in=eggs).values_list("slug", "pk")), eggs)
-        for species in PetSpecies.objects.filter(slug__in=SPECIES):
-            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), {"base"})
-        staged = QuestDefinition.objects.filter(name__in=PATHS)
-        self.assertEqual(staged.count(), 4)
-        self.assertFalse(any(definition_is_available(row) for row in staged))
-        self.assertFalse(ChallengeGoal.objects.exists())
 
-
-@override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
-class FutureGhostPlantPathTests(TestCase):
+class ApprovedGhostPlantPathTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
         cls.original_eggs = dict(ItemDefinition.objects.filter(
             slug__in=[f"{species}-egg" for species in SPECIES]).values_list("slug", "pk"))
-        call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
 
     def setUp(self):
         household = make_family("Prepared Ghost/Plant", parents=[{"username": "prepared-parent"}],
@@ -301,13 +302,13 @@ class FutureGhostPlantPathTests(TestCase):
         self.assertEqual(dict(UserInventory.objects.filter(user=self.child).values_list("item__slug", "quantity")), inventory)
         self.assertFalse(UserInventory.objects.filter(user__in=[self.sibling, self.foreign]).exists())
 
-    def test_future_exact_pair_policy_controls_whole_offer_reads_and_hints(self):
+    def test_exact_pair_withdrawal_hides_whole_offer_reads_and_hints(self):
         from apps.mcp_server.catalog import catalog_row
         definitions = self.definitions()
         for name, (species, potion, _icon) in PATHS.items():
-            with self.subTest(name=name), override_settings(RPG_ASSET_SUPPORT_POLICY=future_policy((species, potion))):
+            with self.subTest(name=name), override_settings(RPG_ASSET_SUPPORT_POLICY=exact_pair_policy((species, potion))):
                 self.assertEqual({row.name for row in definitions.values() if definition_is_available(row)}, {name})
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=None):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
             self.assertEqual(list_goals(self.child)["results"], [])
             self.assertEqual(self.client.get("/api/quests/available/").data, [])
             for definition in definitions.values():
@@ -326,7 +327,7 @@ class FutureGhostPlantPathTests(TestCase):
         accepted = {row.pk: deepcopy(row.snapshot) for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}
         QuestDefinition.objects.filter(pk__in=[row.pk for row in definitions.values()]).update(target_value=99, duration_days=3, coin_reward=7, xp_reward=11)
         QuestRewardItem.objects.filter(quest_definition__in=definitions.values()).delete()
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=None):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
             for index in range(20):
                 ingest_activity(self.child, "chore_complete", f"saved-preparation-{index}", "chore_complete")
         occurrences = list(ChallengeOccurrence.objects.filter(goal__user=self.child))

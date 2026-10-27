@@ -8,12 +8,12 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and exact namespaced Wolf,
-Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab accept Base, Fire and Ice;
-the other seven prepared families accept Base only (31 exact pairs). Fire/Ice
-potions remain excluded from random pools. Sixteen one-time challenges guarantee
-exact egg/potion bundles. The Snake/Hermit Crab artwork is owner-accepted and
-its exact canonical release has passed application readback; application rollout
-still requires the ordinary MAIN gates.
+Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant accept
+Base, Fire and Ice; the other five prepared families accept Base only (35 exact
+pairs). Fire/Ice potions remain excluded from random pools. Twenty one-time
+challenges guarantee exact egg/potion bundles. The owner approved all twelve
+Ghost/Potted Plant appearances. That exact runtime has passed canonical
+application readback; the ordinary MAIN rollout gates remain.
 Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
@@ -59,7 +59,15 @@ positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
 come from the receiving descriptor and do not establish artwork publication.
 
-Ghost/Potted Plant preparation is described in [its runbook](../../docs/operations/elemental-ghost-potted-plant.md). The unregistered pack and receiving icon map prepare Wisp (20) and Sprout (5) guarantees within 180 days, once, with zero authored Coins/XP. Ghost remains Rare and Potted Plant Common. Their Fire/Ice pairs are not enabled: ordinary policy stays at 31 pairs/16 guarantees, all fourteen runtime pins unchanged, until exact artwork review and canonical publication/readback.
+Ghost/Potted Plant activation is described in
+[its runbook](../../docs/operations/elemental-ghost-potted-plant.md). Initial
+content supplies Wisp (20) and Sprout (5) guarantees within 180 days, once, with
+one unchanged natural species egg plus matching global potion and zero authored
+Coins/XP. Ghost remains Rare and Potted Plant Common. The positive policy and
+initial compatibility change together to 35 pairs/20 guarantees; the exact
+runtime is the fifteenth pin, preserving all fourteen prior releases and code
+integrity pins. The historical preparation pack remains unregistered. Existing
+accepted rewards and incubation/expedition promises remain fulfillable.
 
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.

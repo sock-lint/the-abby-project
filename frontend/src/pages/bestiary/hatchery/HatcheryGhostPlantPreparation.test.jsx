@@ -14,18 +14,18 @@ vi.mock('../PetCeremonyModal', () => ({ default: ({ pet, onDismiss }) =>
     <button type="button" onClick={onDismiss}>Close celebration</button>
   </div> }));
 
-// Ordinary application component and API calls; these responses are synthetic
-// server-confirmed future state. Ghost/Potted Plant remain Base-only in the
-// active server policy; these tests are not artwork or acquisition acceptance.
+// Ordinary application component and API calls with synthetic server-confirmed
+// active Ghost/Potted Plant responses. These checks cover requests and saved
+// receipts; actual artwork and phone acceptance use separate verification.
 const pairs = ['meshtint-ghost', 'meshtint-potted-plant'].flatMap((species) => ['fire', 'ice'].map((potion) => [species, potion]));
 const names = { 'meshtint-ghost': 'Ghost', 'meshtint-potted-plant': 'Seed' };
 const serverNow = '2026-10-27T10:00:00Z';
 
 function setup(speciesSlug, potionSlug, { ready = false, fresh = true } = {}) {
-  const species = { id: speciesSlug === 'meshtint-ghost' ? 67 : 68, slug: speciesSlug, sprite_key: speciesSlug,
+  const species = { id: speciesSlug === 'meshtint-ghost' ? 69 : 70, slug: speciesSlug, sprite_key: speciesSlug,
     name: names[speciesSlug], icon: '🐾', catalog_available: true };
   const potion = { id: potionSlug === 'fire' ? 2 : 3, slug: potionSlug, name: potionSlug === 'fire' ? 'Fire' : 'Ice', catalog_available: true };
-  const egg = { id: speciesSlug === 'meshtint-ghost' ? 77 : 78, slug: `${speciesSlug}-egg`, name: `${species.name} Egg`,
+  const egg = { id: speciesSlug === 'meshtint-ghost' ? 79 : 80, slug: `${speciesSlug}-egg`, name: `${species.name} Egg`,
     item_type: 'egg', icon: '🥚', catalog_available: true, pet_species_slug: speciesSlug, pet_species_name: species.name, metadata: { species: speciesSlug } };
   const ingredient = { id: potionSlug === 'fire' ? 51 : 52, slug: `${potionSlug}-potion`, name: `${potion.name} Potion`,
     item_type: 'potion', catalog_available: true, metadata: { variant: potionSlug } };
@@ -54,8 +54,8 @@ function setup(speciesSlug, potionSlug, { ready = false, fresh = true } = {}) {
     markReady() { incubation = available; } };
 }
 
-describe('synthetic future Ghost/Potted Plant incubation and hatch', () => {
-  it.each(Object.keys(names))('keeps the prepared %s elemental recipes unavailable when the server offers only Base', async (speciesSlug) => {
+describe('active Ghost/Potted Plant incubation and hatch with synthetic API responses', () => {
+  it.each(Object.keys(names))('hides withdrawn %s elemental recipes when the server offers only Base', async (speciesSlug) => {
     const fixture = setup(speciesSlug, 'fire'), user = userEvent.setup();
     const base = { id: 1, slug: 'base', name: 'Base', catalog_available: true };
     const baseIngredient = { id: 60, slug: 'base-potion', name: 'Base Potion', item_type: 'potion',

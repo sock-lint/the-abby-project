@@ -83,17 +83,20 @@ Saved ownership is independent of model filenames and availability.
 is the positive registry for new offers and acquisition. Its production pet
 allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
 identities in `shared/catalog/companion-roster.json`, with Base for all fifteen.
-The four Fire/Ice releases enable sixteen additional pairs for exact `chick`,
+The five Fire/Ice releases enable twenty additional pairs for exact `chick`,
 `meshtint-wolf`, `meshtint-dragon`, `meshtint-mushroom`, `meshtint-bee`,
-`meshtint-bat`, `meshtint-snake` and `meshtint-hermit-crab` identities:
-31 pairs in total. The other seven families remain
+`meshtint-bat`, `meshtint-snake`, `meshtint-hermit-crab`, `meshtint-ghost` and
+`meshtint-potted-plant` identities: 35 pairs in total. The other five families remain
 Base only. Dragon/Mushroom adoption is recorded in
 [its runbook](../../docs/operations/elemental-dragon-mushroom.md); Bee/Bat's
 exact receiving pins, canonical readback, four new guarantees and rollback are
 recorded in [its runbook](../../docs/operations/elemental-bee-bat.md).
 Snake/Hermit Crab's exact bindings, four Coil/Shore guarantees and rollback are
 recorded in [its runbook](../../docs/operations/elemental-snake-hermit-crab.md).
-The owner accepted the actual app previews for all four batches. Chick/Wolf was
+Ghost/Potted Plant's exact native bindings, Wisp/Sprout guarantees, canonical
+receipt and rollback belong in
+[its runbook](../../docs/operations/elemental-ghost-potted-plant.md).
+The owner accepted the actual app previews for all five batches. Chick/Wolf was
 canonically published and verified on October 20, 2026; Dragon/Mushroom on
 October 21; Bee/Bat on October 23. Bee/Bat retains the accepted manifest
 `7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5`
@@ -358,16 +361,20 @@ character. Camera orbit, keyboard controls, reset and Idle are local
 presentation and award nothing. Hidden/offscreen/reduced-motion views pause
 animation, and failures retain the functional DOM customization fallback.
 
-## Ghost and Potted Plant receiving preparation
+## Ghost and Potted Plant activation
 
-The receiving agreement for `abby-elemental-ghost-potted-plant` 1.0.0 pins the
-verified private manifest in a separate evaluation lock, with no active runtime
-pin. It defines twelve Fire/Ice appearances,
-exact natural egg identities, Baby-only challenge handles and existing native
-stage names. Production remains on fourteen canonical releases and 31 supported
-pairs. Private transport and inventory verification passed for all 154 runtime
-files; this grants no owner artwork, shader or publication acceptance. Actual app
-review, source drift, owner approval and canonical publication/readback remain
-separate gates. Formal backup and physical-phone acceptance are pending. Existing package
-versions and integrity pins remain unchanged. See
-[the preparation runbook](../../docs/operations/elemental-ghost-potted-plant.md).
+The owner accepted all twelve Fire/Ice appearances for
+`abby-elemental-ghost-potted-plant` 1.0.0, manifest
+`6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9`.
+It is the fifteenth runtime pin alongside all fourteen existing releases;
+canonical application readback passed. The policy contains
+35 supported pairs and twenty elemental guarantees. Natural eggs, Baby-only
+challenge handles, native stage names and all 138 exact v1 bindings stay intact.
+Runtime inventory is 154 files / 51,889,149 bytes (138 GLBs and 16 PNGs).
+The separate evaluation lock preserves the earlier private receiving evidence;
+normal runtime uses the active lock without staged input. Keep actual app test
+revision/source drift, the original 16-pass/1-failure private browser run and its
+unchanged isolated pass distinct from later canonical checks. Formal durable
+backup/restoration and physical-phone/native-shell acceptance remain separately
+pending. Existing package versions and integrity pins are unchanged. See
+[the receiving and rollback runbook](../../docs/operations/elemental-ghost-potted-plant.md).

@@ -1,40 +1,80 @@
-# Fire and Ice Ghost and Potted Plant preparation
+# Fire and Ice Ghost and Potted Plant
 
-The owner requested private Fire/Ice artwork and application preparation for
-Ghost and Potted Plant after the canonical Snake/Hermit Crab release in PR #336.
-This work prepares receiving identities, future guarantees and private app review.
-It does not accept artwork, add an active runtime pin or activate new acquisition.
-Pet stats remain deferred.
+The owner accepted all twelve Fire/Ice appearances shown by application revision
+`330c1de42b4ecbac3c3414f8ff341c586d61d478` and then authorized exact runtime
+publication, guaranteed challenge activation, and PR #342 through merge,
+deployment and live verification. [Artwork acceptance is recorded on the
+PR](https://github.com/sock-lint/the-abby-project/pull/342#issuecomment-6452891577);
+no repeat artwork approval or regeneration is needed. This change adds the
+accepted runtime and four acquisition paths while preserving existing families,
+saved identities and rewards. Pet stats remain deferred.
 
-## Current boundary
+## Canonical delivery and verification
 
-`shared/catalog/elemental-ghost-potted-plant.json` is a receiving agreement, not
-an acquisition policy. Its state is `private_review_pending`, with
-`candidate_verified: true`, `acquisition_active: false` and
-`artwork_accepted: false`. The exact received manifest digest identifies the
-private candidate, not a canonical publication or owner acceptance. The release
-family is `abby-elemental-ghost-potted-plant`, version `1.0.0`.
+The canonical release is `abby-elemental-ghost-potted-plant` **1.0.0**.
+The application independently verified its complete runtime through the
+established Abby GET-only reader on October 27, 2026, at 21:10 UTC:
 
-The separate `frontend/assets.ghost-potted-plant.evaluation.lock.json` permits
-explicit loopback evaluation. The ordinary active lock excludes this family;
-receiving its manifest cannot enable normal delivery or acquisition.
+- Version index:
+  `s3://abby-assets-releases/releases/versions/abby-elemental-ghost-potted-plant/1.0.0.json`
+  — **174 bytes**, SHA-256
+  `737b7e90c70ed64af4b9f483bfd2a2af09a72a4ae7ddd8faa76d666321ad6955`.
+- Manifest:
+  `s3://abby-assets-releases/releases/abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9/manifest.json`
+  — **292,313 bytes**, SHA-256
+  `6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9`.
+- Runtime: **154 files / 51,889,149 bytes** — 138 GLBs and 16 transparent
+  256px PNGs: twelve stage portraits and four Baby-only acquisition images.
+- Canonical total: **156 objects / 52,181,636 bytes**. Every downloaded object
+  matched its SHA-256 and size; all 154 runtime payloads were byte-identical to
+  the owner-approved candidate. All 156 anonymous requests returned HTTP 403.
+- Fresh standard single-family import and verification passed. All fourteen
+  prior canonical releases, their 2,333 payloads and seven supplemental portraits
+  remained unchanged. Code-package integrity pins also remained unchanged.
 
-Ordinary initial content and `shared/catalog/asset-support.json` remain unchanged:
-fifteen Base families, eight accepted elemental families, **31 exact pairs and
-16 elemental guarantees**. All fourteen canonical runtime pins and existing
-code-package integrity values remain unchanged. A globally available potion,
-new metadata, a synthetic fixture or an owned image cannot authorize either new
-species/potion pair.
+The private application readback receipt has SHA-256
+`263501577570df96c7fc88bc85e5c3d7287da70c307915b84c59b51ac1c5c8d8`;
+its canonical summary has SHA-256
+`174570bc528ffc1e425afa31bce68723637157ef1d6721434a243ab85ea5dcb8`.
+These are application receiving proofs, not publisher execution proofs. The
+scoped publisher, permanent-coordinator claims and manifest-last ordering are
+not observable through the application reader; their operator receipt has not
+been returned. Do not report those checks as passed from runtime GET results.
+There are no unresolved application readback/access holds in the verified
+inventory. The earlier 20:53 UTC `NoSuchKey` / HTTP 404 metadata probes remain
+historical evidence from before canonical delivery appeared.
 
-The unregistered pack is
-`content/rpg/prepared/elemental-ghost-potted-plant`. Default `loadrpgcontent`
-does not load it. Explicit loading under the current production policy rejects
-its unsupported compatibility atomically. Tests may supply an explicit
-synthetic positive policy for every exact Base/Fire/Ice identity to exercise
-future authoring, rewards and care. Never use that override as an application
-activation or artwork acceptance mechanism.
+`frontend/assets.lock.json` adds only this exact fifteenth pin, retaining every
+previous family/version/digest. Use normal `npm run assets:import` and
+`npm run assets:verify`; ordinary application and canonical browser checks use
+active-lock defaults without an evaluation root or injected staged release.
+The separate `assets.ghost-potted-plant.evaluation.lock.json` and loopback review
+route preserve the earlier private review; they are not normal runtime delivery.
+Keep payloads, source archives, previews and evidence outside Git. The verified
+canonical importer stages runtime files only into its dedicated ignored trees.
 
-## Identities and guarantees
+Reuse exact contracts **1.4.0**, avatar-runtime **1.3.0** and release-tools
+**1.6.0** tarballs with their existing SHA-256/npm integrity pins. Canonical
+runtime delivery does not publish new code packages or authorize an upgrade.
+The separate asset workshop remains **Prepare Fire and Ice assets**; this
+application retains its GET-only reader.
+
+## Active identities and guarantees
+
+`shared/catalog/elemental-ghost-potted-plant.json` records the exact accepted
+release and presentation identities. Its activation metadata does not itself
+authorize acquisition: the positive `shared/catalog/asset-support.json` policy
+and ordinary initial content activate the four pairs and guarantees together.
+The resulting policy contains **fifteen Base species, ten elemental species,
+35 exact species/potion pairs and twenty elemental guarantees**; five species
+remain Base only. All prior runtime families and saved data remain supported.
+
+The two compatibility updates and four challenges load from `content/rpg/initial`
+through default `loadrpgcontent`. The historical
+`content/rpg/prepared/elemental-ghost-potted-plant` pack remains unregistered so
+it cannot duplicate those offers. Explicit unsupported compatibility must still
+fail atomically under a narrowed policy. Scoped synthetic policy overrides are
+test inputs, not an application acquisition bypass.
 
 | Species and sprite | Natural egg | Baby → Middle → Grown | Existing rarity |
 | --- | --- | --- | --- |
@@ -42,11 +82,12 @@ activation or artwork acceptance mechanism.
 | `meshtint-potted-plant` | `meshtint-potted-plant-egg` | Seed → Sprout → Flower Pot Monster | Common |
 
 Existing eggs retain their IDs, metadata, rarity and authored coin value 3.
-Base forms remain unchanged. Separate Fire/Ice lifecycle metadata preserves
-these stage names; it grants no stage or ownership. There are no elemental eggs
-or additional potion definitions. Potion presentation begins during incubation.
+There are no elemental eggs or additional potion definitions. Potion
+presentation starts during incubation and persists through confirmed hatching
+and growth. Baby Seed remains a bulb without a pot. Existing global Base,
+Fire and Ice potion identities and artwork remain unchanged.
 
-| Future challenge | Qualifying accomplishments | Guaranteed bundle |
+| Challenge | Qualifying accomplishments | Guaranteed bundle |
 | --- | --- | --- |
 | Ember Wisp | 20 | Natural Ghost Egg + existing Fire potion |
 | Frost Wisp | 20 | Natural Ghost Egg + existing Ice potion |
@@ -54,139 +95,124 @@ or additional potion definitions. Potion presentation begins during incubation.
 | Frost Sprout | 5 | Natural Seed Egg + existing Ice potion |
 
 All four have a 180-day window, pay once, and author zero Coins/XP. Wisp follows
-the existing Rare Wolf target; Sprout follows Common Chick/Bee pacing. Existing
-server-owned qualifying-source rules count approved chores/homework, completed
-projects/milestones, eligible creations and earned daily reading receipts.
-Daily source limits, accepted-promise snapshots and payout deduplication remain
-unchanged. Browsing, artwork playback and greetings earn no progress.
+the Rare Wolf target; Sprout follows Common Chick/Bee pacing. Existing
+server-owned rules count approved chores/homework, completed projects or
+milestones, eligible creations and earned daily reading receipts. Daily source
+limits, accepted-promise snapshots and payout deduplication remain unchanged.
+Browsing, artwork playback and greetings earn no progress. Existing accepted
+promises retain their frozen rewards when ordinary content reloads.
 
-Receiving challenge images are Baby-only and retain these exact IDs:
+Baby-only challenge images retain the exact presentation handles
 `review-ghost-fire-acquisition-icon`, `review-ghost-ice-acquisition-icon`,
 `review-potted-plant-fire-acquisition-icon` and
-`review-potted-plant-ice-acquisition-icon`. The existing mapping requires the
-system collection definition; parent-authored names cannot impersonate it.
-Actual PNG resolution still requires the correct received release.
+`review-potted-plant-ice-acquisition-icon`, each variant `icon`. Exact system
+collection identity is required; a same-name parent challenge cannot obtain
+this binding. Image identity is separate from quest names, slugs and numeric IDs.
 
-## Presentation and expedition preparation
+## Presentation and expedition behavior
 
-The existing resolver, portrait registry, sprite unavailable-art guard and
-challenge surprise rules recognize the exact receiving family. Without the
-matching family in the active lock, ordinary delivery returns unavailable.
-It does not recolor a Base portrait or substitute another creature. Explicit
-synthetic staging is test-only evidence of component routing. Actual private
-review passes the separately pinned release to the existing app components.
+Keep `appearance_bindings` v1: explicit species + potion + lifecycle stage +
+logical motion selects native variant/action, portrait and root-motion bindings.
+Appearance IDs stay separate from native `source-*` motion IDs. The accepted
+runtime preserves all 138 exact bindings: Ghost has 12/12/12 takes and Potted
+Plant 11/12/10 per element for Baby/Middle/Grown. Every default is
+`source-idle` / action `idle` / clip `Idle`.
 
-The existing child rule remains exact species + potion ownership, limited to
-server-confirmed reached stages. Missing stable reads unlock nothing. Future
-form names and Baby challenge illustrations remain withheld until permitted;
-parent/staff behavior is unchanged. Incubation, natural egg identity, accepted
-hatch replay, reduced motion, care and claim controls retain their behavior.
-
-Keep `appearance_bindings` v1 and explicit species/potion/stage/motion bindings.
-Appearance IDs must remain separate from native `source-*` motion IDs. Audit all
-native names, actions, roots and bounds when assets arrive. Current pinned Base
-sources contain Ghost 12/12/12 takes and Potted Plant 11/12/10, with opaque
-materials and `source-idle` defaults. That implies 138 Fire/Ice GLBs plus twelve
-256px stage portraits and four 256px acquisition images; actual received
-inventory remains authoritative. No native Evolve take exists in those sources;
-confirmed stage changes retain the same element's destination idle. Reuse the
-existing global potion images.
-
-No expedition service change is required. Base/Fire/Ice already share the
-account/species allowance, including pending/unclaimed trips and claimed trips
-started that local day. Ghost and Potted Plant have separate species allowances
-and share the existing two-expeditions-per-child family-local-day cap. Frozen
-loot, sibling/family scoping, return/claim behavior and care rewards remain intact.
-
-## Receiving and activation gates
-
-The received private candidate is pinned by review-index SHA-256
-`12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76`
-(4,994 bytes) and manifest SHA-256
-`6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9`
-(292,313 bytes). The index location is recorded in the receiving descriptor.
-The GET-only reader verified the index and all six artifacts, both safe ZIP
-inventories and all 1,039 declared workspace/authoring members. Offline Node 22
-`verify-candidate.mjs` passed without npm or network access. Runtime inventory
-is **154 files / 51,889,149 bytes: 138 GLBs and 16 transparent 256px PNGs**.
-No canonical version index or release publication is part of this review.
-
-All 138 explicit v1 binding rows and twelve default idles are retained. Plant
-Middle additionally preserves `source-idle-02` / action `idle-02` / clip
+Plant Middle additionally retains `source-idle-02` / action `idle-02` / clip
 `Idle 02`. Ghost Middle uses `source-slash-left-attack` and
 `source-slash-right-attack`; Grown uses the differently ordered
 `source-left-slash-attack` and `source-right-slash-attack`. Do not normalize
-these IDs. Eight descriptive growth edges retain the same element's destination
-idle; there are no supplied transition payloads or invented Evolve takes.
+these literal IDs, action names, clip case, timing, loop/root policies or bounds.
+The candidate-to-Base audit preserved geometry, UVs, rig/skin, animation and
+nonimage buffers across the 69 exact Base sources. Native materials remain
+OPAQUE, including Ghost. Base/Fire/Ice instances retain independent materials,
+textures, mutation and disposal. There are no aliases, authored transition
+payloads or invented Evolve takes: eight descriptive growth edges retain the
+same element's destination idle after app-confirmed growth. Both earlier
+Fire/Ice Bird evolutions remain supported.
 
-Authoring delivery includes editable masters and reproducible staged inputs,
-but formal source backup/restoration remains pending. Owner artwork acceptance,
-physical-phone/native-shell acceptance and full receiving-app acceptance must
-be reported separately from successful transport and workshop QA. The supported
-handoff's historical `preparing` status reflects its pending canonical-publication
-gate; it does not negate the verified private delivery.
+Child presentation still requires exact species + potion ownership and limits
+forms/names to server-confirmed reached stages. Missing stable reads unlock
+nothing; Baby challenge images do not disclose future forms. Parent/staff
+behavior is unchanged. Missing or unsupported artwork fails explicitly without
+a Base substitution or CSS recolor, while care and claim controls remain usable.
+Natural egg identity, incubation deadlines, saved hatch replays and growth remain
+server-owned. Portraits and model filenames grant no ownership or progression.
 
-The private asset lane is **Prepare Fire and Ice assets**; the application team
-keeps the established GET-only reader. Return the immutable review index URI,
-SHA-256 and size; actual manifest digest; every artifact hash/size; runtime
-inventory; previews; source/package pins; reproducible authoring inputs; and
-verification instructions/results. Formal backup/restoration evidence is
-separate from authoring delivery. Keep all licensed source packs, GLBs, PNGs,
-archives, previews and receipts outside Git and outside ordinary Vite asset globs
-until the receiving/import boundary is established.
+No expedition service change is required. Base/Fire/Ice share the existing
+account/species allowance, including pending/unclaimed trips and claimed trips
+started that local day. Ghost and Potted Plant retain separate species
+allowances while sharing the two-starts-per-child family-local-day cap. Frozen
+loot, sibling/family scoping, return/claim behavior and care rewards remain intact.
 
-Reuse exact contracts 1.4.0, avatar-runtime 1.3.0 and release-tools 1.6.0 tarballs
-with their existing recorded SHA-256/npm integrity pins. Runtime preparation
-does not authorize new code-package publication or an upgrade.
+## Review evidence and remaining release gates
 
-After receipt, verify all envelope/artifact/runtime hashes and sizes, safe archive
-paths and the offline verification workspace. Integrate only the exact immutable
-private review pin, exercise actual application components and show all twelve
-appearances to the owner. Check every native take, portraits/icons, incubation,
-hatch, all stages, same-element destination idle, reduced motion, material
-isolation, saved identity and missing-file recovery. Preserve all earlier Base
-and elemental releases and both existing Bird evolutions. Record actual tested
-app revision and scene/source drift. Synthetic tests and desktop screenshots do
-not establish physical-phone/native-shell acceptance.
+The immutable private review index is pinned by SHA-256
+`12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76`
+(4,994 bytes); its URI remains in the receiving descriptor. The application
+verified that index, all six artifacts, safe archives and all 1,039 declared
+workspace/authoring members. The inspected offline Node 22
+`verify-candidate.mjs` passed without npm or network access. Historical
+candidate `preparing` labels describe the earlier publication snapshot and do
+not undo later owner approval or the verified canonical readback.
 
-After owner artwork approval and explicit publication authorization, require
-canonical publication/readback. Then add the exact fifteenth release pin and
-four positive pairs and move the four guarantees into ordinary initial content
-as one reviewed activation: **35 pairs, ten elemental species, twenty elemental
-guarantees**. Keep the historical preparation pack unregistered to avoid duplicate
-offers. Preserve all prior pins and accepted promises. MAIN owns eventual merge,
-the existing deployment and trusted exact-served live verification, under the
-ordinary hosted CI/review/conversation/asset/live gates. This preparation grants
-no merge, publication or deployment approval.
+Artwork review used actual application components at `330c1de4`, tree
+`444b450706596b78df76e81d37bccd4391318197`. The original private browser run
+passed sixteen cases and failed one Ice Spook playback check; an unchanged
+isolated Ice Ghost repeat passed its 36 takes. No source or timeout change
+explains the initial failure, whose cause remains unverified. Across those runs
+all 138 distinct bindings were observed. Twelve owned/Hatchery forms, exact
+portraits/icons, reduced motion, missing-file recovery, both Bird evolutions and
+24 material groups / 96 independent instances were covered. Do not call the
+original full run wholly green or replace it with its isolated repeat.
 
-## Validation and rollback
+All four hosted checks passed on that historical review revision: 6,232 backend
+tests, 5,366 frontend tests, API fixtures 174 Django + 241 React, and PWA
+261 browser passes with 81 skips. These results do not validate a later
+activation revision. Canonical browser checks, local tests/builds, current-base
+hosted checks and independent review must pass on the actual activation
+revision. Record their results, actual tested source/merge revisions and current
+scene/source drift in the PR and private evidence; do not reuse older check
+counts as a current-head pass. The changed real API fixture contents and React
+consumers must agree without changing their response contract.
 
-Focused backend checks are
-`apps.quests.tests.test_elemental_ghost_potted_plant_preparation` and
-`apps.pets.tests.test_ghost_potted_plant_preparation`. Run concurrency checks on
-disposable PostgreSQL/Redis; do not count SQLite skips as passed races. Normal
-`config.settings` tests use the repository's syncdb shortcut on PostgreSQL;
-validate the real migration graph separately with `manage.py migrate` on the
-disposable base database and report the two results distinctly. Frontend synthetic coverage lives in `ghostPlantElemental.test.js`,
-`RpgSpriteGhostPlant.test.jsx`, `GhostPlantPreview.test.jsx` and
-`HatcheryGhostPlantPreparation.test.jsx`, with the shared ceremony, lifecycle and
-challenge-surprise checks. Run normal lint, full frontend coverage/build and
-required hosted backend/API/PWA checks. No shared response shape or currently
-published fixture changes in this preparation.
+Run focused quest/pet preparation and activation checks, shared expedition
+races on disposable PostgreSQL/Redis, normal frontend coverage/lint and web/native
+builds. Normal `config.settings` tests use the syncdb shortcut on PostgreSQL;
+validate the real migration graph separately and distinguish both results.
+SQLite skips are not passed races. Canonical browser acceptance uses ordinary
+component defaults, covering incubation/hatch, all twelve forms and 138 motions,
+portraits/icons, same-element destination idle/reload, reduced motion, material
+isolation, persistence, missing-file recovery and both prior Bird evolutions.
 
-Before activation, rollback removes only the unused receiving metadata,
-presentation registrations and unregistered pack. It must not alter any active
-family, policy, pin, saved identity or reward. After future activation, use a
-reviewed withdrawal of only these four new offers/acquisition pairs while keeping
-canonical delivery and loader/presentation identity support for saved companions
-and accepted rewards. Preserve pending incubation promises, frozen challenge
-rewards, eggs, potions, care and expedition loot. Do not blindly revert an entire
-release after saved promises exist, delete canonical objects, migrate identities,
-reroll or re-grant rewards.
+Formal durable source backup/restoration remains pending separately from the
+verified 184-member authoring delivery. Physical-phone/native-shell acceptance
+also remains separately pending; desktop Chromium at 390×844 does not establish
+it. Owner artwork acceptance and successful canonical transport cannot certify
+either missing acceptance. Keep those statuses explicit.
 
-For withdrawal of this private review alone, return to preparation commit
-`2c21a861e67543042254624791d620de9f635ca3`: remove only the new evaluation
-pin/allowlist and restore the unset receiving digest. Preserve the verified
-external archives, review evidence and source recovery bundle. The approved
-application baseline remains PR #336's `1ab5101d61c708f3a3b7e06dc58fbde654716c7a`;
-its fourteen runtime pins, server offers and saved promises are untouched.
+The owner has authorized the application release tail, while MAIN owns merge
+through ordinary exact-head/base hosted CI, independent review, conversation,
+asset and fresh trusted-live gates. Record the actual GitHub squash commit,
+finished healthy deployment and exact-served revision live receipt when each
+exists. Merge alone is not deployment or live proof. No merge/deployment/live
+completion is claimed by this receiving runbook.
+
+## Rollback
+
+Withdraw only the four new offers/acquisition pairs through a reviewed policy
+and initial-content change. Keep canonical Ghost/Plant delivery and
+loader/presentation identity support for saved companions and accepted rewards,
+alongside all fourteen prior releases. Preserve natural eggs/potions, pending
+incubation, frozen challenge rewards, frozen expedition promises/loot including
+pending and unclaimed trips, saved history, care and claim controls. Never
+blindly revert the release after promises exist, delete canonical objects or
+saved pets, migrate identities, reroll or re-grant rewards.
+
+The original private-only return to `2c21a861` and unset receiving digest was a
+pre-activation review withdrawal, not a safe post-activation rollback. Preserve
+its external archives, review evidence and source recovery. The original art
+review baseline was PR #336's `1ab5101d`; the local integration merge head
+`63119bb4dc93bcd4bd3c710b218acbd566062134` includes main `949273e2`.
+Neither historical baseline is a substitute for the actual final merge,
+deployment and live verification proof.

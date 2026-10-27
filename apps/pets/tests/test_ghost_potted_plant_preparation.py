@@ -1,4 +1,4 @@
-"""Scoped future pairs exercise care and species-wide allowance without activating artwork."""
+"""Canonical exact pairs preserve incubation, growth and shared expedition gates."""
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 from threading import Event
@@ -23,14 +23,13 @@ from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PET_INCUBATION_DURATION_SECONDS=86400,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class PreparedGhostPlantIncubationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
-        call_command("loadrpgcontent", pack=preparation.PACK, stdout=StringIO())
+        call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Prepared incubation", children=[{"username": "prepared-incubator"}]).children[0]
         cls.foreign = make_family("Foreign incubation", children=[{"username": "foreign-incubator"}]).children[0]
 
@@ -52,7 +51,7 @@ class PreparedGhostPlantIncubationTests(TestCase):
     def test_ice_potted_plant_reserves_natural_egg_then_hatches_exact_saved_variant(self):
         self.assert_pair_waits_and_hatches("meshtint-potted-plant", "ice")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.PREACTIVATION_POLICY)
     def test_withdrawn_pair_policy_never_consumes_elemental_ingredients(self):
         for species in preparation.SPECIES:
             for element in ("fire", "ice"):
@@ -109,27 +108,27 @@ class PreparedGhostPlantIncubationTests(TestCase):
                         (species_slug, potion_slug, "grown"))
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedGhostSharedExpeditionAllowanceTests(expedition_contract.SharedExpeditionAllowanceTests):
     species_identity = ("meshtint-ghost", "Ghost", "meshtint-ghost")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedPottedPlantSharedExpeditionAllowanceTests(expedition_contract.SharedExpeditionAllowanceTests):
     species_identity = ("meshtint-potted-plant", "Seed", "meshtint-potted-plant")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedGhostSharedExpeditionConcurrencyTests(expedition_contract.SharedExpeditionConcurrencyTests):
     species_identity = ("meshtint-ghost", "Ghost", "meshtint-ghost")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY)
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class PreparedPottedPlantSharedExpeditionConcurrencyTests(expedition_contract.SharedExpeditionConcurrencyTests):
     species_identity = ("meshtint-potted-plant", "Seed", "meshtint-potted-plant")
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY, TIME_ZONE="America/Phoenix", USE_TZ=True,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None, TIME_ZONE="America/Phoenix", USE_TZ=True,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class GhostPlantChildAllowanceTests(expedition_contract.SharedAllowanceSetup, TestCase):
     species_identity = ("meshtint-ghost", "Ghost", "meshtint-ghost")
@@ -154,7 +153,7 @@ class GhostPlantChildAllowanceTests(expedition_contract.SharedAllowanceSetup, Te
 
 
 @skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
-@override_settings(RPG_ASSET_SUPPORT_POLICY=preparation.FUTURE_POLICY,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class GhostPlantChildAllowanceConcurrencyTests(expedition_contract.SharedAllowanceSetup, TransactionTestCase):
     species_identity = ("meshtint-ghost", "Ghost", "meshtint-ghost")

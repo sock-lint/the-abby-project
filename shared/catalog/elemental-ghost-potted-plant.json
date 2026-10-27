@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "preparation": {
-    "state": "private_review_pending",
-    "acquisition_active": false,
-    "artwork_accepted": false,
+    "state": "active",
+    "acquisition_active": true,
+    "artwork_accepted": true,
     "application_ids_agreed": true,
     "candidate_verified": true
   },
@@ -87,6 +87,24 @@
     "png_files": 16,
     "canonical_publication": "not_performed",
     "source_backup": "pending",
-    "physical_phone_acceptance": "pending"
+    "physical_phone_acceptance": "pending",
+    "snapshot": "Historical private review before owner artwork/release approval and canonical publication; current canonical verification is recorded separately."
+  },
+  "canonical_publication": {
+    "version_index_uri": "s3://abby-assets-releases/releases/versions/abby-elemental-ghost-potted-plant/1.0.0.json",
+    "version_index_sha256": "737b7e90c70ed64af4b9f483bfd2a2af09a72a4ae7ddd8faa76d666321ad6955",
+    "version_index_bytes": 174,
+    "manifest_uri": "s3://abby-assets-releases/releases/abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9/manifest.json",
+    "manifest_bytes": 292313,
+    "canonical_objects": 156,
+    "canonical_bytes": 52181636,
+    "runtime_files": 154,
+    "runtime_bytes": 51889149,
+    "glb_files": 138,
+    "png_files": 16,
+    "application_get_only_verification": "156/156 SHA-256 and size verified on 2026-10-27",
+    "anonymous_access": "156/156 HTTP 403",
+    "approved_runtime_bytes_unchanged": true,
+    "publisher_coordinator_receipt": "not_yet_returned_to_application_session"
   }
 }

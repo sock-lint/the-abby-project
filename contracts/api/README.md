@@ -116,7 +116,7 @@ consumer: `frontend/src/api/catalogContractFixtures.test.js`.
 `pets-hatchery-discovery.json` is a child-authenticated `GET /api/pets/codex/`
 response from a four-species synthetic catalog, with exact typed egg/potion
 reward bundles for its eight Fire/Ice challenges and an untimed Base Reading
-Companion. The separate elemental-art fixture covers all sixteen guarantees.
+Companion. The separate elemental-art fixture covers all twenty guarantees.
 Each species's
 `available_potions` preserves `id`, `slug`, `name`, `color_hex` and `rarity`, and
 adds `acquisition_challenges`. Each challenge contains integer `definition_id`,
@@ -1377,15 +1377,18 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all sixteen exact system
+`catalog-icons-elemental-challenges.json` exposes all twenty exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab. Hive guarantees the natural Bee egg and
-selected global potion after five qualifying accomplishments; Cave guarantees
-the natural Bat egg and potion after ten. Coil and Shore guarantee the natural
-Snake or Hermit Crab egg and matching potion after ten. All are one-time 180-day challenges,
-with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
+Wolf, Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant,
+within the 35-pair policy. Hive guarantees the natural Bee egg and selected
+global potion after five qualifying accomplishments; Cave guarantees the natural
+Bat egg and potion after ten. Coil/Shore guarantee Snake/Hermit Crab bundles
+after ten; Wisp guarantees Ghost after twenty and Sprout Potted Plant after five.
+These are one-time 180-day challenges with zero authored Coins/XP. The earlier
+Dragon Summit retains its 50-action/365-day target. Their exact
+`review-...-acquisition-icon` handles
 remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw

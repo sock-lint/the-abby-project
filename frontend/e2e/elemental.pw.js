@@ -39,7 +39,7 @@ for (const accepted of evaluationPins) {
 }
 const beeBatManifest = evaluationManifest?.family_id === evaluationPin.family_id ? evaluationManifest : installedManifest(evaluationPin.family_id);
 const snakeCrabManifest = evaluationManifest?.family_id === snakeCrabEvaluationPin.family_id ? evaluationManifest : installedManifest(snakeCrabEvaluationPin.family_id);
-const ghostPlantManifest = evaluationManifest?.family_id === ghostPlantEvaluationPin.family_id ? evaluationManifest : null;
+const ghostPlantManifest = evaluationManifest?.family_id === ghostPlantEvaluationPin.family_id ? evaluationManifest : installedManifest(ghostPlantEvaluationPin.family_id);
 const beeBatSpecies = beeBatManifest ? ['meshtint-bee', 'meshtint-bat'] : [];
 const snakeCrabSpecies = snakeCrabManifest ? ['meshtint-snake', 'meshtint-hermit-crab'] : [];
 const ghostPlantSpecies = ghostPlantManifest ? ['meshtint-ghost', 'meshtint-potted-plant'] : [];

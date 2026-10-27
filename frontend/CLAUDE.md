@@ -346,7 +346,8 @@ one-time Hive/Cave guarantees through the server policy. Runtime delivery still
 requires canonical publication/readback and the ordinary MAIN release gates.
 
 The owner-accepted Snake/Hermit Crab release is the fourteenth canonical runtime
-pin. The positive server policy supports thirty-one exact species/potion pairs;
+pin; its approved bytes remain intact when the fifteenth release is added.
+The positive server policy supports thirty-five exact species/potion pairs;
 Coil/Shore challenges guarantee each new natural egg and global Fire/Ice potion
 bundle once after ten qualifying accomplishments within 180 days. React uses
 server-confirmed offers, incubation readiness, hatch receipts and species-wide
@@ -362,22 +363,30 @@ Evolve clip is supplied, so confirmed growth selects that element's destination
 idle. Missing exact art retains care/claim controls. Physical-phone and native
 shell acceptance remain separate from desktop/browser evidence.
 
-Ghost/Potted Plant receiving preparation uses
-`shared/catalog/elemental-ghost-potted-plant.json`, with the verified private
-manifest pinned and acquisition/artwork acceptance disabled. The separate
-`assets.ghost-potted-plant.evaluation.lock.json` enables explicit loopback review;
-the family is absent from the fourteen-release active lock, so ordinary runtime
-delivery stays unavailable. Candidate bytes remain outside the checkout and the
-evaluation plugin verifies every file before serving only loopback GET/HEAD.
-Synthetic tests establish contract behavior only; actual component browser
-checks use the exact private candidate. Neither establishes phone acceptance. The
-exact natural eggs remain `meshtint-ghost-egg` and
-`meshtint-potted-plant-egg`; their form names and server-confirmed stages remain
-Ghost/Spook/Phantom and Seed/Sprout/Flower Pot Monster. Future challenge image
-handles depict only the Baby appearance and obey the existing exact-pair child
+The owner-approved Ghost/Potted Plant runtime adds the fifteenth active-lock
+pin while retaining every earlier release. The exact accepted manifest is
+`6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9`;
+canonical application readback passed. Normal import,
+web/native builds and canonical browser checks use active-lock defaults without
+an evaluation root or injected staged release. The separate
+`assets.ghost-potted-plant.evaluation.lock.json` preserves the historical private
+review; its loopback-only GET/HEAD route verifies every external file and is
+separate from canonical delivery. Synthetic fixtures establish contract behavior
+only; desktop component checks do not establish phone/native-shell acceptance.
+
+The exact natural eggs remain `meshtint-ghost-egg` and
+`meshtint-potted-plant-egg`; their server-confirmed forms remain
+Ghost/Spook/Phantom and Seed/Sprout/Flower Pot Monster. Potion presentation starts
+during incubation. Baby-only challenge images obey the existing exact-pair child
 surprise restriction. Missing exact portraits never fall back to a tinted Base
-image. Wisp/Sprout guarantees and shared expedition limits remain server-owned;
-receiving registration cannot activate them or grant ownership.
+image. Keep all 138 literal `appearance_bindings` v1 native motion IDs, including
+Plant Middle `source-idle-02` and Ghost's differently ordered Middle/Grown slash
+IDs. No Evolve take is supplied; confirmed growth uses the same element's
+destination idle. Both earlier elemental Bird evolutions remain supported.
+Wisp/Sprout guarantees and shared expedition limits remain server-owned;
+receiving registration cannot grant ownership or progress. The active policy
+contains 35 exact pairs and twenty elemental guarantees. See
+[the activation and rollback runbook](../docs/operations/elemental-ghost-potted-plant.md).
 
 ### Collection navigation (October 2026)
 

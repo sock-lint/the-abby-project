@@ -23,10 +23,11 @@ const evaluationStage = evaluation ? stagedElementalRelease(
 if (evaluation && !evaluationStage) throw new Error('Exact elemental evaluation bindings are unavailable.');
 const canonicalBeeBat = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
 const canonicalSnakeCrab = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-snake-hermit-crab');
+const canonicalGhostPlant = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-ghost-potted-plant');
 const available = (familyId, canonical) => Boolean(canonical || evaluationStage?.release.family_id === familyId);
 const beeBatAvailable = available('abby-elemental-bee-bat', canonicalBeeBat);
 const snakeCrabAvailable = available('abby-elemental-snake-hermit-crab', canonicalSnakeCrab);
-const ghostPlantAvailable = available('abby-elemental-ghost-potted-plant', null);
+const ghostPlantAvailable = available('abby-elemental-ghost-potted-plant', canonicalGhostPlant);
 const usesEvaluation = (family) => Boolean(evaluation && elementalFamilyId(family.slug) === evaluation.pin.family_id);
 // Canonical checks leave these real components on their ordinary active-lock defaults.
 const elementalProps = (family) => usesEvaluation(family) ? { elemental: evaluationStage } : {};
