@@ -146,14 +146,25 @@ for (const width of [320, 390, 1280]) {
     await assertNavigation(page, width, FAMILY_NAV);
     await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
     const switcher = page.getByRole('group', { name: 'Choose your space' });
+    await expect(switcher.getByRole('button')).toHaveCount(2);
+    const track = switcher.locator('[data-space-track]');
+    await expect(track).toHaveCount(1);
     const switcherBox = await switcher.boundingBox();
+    const trackBox = await track.boundingBox();
+    const rowBox = await switcher.locator('..').boundingBox();
     if (width < 1024) {
-      expect(switcherBox.width).toBeLessThanOrEqual(256);
-      expect(switcherBox.height).toBeLessThan(52);
+      expect(trackBox.width).toBe(208);
+      expect(trackBox.height).toBe(32);
+      expect(switcherBox.height).toBe(44);
+      expect(rowBox.height).toBe(48);
     } else {
-      expect(switcherBox.width).toBe(448);
-      expect(switcherBox.height).toBe(52);
+      expect(trackBox.width).toBe(448);
+      expect(trackBox.height).toBe(52);
+      expect(rowBox.height).toBe(64);
     }
+    const gutter = width < 1024 ? 2 : 4;
+    const trackRadius = await track.evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius));
+    const effectiveTrackRadius = Math.min(trackRadius, trackBox.height / 2, trackBox.width / 2);
     for (const button of await switcher.getByRole('button').all()) {
       const box = await button.boundingBox();
       expect(box.height).toBeGreaterThanOrEqual(44);
@@ -162,15 +173,23 @@ for (const width of [320, 390, 1280]) {
       expect(box.x + box.width).toBeLessThanOrEqual(switcherBox.x + switcherBox.width + 0.1);
       expect(box.y + box.height).toBeLessThanOrEqual(switcherBox.y + switcherBox.height + 0.1);
       expect(await button.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
+      const pill = button.locator('[data-space-pill]');
+      const pillBox = await pill.boundingBox();
+      expect(pillBox.height).toBe(width < 1024 ? 28 : 44);
+      expect(pillBox.y - trackBox.y).toBeCloseTo(gutter, 1);
+      expect(trackBox.y + trackBox.height - pillBox.y - pillBox.height).toBeCloseTo(gutter, 1);
+      const pillRadius = await pill.evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius));
+      expect(effectiveTrackRadius - Math.min(pillRadius, pillBox.height / 2, pillBox.width / 2)).toBeCloseTo(gutter, 1);
     }
     await assertFits(page);
     await page.screenshot({ path: testInfo.outputPath(`family-${width}.png`), fullPage: true });
+    await page.locator('[data-journal-sticky-header="true"]').screenshot({ path: testInfo.outputPath(`header-${width}.png`) });
     await visibleNav(page, width).getByRole('link', { name: 'Children', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Children', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Abby', exact: true })).toBeVisible();
     await expect(page.getByText('First drawing', { exact: true })).toBeVisible();
     const personalBoundary = reads.length;
-    await personal.click();
+    await personal.click({ position: { x: (await personal.boundingBox()).width / 2, y: 1 } });
     await expect(personal).toHaveAttribute('aria-pressed', 'true');
     await assertNavigation(page, width, PERSONAL_NAV);
     await expect(page.getByText('Read after breakfast', { exact: true }).first()).toBeVisible();
@@ -181,11 +200,14 @@ for (const width of [320, 390, 1280]) {
     const outline = await family.evaluate(button => {
       const style = getComputedStyle(button);
       return { visible: button.matches(':focus-visible'), width: parseFloat(style.outlineWidth),
-        offset: parseFloat(style.outlineOffset) };
+        offset: parseFloat(style.outlineOffset), style: style.outlineStyle };
     });
     expect(outline.visible).toBe(true);
     expect(outline.width).toBeGreaterThan(0);
+    expect(outline.style).not.toBe('none');
+    expect(outline.style).not.toBe('hidden');
     const [familyBox, personalBox] = await Promise.all([family.boundingBox(), personal.boundingBox()]);
+    expect(personalBox.x - familyBox.x - familyBox.width).toBeCloseTo(4, 1);
     expect(personalBox.x - familyBox.x - familyBox.width).toBeGreaterThanOrEqual(outline.width + outline.offset - 0.1);
     await assertFits(page);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('parent');
