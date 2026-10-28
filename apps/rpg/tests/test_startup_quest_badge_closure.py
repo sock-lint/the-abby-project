@@ -832,3 +832,261 @@ class StartupQuestBadgeClosureTests(TestCase):
                     after = self.catalog_snapshot()
                     self.run_sources(packs)
                     self.assertEqual(after, self.catalog_snapshot())
+
+    def test_actual_badge_refusal_remains_a_seed_after_later_capacity_changes(self):
+        for pack_count in (2, 3):
+            with self.subTest(pack_count=pack_count):
+                prefix = f"Actual badge refusal {pack_count}"
+                archive = SkillCategory.objects.create(name=f"{prefix} Archive", is_retired=True)
+                Skill.objects.create(category=archive, name="Old")
+                saved = QuestDefinition.objects.create(name=f"{prefix} Saved", description="Saved repeatability",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                missing, badge, gate = (f"{prefix} {suffix}" for suffix in ("Missing", "Badge", "Gate"))
+                packs = [{"skill_tree": {"categories": [{"name": archive.name}],
+                    "skills": [{"name": "Fresh", "category": archive.name}]},
+                    "badges": {"badges": [self.badge(badge, quest_names=[missing, saved.name], count=2)]},
+                    "quests": {"quests": [self.quest(missing, skill_tags=[f"{archive.name}::Fresh"]),
+                        self.quest(saved.name, skill_tags=[f"{archive.name}::Old"])]}}]
+                if pack_count == 3:
+                    packs.append({"quests": {"quests": [self.quest(f"{prefix} Independent")]}})
+                packs.append({"quests": {"quests": [self.quest(gate, required_badge=badge)]}})
+                for _reload in range(2):
+                    error = None
+                    try:
+                        output = self.run_sources(packs)
+                    except CommandError as exc:
+                        error = str(exc)
+                    self.assertIsNone(error, "A completed badge refusal must survive later planning passes")
+                    self.assertFalse(Badge.objects.filter(name=badge).exists())
+                    self.assertFalse(QuestDefinition.objects.filter(name=gate).exists())
+                    self.assertIn("Left quest '" + gate + "' unchanged", output)
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+
+    def test_badge_written_in_this_batch_is_not_a_retained_rejected_edit(self):
+        for saved_badge in (False, True):
+            for pack_count in (2, 3):
+                with self.subTest(saved_badge=saved_badge, pack_count=pack_count):
+                    prefix = f"Applied badge {saved_badge} {pack_count}"
+                    archive = SkillCategory.objects.create(name=f"{prefix} Archive")
+                    Skill.objects.create(category=archive, name="Old", is_retired=True)
+                    root, badge_name, gate = (f"{prefix} {suffix}" for suffix in ("Root", "Badge", "Gate"))
+                    if saved_badge:
+                        Badge.objects.create(name=badge_name, criteria_type="quest_completed", criteria_value={"quest_name": "Seed"})
+                    badge_pack = {"badges": {"badges": [self.badge(badge_name, quest_name=root)]}}
+                    root_pack = {"quests": {"quests": [self.quest(root, skill_tags=[f"{archive.name}::Old"])]}}
+                    if pack_count == 2:
+                        packs = [{**badge_pack, **root_pack}]
+                    else:
+                        packs = [badge_pack, root_pack]
+                    packs.append({"quests": {"quests": [self.quest(gate, required_badge=badge_name)]}})
+                    for _reload in range(2):
+                        output = self.run_sources(packs)
+                        self.assertFalse(QuestDefinition.objects.filter(name=root).exists())
+                        self.assertFalse(QuestDefinition.objects.filter(name=gate).exists())
+                        self.assertEqual(Badge.objects.get(name=badge_name).criteria_value, {"quest_name": root})
+                        self.assertIn("Quest source '" + root + "' was deferred:", output)
+
+    def test_cyclic_transient_conflicts_do_not_override_settled_retirement_refusals(self):
+        self.retained()
+        for depth in (1, 2, 4):
+            for layout in ("forward", "reverse", "split"):
+                with self.subTest(depth=depth, layout=layout):
+                    prefix = f"Cyclic transient {depth} {layout}"
+                    archive = SkillCategory.objects.create(name=f"{prefix} Archive", is_retired=True)
+                    saved = QuestDefinition.objects.create(name=f"{prefix} Saved", description="Retained repeatable",
+                        quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                    before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                    missing, conflict, badge, gate, after = (f"{prefix} {suffix}" for suffix in
+                        ("Missing", "Conflict", "Badge", "Gate", "After"))
+                    roots = [self.quest(missing, skill_tags=[f"{archive.name}::Fresh"]),
+                        self.quest(conflict, skill_tags=["Robotics::Servo"])]
+                    parent = missing
+                    for index in range(depth - 1):
+                        name = f"{prefix} Prerequisite {index}"
+                        roots.append(self.quest(name, prerequisite_quest=parent,
+                            trigger_filter={"allowed_triggers": ["reading_logged"]}))
+                        parent = name
+                    conditional = self.quest(saved.name, prerequisite_quest=parent, required_badge=badge,
+                        trigger_filter={"allowed_triggers": ["reading_logged"]})
+                    badges = {"badges": [self.badge(badge, quest_names=[conflict, saved.name], count=2)]}
+                    dependents = [self.quest(gate, required_badge=badge), self.quest(after, prerequisite_quest=saved.name,
+                        trigger_filter={"allowed_triggers": ["reading_logged"]})]
+                    tree = {"categories": [{"name": archive.name}, {"name": "Robotics"}],
+                        "skills": [{"name": "Fresh", "category": archive.name}, {"name": "Servo", "category": "Robotics"}]}
+                    if layout == "split":
+                        packs = [{"badges": badges}, {"quests": {"quests": [conditional, *dependents]}},
+                            {"skill_tree": tree, "quests": {"quests": roots}}]
+                    else:
+                        entries = [*roots, conditional, *dependents]
+                        packs = [{"skill_tree": tree, "badges": badges,
+                            "quests": {"quests": entries if layout == "forward" else list(reversed(entries))}}]
+                    for _reload in range(2):
+                        output = self.run_sources(packs)
+                        self.assertTrue(Badge.objects.filter(name=badge).exists())
+                        self.assertTrue(QuestDefinition.objects.filter(name=gate).exists())
+                        self.assertTrue(QuestDefinition.objects.filter(name=after).exists())
+                        self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                        self.assertNotIn("Left badge '" + badge + "' unchanged", output)
+
+    def test_varying_downstream_cycles_settle_after_their_upstream_choice(self):
+        for layout in ("same-C-first", "same-P-first", "cross-B-C-P"):
+            with self.subTest(layout=layout):
+                prefix = f"Varying downstream {layout}"
+                packs, saved, badge, outside, _blocked, safe_gate = self.capacity_cycle_case(prefix, layout)
+                missing = f"{prefix} Missing"
+                downstream = QuestDefinition.objects.create(name=f"{prefix} Downstream", description="Saved downstream",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                for pack in packs:
+                    for entry in pack.get("badges", {}).get("badges", []):
+                        if entry["name"] == outside:
+                            entry["criteria_value"] = {"quest_names": [missing, saved.name, downstream.name], "count": 3}
+                packs[-1].setdefault("quests", {}).setdefault("quests", []).append(self.quest(downstream.name,
+                    description="Applied downstream", is_repeatable=False, required_badge=outside))
+                for _reload in range(2):
+                    self.run_sources(packs)
+                    self.assertFalse(Badge.objects.filter(name=badge).exists())
+                    self.assertTrue(Badge.objects.filter(name=outside).exists())
+                    self.assertTrue(QuestDefinition.objects.filter(name=safe_gate).exists())
+                    downstream.refresh_from_db()
+                    self.assertEqual(downstream.description, "Applied downstream")
+                    self.assertFalse(downstream.is_repeatable)
+                    saved.refresh_from_db()
+                    self.assertTrue(saved.is_repeatable)
+
+    def test_chained_capacity_cycles_do_not_restart_settled_source_components(self):
+        import sys
+        from apps.rpg.content.loader import ContentPack
+
+        archive = SkillCategory.objects.create(name="Budget archive", is_retired=True)
+        roots = [self.quest("Budget root", required_skill=f"{archive.name}::Fresh", required_skill_level=1)]
+        badges, parent = [], "Budget root"
+        for index in range(50):
+            badge, child = f"Budget lead badge {index}", f"Budget lead quest {index}"
+            badges.append(self.badge(badge, quest_name=parent))
+            roots.append(self.quest(child, required_badge=badge))
+            parent = child
+        for index in range(40):
+            missing, saved, badge = (f"Budget cycle {index} {suffix}" for suffix in ("Missing", "Saved", "Badge"))
+            QuestDefinition.objects.create(name=saved, quest_type="collection", target_value=2,
+                is_system=True, is_repeatable=True)
+            dependency = ({"prerequisite_quest": parent, "trigger_filter": {"allowed_triggers": ["reading_logged"]}}
+                if index == 0 else {"required_badge": parent})
+            roots.extend([self.quest(missing, **dependency),
+                self.quest(saved, required_badge=badge, is_repeatable=False)])
+            badges.append(self.badge(badge, quest_names=[missing, saved], count=2))
+            parent = badge
+        parsed = {"skill_tree": {"categories": [{"name": archive.name}],
+            "skills": [{"name": "Fresh", "category": archive.name}]},
+            "quests": {"quests": roots}, "badges": {"badges": badges}}
+        counts = {"badge": 0}
+        previous = sys.getprofile()
+
+        def observe(frame, event, arg):
+            if event == "call" and frame.f_code.co_name == "blocked_badge":
+                counts["badge"] += 1
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory)
+            for section, value in parsed.items():
+                (path / f"{section}.yaml").write_text(yaml.safe_dump(value))
+            state = StartupDeferrals()
+            loader = ContentPack(path, defer_retired_references=True, startup_deferrals=state)
+            try:
+                sys.setprofile(observe)
+                ContentPack.prepare_startup_dependencies([loader])
+            finally:
+                sys.setprofile(previous)
+            self.assertLessEqual(counts["badge"], 12 * (len(roots) + len(badges)))
+            self.assertTrue(all(name in state.planned_badges for name in [b["name"] for b in badges]))
+            self.assertEqual(len(state.cycle_pins), 80)
+
+    def test_disconnected_valid_capacity_cycle_applies_its_source_edit(self):
+        archive = SkillCategory.objects.create(name="Disconnected archive", is_retired=True)
+        saved = QuestDefinition.objects.create(name="Disconnected saved", description="Old source",
+            quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+        packs = [{"skill_tree": {"categories": [{"name": archive.name}],
+            "skills": [{"name": "Fresh", "category": archive.name}]},
+            "badges": {"badges": [self.badge("Disconnected badge", quest_names=[saved.name], count=2)]},
+            "quests": {"quests": [self.quest("Disconnected missing", skill_tags=[f"{archive.name}::Fresh"]),
+                self.quest(saved.name, description="Applied source", is_repeatable=False, required_badge="Disconnected badge")]}}]
+        for _reload in range(2):
+            self.run_sources(packs)
+            saved.refresh_from_db()
+            self.assertEqual(saved.description, "Applied source")
+            self.assertFalse(saved.is_repeatable)
+            self.assertTrue(Badge.objects.filter(name="Disconnected badge").exists())
+
+    def test_independent_true_conflict_still_upgrades_a_conditional_saved_cycle(self):
+        self.retained()
+        saved = QuestDefinition.objects.create(name="Strict cycle saved", description="Retained strict source",
+            quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+        before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+        packs = [{"skill_tree": {"categories": [{"name": "Robotics"}],
+            "skills": [{"name": "Servo", "category": "Robotics"}]},
+            "badges": {"badges": [self.badge("Strict cycle badge", quest_names=["Strict cycle conflict", saved.name], count=2)]},
+            "quests": {"quests": [self.quest("Strict cycle conflict", skill_tags=["Robotics::Servo"]),
+                self.quest(saved.name, prerequisite_quest="Strict cycle conflict", required_badge="Strict cycle badge",
+                    trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                self.quest("Strict cycle gate", required_badge="Strict cycle badge")]}}]
+        for _reload in range(2):
+            output = self.run_sources(packs)
+            self.assertFalse(Badge.objects.filter(name="Strict cycle badge").exists())
+            self.assertFalse(QuestDefinition.objects.filter(name="Strict cycle gate").exists())
+            self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+            self.assertIn("retained category identity conflict", output)
+
+    def test_coupled_capacity_cycles_select_an_independently_supported_retained_rule(self):
+        self.retained()
+        for refusal in ("derived", "direct-retirement", "direct-conflict"):
+            for layout in ("same", "reverse", "split"):
+                with self.subTest(refusal=refusal, layout=layout):
+                    prefix = f"Coupled {refusal} {layout}"
+                    archive = SkillCategory.objects.create(name=f"{prefix} Archive", is_retired=True)
+                    conflict, retired, retained, edited, after, extra, first, second = (
+                        f"{prefix} {suffix}" for suffix in
+                        ("Conflict", "Retired", "Retained", "Edited", "After", "Extra", "First badge", "Second badge"))
+                    saved_rows = {}
+                    for name in (retained, edited, extra):
+                        saved_rows[name] = QuestDefinition.objects.create(name=name, description="Saved rules",
+                            quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                    before = QuestDefinition.objects.filter(pk=saved_rows[retained].pk).values().get()
+                    rule = self.quest(retained, description="Conditional retained edit", is_repeatable=False, required_badge=first)
+                    if refusal == "direct-retirement":
+                        rule["skill_tags"] = [f"{archive.name}::Fresh"]
+                    elif refusal == "direct-conflict":
+                        rule["skill_tags"] = ["Robotics::Servo"]
+                    entries = [
+                        self.quest(conflict, skill_tags=["Robotics::Servo"], required_badge=second,
+                            prerequisite_quest=retained, trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                        self.quest(retired, skill_tags=[f"{archive.name}::Fresh"], required_badge=second),
+                        self.quest(extra, is_repeatable=False, required_badge=first),
+                        self.quest(after, required_badge=second, prerequisite_quest=retained,
+                            trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                        rule,
+                        self.quest(edited, description="Applied repeatability", is_repeatable=False, required_badge=second,
+                            prerequisite_quest=retained, trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                    ]
+                    tree = {"categories": [{"name": archive.name}, {"name": "Robotics"}],
+                        "skills": [{"name": "Fresh", "category": archive.name}, {"name": "Servo", "category": "Robotics"}]}
+                    badges = {"badges": [self.badge(first, quest_names=[retired, edited], count=2),
+                        self.badge(second, quest_names=[conflict, retained, edited], count=3)]}
+                    if layout == "split":
+                        packs = [{"skill_tree": tree, "badges": badges}, {"quests": {"quests": entries}}]
+                    else:
+                        packs = [{"skill_tree": tree, "badges": badges,
+                            "quests": {"quests": entries if layout == "same" else list(reversed(entries))}}]
+                    for _reload in range(2):
+                        self.run_sources(packs)
+                        self.assertFalse(Badge.objects.filter(name=first).exists())
+                        self.assertEqual(QuestDefinition.objects.filter(pk=saved_rows[retained].pk).values().get(), before)
+                        saved_rows[edited].refresh_from_db()
+                        if refusal == "direct-conflict":
+                            self.assertFalse(Badge.objects.filter(name=second).exists())
+                            self.assertFalse(QuestDefinition.objects.filter(name=after).exists())
+                            self.assertTrue(saved_rows[edited].is_repeatable)
+                        else:
+                            self.assertTrue(Badge.objects.filter(name=second).exists())
+                            self.assertTrue(QuestDefinition.objects.filter(name=after).exists())
+                            self.assertFalse(saved_rows[edited].is_repeatable)
+                            self.assertEqual(saved_rows[edited].description, "Applied repeatability")

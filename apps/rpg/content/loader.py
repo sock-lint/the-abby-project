@@ -64,6 +64,8 @@ class StartupDeferrals:
     categories: set[str] = field(default_factory=set)
     conflict_skills: set[tuple[str, str]] = field(default_factory=set)
     badges: set[str] = field(default_factory=set)
+    withheld_badges: set[str] = field(default_factory=set)
+    applied_badges: set[str] = field(default_factory=set)
     conflict_quests: set[str] = field(default_factory=set)
     source_packs: list[dict] = field(default_factory=list)
     source_paths: dict[int, str] = field(default_factory=dict)
@@ -78,6 +80,8 @@ class StartupDeferrals:
         self.categories.clear()
         self.conflict_skills.clear()
         self.badges.clear()
+        self.withheld_badges.clear()
+        self.applied_badges.clear()
         self.conflict_quests.clear()
         self.source_packs.clear()
         self.source_paths.clear()
@@ -331,6 +335,8 @@ class ContentPack:
             raise CategorySourceConflict(f"Skill source {reference!r} was deferred for a retained category identity conflict.")
 
     def _badge_uses_conflicted_category(self, kind, rule):
+        if not isinstance(rule, dict):
+            return False
         names = self._startup_deferrals.categories
         name = rule.get("category")
         if not names or not isinstance(name, str):
@@ -347,6 +353,29 @@ class ContentPack:
         # mastery retains its exact selector. A conflict guarantees a saved
         # category exists; no household rows or Python casefolding are needed.
         return SkillCategory.objects.annotate(_source_category_selector=Value(name)).filter(matches).exists()
+
+    @staticmethod
+    def _startup_quest_completion_rule(rule):
+        """Read only legacy shapes whose completion capacity can be planned.
+
+        Default startup deliberately accepts older badge criteria. Speculative
+        dependency checks must not make those same rows fatal to startup.
+        Native loading and strict authored-content validation keep their rules.
+        """
+        if not isinstance(rule, dict):
+            return None
+        count = rule.get("count")
+        if count is not None:
+            try:
+                count = int(count)
+            except (TypeError, ValueError, OverflowError):
+                return None
+        names = rule.get("quest_names")
+        if names is None:
+            names = [rule["quest_name"]] if rule.get("quest_name") else []
+        if not isinstance(names, (list, tuple)) or not all(isinstance(name, str) for name in names):
+            return None
+        return names, count
 
     @staticmethod
     def prepare_startup_dependencies(loaders):
@@ -553,8 +582,8 @@ class ContentPack:
         seeds, seed_causes = {}, {}
         for name in state.quests:
             plan(seeds, seed_causes, "quest", name, name in state.conflict_quests, source_reason("quest", name))
-        for name in state.badges:
-            plan(seeds, seed_causes, "badge", name, True, source_reason("badge", name))
+        for name in state.withheld_badges | state.badges:
+            plan(seeds, seed_causes, "badge", name, name in state.badges, source_reason("badge", name))
         for entry in quests:
             references = [tag if isinstance(tag, str) else tag["skill"] for tag in entry.get("skill_tags", []) or []]
             if entry.get("required_skill"):
@@ -582,6 +611,8 @@ class ContentPack:
             if kind == "quest":
                 matches = quest_matches(name)
             else:
+                if name in state.applied_badges:
+                    return False  # This batch applied its rules; no saved rejected edit survives.
                 if name not in existing_badges:
                     existing_badges[name] = self._source_reference_matches(Badge, name=name)
                 matches = existing_badges[name]
@@ -609,13 +640,12 @@ class ContentPack:
         def blocked_badge(entry):
             if entry["criteria_type"] != "quest_completed":
                 return None
-            rule = entry.get("criteria_value") or {}
-            names = rule.get("quest_names")
-            if names is None:
-                names = [rule["quest_name"]] if rule.get("quest_name") else []
+            parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
+            if parsed is None:
+                return None
+            names, count = parsed
             affected = {name for name in names if unavailable_quest(name)}
-            count = rule.get("count")
-            if not affected or (count is not None and int(count) <= 0):
+            if not affected or (count is not None and count <= 0):
                 return None
             remaining = set(names) - affected
             if remaining:
@@ -623,7 +653,7 @@ class ContentPack:
                     return None  # Native no-count lists mean ANY, not ALL.
                 if any(completion_capacity(name, planned) > 1 for name in remaining):
                     return None
-                if len(remaining) >= int(count):
+                if len(remaining) >= count:
                     return None
             conflict = any(planned["quest", name] for name in affected)
             source = next(name for name in sorted(affected) if planned["quest", name] == conflict)
@@ -631,7 +661,7 @@ class ContentPack:
 
         nodes = {("quest", entry["name"]) for entry in quests} | {("badge", entry["name"]) for entry in badges}
 
-        def cycle_roots(history):
+        def cycle_roots(history, nodes):
             # Use varying admission inputs, not every structural reference. A
             # saved prerequisite can stay available while its source is deferred;
             # equal saved/source capacity cannot drive a completion cycle either.
@@ -648,16 +678,16 @@ class ContentPack:
                 edge(("quest", prerequisite), child, lambda row: admission_input("quest", prerequisite, row))
                 edge(("badge", badge), child, lambda row: admission_input("badge", badge, row))
             for entry in badges:
-                rule = entry.get("criteria_value") or {}
-                if entry["criteria_type"] != "quest_completed" or (rule.get("count") is not None and int(rule["count"]) <= 0):
+                parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
+                if entry["criteria_type"] != "quest_completed" or parsed is None:
                     continue
-                names = rule.get("quest_names")
-                if names is None:
-                    names = [rule["quest_name"]] if rule.get("quest_name") else []
+                names, count = parsed
+                if count is not None and count <= 0:
+                    continue
                 for name in names:
                     edge(("quest", name), ("badge", entry["name"]), lambda row: (
                         admission_input("quest", name, row),
-                        completion_capacity(name, row) if rule.get("count") is not None else None))
+                        completion_capacity(name, row) if count is not None else None))
             # Iterative SCC discovery avoids a recursion limit on long sources.
             reverse = {node: set() for node in nodes}
             for parent, children in graph.items():
@@ -708,24 +738,125 @@ class ContentPack:
             # disappear once the true conditional source choices are retained.
             return set().union(*(components[index] & varied for index in affected - downstream))
 
-        while True:
-            planned, causes = seeds.copy(), seed_causes.copy()
-            for (kind, name), (conflict, reason) in state.cycle_pins.items():
-                plan(planned, causes, kind, name, conflict, reason)
-            seen, history = {}, []
-            # Acyclic admission settles within the source-node depth. Bound cyclic
-            # rounds too; each restart pins a new node or upgrades a pin to True.
-            for _ in range(max(2, 2 * len(nodes) + 1)):
-                signature = tuple(sorted(planned.items()))
-                if signature in seen:
-                    history = history[seen[signature]:]
-                    break
-                seen[signature] = len(history)
-                history.append((planned.copy(), causes.copy()))
-                following, following_causes = seeds.copy(), seed_causes.copy()
-                for (kind, name), (conflict, reason) in state.cycle_pins.items():
-                    plan(following, following_causes, kind, name, conflict, reason)
-                for entry in quests:
+        # Settle the influence components in dependency order. Saved references
+        # with constant availability/capacity do not couple retirement-only
+        # choices; a real source-conflict seed can still make them strict.
+        graph = {node: set() for node in nodes}
+
+        def link(parent, child):
+            if parent in graph and child in graph:
+                graph[parent].add(child)
+
+        for entry in quests:
+            child = "quest", entry["name"]
+            link(("quest", entry.get("prerequisite_quest")), child)
+            link(("badge", entry.get("required_badge")), child)
+        capacity_badges = set()
+        for entry in badges:
+            parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
+            if entry["criteria_type"] != "quest_completed" or parsed is None:
+                continue
+            names, count = parsed
+            if count is not None and count <= 0:
+                continue
+            child = "badge", entry["name"]
+            if count is not None:
+                capacity_badges.add(child)
+            for name in names:
+                link(("quest", name), child)
+        conflict_reachable = {node for node, conflict in seeds.items() if conflict}
+        pending = list(conflict_reachable)
+        while pending:
+            parent = pending.pop()
+            for child in graph.get(parent, ()):
+                if child not in conflict_reachable:
+                    conflict_reachable.add(child)
+                    pending.append(child)
+
+        def can_change_admission(kind, name):
+            if (kind, name) in conflict_reachable:
+                return True
+            if kind == "quest":
+                return not quest_matches(name)
+            if name in state.applied_badges:
+                return True
+            if name not in existing_badges:
+                existing_badges[name] = self._source_reference_matches(Badge, name=name)
+            return not existing_badges[name]
+
+        for parent in graph:
+            kind, name = parent
+            if can_change_admission(kind, name):
+                continue
+            if kind == "quest":
+                candidates, saved = by_name.get(name, []), quest_matches(name)
+                if len(candidates) == len(saved) == 1 and bool(candidates[0].get("is_repeatable", False)) != saved[0].is_repeatable:
+                    graph[parent] = graph[parent] & capacity_badges
+                    continue
+            graph[parent].clear()
+
+        # Iterative Kosaraju traversal keeps long source chains off Python's
+        # recursion stack. The resulting components are ordered parent first.
+        reverse = {node: set() for node in nodes}
+        for parent, children in graph.items():
+            for child in children:
+                reverse[child].add(parent)
+        visited, order = set(), []
+        for start in sorted(nodes):
+            stack = [(start, False)]
+            while stack:
+                node, finished = stack.pop()
+                if finished:
+                    order.append(node)
+                elif node not in visited:
+                    visited.add(node)
+                    stack.append((node, True))
+                    stack.extend((child, False) for child in sorted(graph[node], reverse=True) if child not in visited)
+        visited, components = set(), []
+        for start in reversed(order):
+            component, stack = set(), [start]
+            while stack:
+                node = stack.pop()
+                if node not in visited:
+                    visited.add(node)
+                    component.add(node)
+                    stack.extend(reverse[node] - visited)
+            if component:
+                components.append(component)
+
+        planned, causes = seeds.copy(), seed_causes.copy()
+        for node, (conflict, reason) in state.cycle_pins.items():
+            plan(planned, causes, *node, conflict, reason)
+        quest_entries = {node: [] for node in nodes}
+        badge_entries = {node: [] for node in nodes}
+        for entry in quests:
+            quest_entries["quest", entry["name"]].append(entry)
+        for entry in badges:
+            badge_entries["badge", entry["name"]].append(entry)
+
+        for component in components:
+            local_quests = [entry for node in sorted(component) for entry in quest_entries[node]]
+            local_badges = [entry for node in sorted(component) for entry in badge_entries[node]]
+            cyclic = len(component) > 1 or any(node in graph[node] for node in component)
+            if cyclic:
+                # Prefer retained capacity provisionally, after external inputs
+                # have settled. This is not a seed: every following round must
+                # justify the refusal from actual source or dependency evidence.
+                for kind, name in sorted(component):
+                    candidates, saved = by_name.get(name, []), quest_matches(name) if kind == "quest" else []
+                    if (kind == "quest" and (kind, name) not in planned and len(candidates) == len(saved) == 1
+                            and saved[0].is_repeatable and not candidates[0].get("is_repeatable", False)):
+                        planned[kind, name] = False
+                        causes[kind, name] = source_reason(kind, name)
+            def following_plans(proposed=None):
+                following = {node: flag for node, flag in planned.items() if node not in component}
+                following_causes = {node: reason for node, reason in causes.items() if node not in component}
+                for node in component:
+                    if node in seeds:
+                        plan(following, following_causes, *node, seeds[node], seed_causes[node])
+                    if node in state.cycle_pins:
+                        plan(following, following_causes, *node, *state.cycle_pins[node])
+                for entry in local_quests:
                     parents = []
                     prerequisite = entry.get("prerequisite_quest")
                     if unavailable_quest(prerequisite):
@@ -737,29 +868,100 @@ class ContentPack:
                         conflict = any(flag for flag, _reason in parents)
                         plan(following, following_causes, "quest", entry["name"], conflict,
                             next(reason for flag, reason in parents if flag == conflict))
-                for entry in badges:
+                for entry in local_badges:
                     blocked = blocked_badge(entry)
                     if blocked is not None:
                         plan(following, following_causes, "badge", entry["name"], *blocked)
-                if following == planned:
-                    state.planned_badges.clear()
-                    state.planned_badges.update({name: flag for (kind, name), flag in following.items() if kind == "badge"})
-                    state.planned_quests.clear()
-                    state.planned_quests.update({name: flag for (kind, name), flag in following.items() if kind == "quest"})
-                    state.dependency_reasons.clear()
-                    state.dependency_reasons.update(following_causes)
-                    return
-                planned, causes = following, following_causes
-            changed = cycle_roots(history)
-            added = False
-            for node in sorted(changed):
-                conflict = any(row.get(node) is True for row, _reasons in history)
-                previous = state.cycle_pins.get(node)
-                if previous is None or (conflict and not previous[0]):
-                    reason = next(reasons[node] for row, reasons in history if row.get(node) is conflict)
-                    state.cycle_pins[node] = conflict, reason
+                if proposed is not None:
+                    following[proposed] = False
+                    following_causes[proposed] = source_reason(*proposed)
+                return following, following_causes
+
+            while True:
+                seen, history = {}, []
+                for _ in range(max(2, 2 * len(component) + 1)):
+                    signature = tuple((node, planned.get(node)) for node in sorted(component))
+                    if signature in seen:
+                        history = history[seen[signature]:]
+                        break
+                    seen[signature] = len(history)
+                    history.append((planned.copy(), causes.copy()))
+                    following, following_causes = following_plans()
+                    stable = all(following.get(node) == planned.get(node) for node in component)
+                    planned, causes = following, following_causes
+                    if stable:
+                        break
+                else:
+                    stable = False
+                if stable:
+                    break
+                changed = cycle_roots(history, component)
+                added = False
+                for node in sorted(changed):
+                    if node in state.cycle_pins:
+                        continue
+                    # Only direct/actual refusals are immutable conflicts.
+                    # A transient derived True must not become its own evidence.
+                    reason = next((reasons[node] for row, reasons in reversed(history) if row.get(node) is False),
+                        next(reasons[node] for row, reasons in reversed(history) if node in row))
+                    state.cycle_pins[node] = False, reason
+                    plan(planned, causes, *node, False, reason)
                     added = True
-            assert added, "Changing admission plans must include an unresolved selected source cycle."
+                assert added, "Changing admission plans must include an unresolved selected source cycle."
+            # A conflict can otherwise justify itself around a capacity cycle:
+            # the refusal removes saved repeatability, which then sustains that
+            # same refusal. Try retained conditional capacity locally. Accept a
+            # result only when the ordinary, unforced equations independently
+            # reproduce it and its genuine conflicts are a strict subset.
+            while True:
+                original, original_causes = planned.copy(), causes.copy()
+                original_true = {node for node in component if original.get(node) is True}
+                conditional = []
+                for kind, name in sorted(component):
+                    candidates, saved = by_name.get(name, []), quest_matches(name) if kind == "quest" else []
+                    if (kind == "quest" and original.get((kind, name)) is True and (kind, name) not in seeds
+                            and (kind, name) not in state.cycle_pins and len(candidates) == len(saved) == 1
+                            and saved[0].is_repeatable and not candidates[0].get("is_repeatable", False)):
+                        conditional.append((kind, name))
+                accepted = False
+                for proposed in conditional:
+                    planned = {node: flag for node, flag in original.items() if node not in component}
+                    causes = {node: reason for node, reason in original_causes.items() if node not in component}
+                    for node in component:
+                        if node in seeds:
+                            plan(planned, causes, *node, seeds[node], seed_causes[node])
+                        if node in state.cycle_pins:
+                            plan(planned, causes, *node, *state.cycle_pins[node])
+                    plan(planned, causes, *proposed, False, source_reason(*proposed))
+                    seen = set()
+                    for _ in range(max(2, 2 * len(component) + 1)):
+                        signature = tuple((node, planned.get(node)) for node in sorted(component))
+                        if signature in seen:
+                            break
+                        seen.add(signature)
+                        following, following_causes = following_plans(proposed)
+                        stable = all(following.get(node) == planned.get(node) for node in component)
+                        planned, causes = following, following_causes
+                        if not stable:
+                            continue
+                        unforced, unforced_causes = following_plans()
+                        supported = all(unforced.get(node) == planned.get(node) for node in component)
+                        remaining_true = {node for node in component if unforced.get(node) is True}
+                        if supported and remaining_true < original_true:
+                            planned, causes = unforced, unforced_causes
+                            accepted = True
+                        break
+                    if accepted:
+                        break
+                if not accepted:
+                    planned, causes = original, original_causes
+                    break
+        state.planned_badges.clear()
+        state.planned_badges.update({name: flag for (kind, name), flag in planned.items() if kind == "badge"})
+        state.planned_quests.clear()
+        state.planned_quests.update({name: flag for (kind, name), flag in planned.items() if kind == "quest"})
+        state.dependency_reasons.clear()
+        state.dependency_reasons.update(causes)
 
     def _check_planned_dependency(self, kind, name):
         planned = (self._startup_deferrals.planned_badges if kind == "badge"
@@ -1362,6 +1564,10 @@ class ContentPack:
                     name=entry["name"], defaults=defaults,
                 )
                 self.stats.bump("created" if created else "updated", "badge")
+            if source["deferred"]:
+                self._startup_deferrals.withheld_badges.add(entry["name"])
+            else:
+                self._startup_deferrals.applied_badges.add(entry["name"])
             if source["category_conflict"]:
                 self._startup_deferrals.badges.add(entry["name"])
             else:

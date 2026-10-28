@@ -171,6 +171,12 @@ same package covers forward cross-pack dependencies, saved prerequisite
 overrides, safe alternative goals and retained history. They also check saved
 completion capacity across source orders, retraction of transient plans and
 bounded conditional cycles without withholding reachable downstream goals.
+They distinguish badges written earlier in the same batch from saved badges
+whose source edits were withheld, and keep actual loading refusals across later
+planning passes. Dependency-component cases bound repeated badge checks, with
+disconnected valid edits and independent source conflicts as controls. Coupled
+capacity cases require a retained-rule plan to remain supported without forcing
+that choice; actual source conflicts remain strict.
 `test_stale_category_source_identity` checks category recovery when only
 orphaned provenance remains, while live identities and keyed claims stay
 protected. MCP's `test_category_retained_repair_admission` checks departures
@@ -205,8 +211,13 @@ availability, editability, shop uses, catalog limits and fresh reads.
 The bundled-content command tests retain complete batch planning, ordered
 loading, explicit-pack behavior and rollback after an actual later failure.
 `apps.rpg.tests.test_startup_preflight_planning_context` requires planning errors
-to identify the supplying pack, including later entries scanned by the first
-loader. Bundled preflight tests retain parser details, grouped successful headers,
+to identify the supplying pack at the first, middle and last selected positions,
+including entries scanned by another loader, in normal and dry-run loads.
+`test_startup_legacy_badge_planning` keeps non-strict legacy badge criteria
+loadable during selective planning without changing saved criteria. It retains
+missing-content deferrals for valid counted goals and checks dry-run rollback,
+repeated loads, native numeric-count coercion and surviving any-of alternatives.
+Bundled preflight tests retain parser details, grouped successful headers,
 manual strictness and dry-run rollback. `test_startup_live_deferral_warnings`
 under the same package retains the original named cause across real cross-pack
 deferrals without repeatedly prefixing it.

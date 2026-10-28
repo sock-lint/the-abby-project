@@ -32,12 +32,11 @@ class StartupPreflightPlanningContextTests(TestCase):
                 for model in (SkillCategory, Skill, Badge, QuestDefinition, ItemDefinition,
                               ContentPackEntry, RPGContentOverride)}
 
-    def assert_planning_failure(self, bad_source, message, *, with_retired_skill=True):
-        sources = [{"items": {"items": [{"name": "Unwritten marker", "slug": "planning-marker",
-                                         "item_type": "food"}]}},
-                   {"skill_tree": {"categories": [{"name": "A"}],
-                       "skills": [{"name": "B::C", "category": "A"}]}} if with_retired_skill else {},
-                   bad_source]
+    def assert_planning_failure(self, bad_source, message, *, with_retired_skill=True, bad_position):
+        sources = [{"skill_tree": {"categories": [{"name": "A"}],
+                       "skills": [{"name": "B::C", "category": "A"}]}} if with_retired_skill else {}
+                   for _ in range(3)]
+        sources[bad_position] = bad_source
         before = self.snapshot()
         with TemporaryDirectory() as directory:
             selections = []
@@ -61,32 +60,39 @@ class StartupPreflightPlanningContextTests(TestCase):
                     self.assertEqual(self.snapshot(), before)
                     self.assertNotIn("Loading pack:", output.getvalue())
                     self.assertIn(message, str(raised.exception))
-                    self.assertIn(selections[2][0], str(raised.exception))
-                    self.assertNotIn(selections[0][0], str(raised.exception))
-                    self.assertNotIn(selections[1][0], str(raised.exception))
+                    self.assertIn(selections[bad_position][0], str(raised.exception))
+                    for index, selection in enumerate(selections):
+                        if index != bad_position:
+                            self.assertNotIn(selection[0], str(raised.exception))
                     self.assertEqual(state.source_paths, {})
 
-    def test_later_quest_planning_ambiguity_names_its_source_not_the_first_loader(self):
+    def test_quest_planning_ambiguity_names_its_source_at_every_position(self):
         SkillCategory.objects.create(name="A", is_retired=True)
         # A legacy current name and another row's retained source can tie.
         # The whole qualified spelling can also describe A / B::C, so the
         # retired-skill planner must try both boundaries and reject the tie.
         SkillCategory.objects.create(name="A::B")
         self.retain_source(SkillCategory, "Renamed A::B", {"name": "A::B"})
-        self.assert_planning_failure({"quests": {"quests": [{
-            "name": "Later ambiguous challenge", "quest_type": "collection", "target_value": 2,
-            "skill_tags": ["A::B::C"]}]}}, "unknown or ambiguous skill category source 'A::B'")
+        for bad_position in range(3):
+            with self.subTest(bad_position=bad_position):
+                self.assert_planning_failure({"quests": {"quests": [{
+                    "name": "Later ambiguous challenge", "quest_type": "collection", "target_value": 2,
+                    "skill_tags": ["A::B::C"]}]}}, "unknown or ambiguous skill category source 'A::B'", bad_position=bad_position)
 
-    def test_later_badge_planning_identity_error_names_its_source(self):
+    def test_badge_planning_identity_error_names_its_source_at_every_position(self):
         SkillCategory.objects.create(name="A", is_retired=True)
         for name in ("First saved badge", "Second saved badge"):
             self.retain_source(Badge, name, {"name": "Shared badge"})
-        self.assert_planning_failure({"badges": {"badges": [{
-            "name": "Shared badge", "criteria_type": "projects_completed", "criteria_value": {"count": 1},
-            "xp_bonus": 0, "award_coins": False}]}}, "More than one authored entry retains this exact source identity")
+        for bad_position in range(3):
+            with self.subTest(bad_position=bad_position):
+                self.assert_planning_failure({"badges": {"badges": [{
+                    "name": "Shared badge", "criteria_type": "projects_completed", "criteria_value": {"count": 1},
+                    "xp_bonus": 0, "award_coins": False}]}}, "More than one authored entry retains this exact source identity", bad_position=bad_position)
 
-    def test_later_category_source_check_names_its_loader(self):
+    def test_category_source_check_names_its_loader_at_every_position(self):
         for name in ("First saved route", "Second saved route"):
             self.retain_source(SkillCategory, name, {"name": "Shared route"})
-        self.assert_planning_failure({"skill_tree": {"categories": [{"name": "Shared route"}]}},
-            "More than one authored entry retains this exact source identity", with_retired_skill=False)
+        for bad_position in range(3):
+            with self.subTest(bad_position=bad_position):
+                self.assert_planning_failure({"skill_tree": {"categories": [{"name": "Shared route"}]}},
+                    "More than one authored entry retains this exact source identity", with_retired_skill=False, bad_position=bad_position)
