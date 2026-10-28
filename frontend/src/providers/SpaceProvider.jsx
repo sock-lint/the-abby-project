@@ -5,15 +5,10 @@ import { getToken } from '../api/client';
 import { setRequestSpace } from '../api/space';
 import { usePwaStatus } from '../pwa/pwaStatus.context';
 import { SpaceContext } from './spaceContext';
+import { notificationLinkSpace } from '../utils/notificationLinks';
 
 function readPreferences(key) {
   try { return JSON.parse(sessionStorage.getItem(key)) || {}; } catch { return {}; }
-}
-
-function personalNotificationLaunch(location) {
-  const spaces = new URLSearchParams(location.search).getAll('space');
-  return ['/quests', '/bestiary'].includes(location.pathname)
-    && spaces.length === 1 && spaces[0] === 'personal';
 }
 
 function safePath(path, personal = false) {
@@ -41,7 +36,8 @@ function AccountSpaces({ user, token, children }) {
   const [initialPreferences] = useState(() => readPreferences(storageKey));
   const preferences = useRef(initialPreferences);
   const [space, setSpace] = useState(() => isParentAccount
-    ? (personalNotificationLaunch(location) || initialPreferences.space === 'personal' ? 'personal' : 'family') : 'personal');
+    ? notificationLinkSpace(`${location.pathname}${location.search}`)
+      ?? (initialPreferences.space === 'personal' ? 'personal' : 'family') : 'personal');
   const [revision, setRevision] = useState(0);
 
   // Every new workspace mounts with its own fetches and forms. Layout effects
@@ -57,7 +53,11 @@ function AccountSpaces({ user, token, children }) {
   useLayoutEffect(() => {
     if (space === 'personal' && /^\/(family|manage|activity|codex)(\/|$)/.test(location.pathname)) return;
     preferences.current[space] = safePath(`${location.pathname}${location.search}${location.hash}`, space === 'personal');
-  }, [location, space]);
+    if (isParentAccount) {
+      preferences.current.space = space;
+      try { sessionStorage.setItem(storageKey, JSON.stringify(preferences.current)); } catch { /* Optional preference. */ }
+    }
+  }, [location, space, isParentAccount, storageKey]);
 
   const switchSpace = useCallback((next, destination) => {
     if (!isParentAccount || !['family', 'personal'].includes(next) || updateBlocked) return false;

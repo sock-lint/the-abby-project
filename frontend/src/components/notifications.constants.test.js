@@ -74,9 +74,28 @@ describe('notification destinations across parent spaces', () => {
   it.each([
     ['chore_submitted', '/bestiary?space=personal', 'family'],
     ['badge_earned', '/atlas?tab=badges', 'personal'],
-    ['journal_reply', '/chronicle?tab=journal', null],
   ])('preserves non-pet %s destinations', (notification_type, link, space) => {
     expect(destinationForNotification({ notification_type, link }, { isParentAccount: true })).toEqual({ space, target: link });
+  });
+
+  it.each([
+    ['journal_reply', '/chronicle?tab=journal&space=personal', 'personal', '/chronicle?tab=journal&space=personal'],
+    ['journal_reply', '/chronicle?tab=grades&child=7&space=family', 'family', '/chronicle?tab=grades&child=7&space=family'],
+    ['journal_reply', '/chronicle?tab=journal', 'family', '/family'],
+    ['savings_goal_completed', '', 'family', '/family'],
+    ['savings_goal_completed', '/treasury?tab=hoards', 'personal', '/treasury?tab=hoards'],
+    ['savings_goal_completed', '/treasury?tab=hoards&space=personal', 'personal', '/treasury?tab=hoards&space=personal'],
+    ['chore_approved', '/chores?space=personal', 'personal', '/chores?space=personal'],
+    ['chore_approved', '/chores', 'personal', '/chores'],
+    ['chore_approved', '', 'personal', '/quests?tab=duties'],
+    ['project_approved', '/projects/123?space=personal', 'personal', '/projects/123?space=personal'],
+  ])('routes known parent %s audiences from %s', (notification_type, link, space, target) => {
+    expect(destinationForNotification({ notification_type, link }, { isParentAccount: true })).toEqual({ space, target });
+  });
+
+  it('keeps legacy project approval notifications in their current space', () => {
+    expect(destinationForNotification({ notification_type: 'project_approved', link: '/projects/123' }, { isParentAccount: true }))
+      .toEqual({ space: null, target: '/projects/123' });
   });
 
   it.each([

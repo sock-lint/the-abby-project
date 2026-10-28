@@ -110,22 +110,17 @@ export default function App() {
   return <MotionConfig reducedMotion="user"><AppContent /></MotionConfig>;
 }
 
-function AppContent() {
-  const { user, loading, login, signup, sessionError } = useAuth();
-  const designRoute = typeof window !== 'undefined' && window.location.pathname === '/__design';
-  const savedTheme = user?.theme;
+// Workspace remounts cancel pending reads and discard hidden modal state.
+// Family reviews leave the account's own celebrations available in My space.
+function PersonalCelebrations() {
+  const { user } = useAuth();
+  const { isPersonalSpace } = useSpace();
   const userId = user?.id;
   const [celebration, setCelebration] = useState(null);
   const [celebrationNotice, setCelebrationNotice] = useState(null);
 
   useEffect(() => {
-    if (designRoute) return;
-    if (savedTheme) applyTheme(savedTheme);
-    else applyTheme('hyrule');
-  }, [designRoute, savedTheme]);
-
-  useEffect(() => {
-    if (designRoute || !userId) return;
+    if (!isPersonalSpace || !userId) return;
     let cancelled = false;
     getPendingCelebration()
       .then((res) => {
@@ -140,12 +135,12 @@ function AppContent() {
     return () => {
       cancelled = true;
     };
-  }, [designRoute, userId]);
+  }, [isPersonalSpace, userId]);
 
   // Streak / Perfect Day reveal — shown only after any pending birthday
   // is dismissed so the two never compete for attention on the same load.
   useEffect(() => {
-    if (designRoute || !userId) return;
+    if (!isPersonalSpace || !userId) return;
     if (celebration) return;
     const controller = new AbortController();
     callWithDeferredRecovery(getPendingCelebrationNotification, controller.signal)
@@ -161,7 +156,25 @@ function AppContent() {
     return () => {
       controller.abort();
     };
-  }, [designRoute, userId, celebration]);
+  }, [isPersonalSpace, userId, celebration]);
+
+  if (!isPersonalSpace) return null;
+  return <>
+    {celebration && <BirthdayCelebrationModal entry={celebration} onDismiss={() => setCelebration(null)} />}
+    {!celebration && celebrationNotice && <CelebrationModal notification={celebrationNotice} onDismiss={() => setCelebrationNotice(null)} />}
+  </>;
+}
+
+function AppContent() {
+  const { user, loading, login, signup, sessionError } = useAuth();
+  const designRoute = typeof window !== 'undefined' && window.location.pathname === '/__design';
+  const savedTheme = user?.theme;
+
+  useEffect(() => {
+    if (designRoute) return;
+    if (savedTheme) applyTheme(savedTheme);
+    else applyTheme('hyrule');
+  }, [designRoute, savedTheme]);
 
   // Dev-only design showcase route bypasses auth so primitives can be QA'd
   // without a running backend. Matches the path before any other routing.
@@ -207,18 +220,6 @@ function AppContent() {
       <InstallPromptProvider>
         <PwaStatusProvider>
           <UpdateBanner />
-        {celebration && (
-          <BirthdayCelebrationModal
-            entry={celebration}
-            onDismiss={() => setCelebration(null)}
-          />
-        )}
-        {!celebration && celebrationNotice && (
-          <CelebrationModal
-            notification={celebrationNotice}
-            onDismiss={() => setCelebrationNotice(null)}
-          />
-        )}
         <SuccessToastProvider>
         <SpriteCatalogProvider>
         {/* One heartbeat for every background signal — see PulseProvider.
@@ -226,6 +227,7 @@ function AppContent() {
             shell. */}
         <BrowserRouter>
         <SpaceProvider>
+        <PersonalCelebrations />
         <PulseProvider>
         <ParentReviewProvider>
             <UsageVisitCapture />

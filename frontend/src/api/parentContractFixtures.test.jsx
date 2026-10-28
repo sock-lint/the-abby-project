@@ -17,12 +17,38 @@ import personalDashboard from '../../../contracts/api/fixtures/parent-personal-d
 import childOverview from '../../../contracts/api/fixtures/family-child-overview.json';
 import { getChildOverview } from './index';
 import { setRequestSpace } from './space';
-import { getToken } from './client';
+import { api, getToken } from './client';
 import ownPetNotification from '../../../contracts/api/fixtures/parent-personal-pet-notification.json';
 import childPetNotification from '../../../contracts/api/fixtures/parent-child-pet-notification.json';
 import { destinationForNotification } from '../components/notifications.constants';
+import { notificationLinkSpace } from '../utils/notificationLinks';
+import familyJournalNotification from '../../../contracts/api/fixtures/parent-family-journal-notification.json';
+import personalJournalNotification from '../../../contracts/api/fixtures/parent-personal-journal-notification.json';
+import personalSavingsNotification from '../../../contracts/api/fixtures/parent-personal-savings-notification.json';
+import familySavingsNotification from '../../../contracts/api/fixtures/parent-family-savings-notification.json';
+import personalChoreNotification from '../../../contracts/api/fixtures/parent-personal-chore-notification.json';
+import personalProjectNotification from '../../../contracts/api/fixtures/parent-personal-project-notification.json';
 
 describe('parent dashboard response through the real React API client', () => {
+  it.each([
+    ['child shared journal', familyJournalNotification, 'family', '/chronicle?tab=journal&child=7&space=family', 'journal_reply'],
+    ['own journal', personalJournalNotification, 'personal', '/chronicle?tab=journal&space=personal', 'journal_reply'],
+    ['own savings', personalSavingsNotification, 'personal', '/treasury?tab=hoards&space=personal', 'savings_goal_completed'],
+    ['child savings', familySavingsNotification, 'family', '/family?child=7', 'savings_goal_completed'],
+    ['own chore', personalChoreNotification, 'personal', '/chores?space=personal', 'chore_approved'],
+    ['own project', personalProjectNotification, 'personal', '/projects/915?space=personal', 'project_approved'],
+  ])('uses the raw %s notification for matching inbox and startup destinations', async (_name, fixture, space, target, notificationType) => {
+    server.use(http.get(`*/api/notifications/${fixture.id}/`, () => HttpResponse.json(fixture)));
+    const receipt = await api.get(`/notifications/${fixture.id}/`);
+    expect(receipt).toEqual(fixture);
+    expect(receipt.notification_type).toBe(notificationType);
+    expect(receipt.is_read).toBe(false);
+    expect(destinationForNotification(receipt, { isParentAccount: true })).toEqual({ space, target });
+    expect(notificationLinkSpace(receipt.link)).toBe(space);
+    // Receiving a parent-oriented URL never gives a child a workspace switch.
+    expect(destinationForNotification(receipt, { isParentAccount: false })).toEqual({ space: null, target });
+  });
+
   it('routes actual own-pet and child-pet server receipts to their identified spaces', () => {
     expect(destinationForNotification(ownPetNotification, { isParentAccount: true })).toEqual({
       space: 'personal', target: '/bestiary?tab=mounts&space=personal',

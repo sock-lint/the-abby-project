@@ -204,13 +204,13 @@ class ChoreService:
             subject=user,
             target=completion,
             breakdown=[
-                {"label": "reward", "value": str(completion.reward_amount_snapshot), "op": "note"},
+                {"label": "reward", "value": f"{completion.reward_amount_snapshot:.2f}", "op": "note"},
                 {"label": "coins", "value": chore.coin_reward, "op": "note"},
             ],
             extras={
                 "chore_id": chore.pk,
                 "chore_title": chore.title,
-                "reward_snapshot": str(completion.reward_amount_snapshot),
+                "reward_snapshot": f"{completion.reward_amount_snapshot:.2f}",
                 "coin_snapshot": chore.coin_reward,
             },
         )
@@ -314,7 +314,7 @@ class ChoreService:
                 )
             ),
             notification_type=NotificationType.CHORE_APPROVED,
-            link="/chores",
+            link="/chores?space=personal" if own_parent_completion else "/chores",
         )
 
         # RPG game loop — wrapped so a downstream crash can't unwind the

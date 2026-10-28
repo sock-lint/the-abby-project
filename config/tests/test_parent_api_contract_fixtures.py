@@ -27,6 +27,167 @@ FIXED_NOW = datetime(2026, 10, 19, 2, tzinfo=timezone.utc)
 class ParentApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
 
+    def test_personal_project_completion_notification_keeps_own_destination_without_repaying_on_read(self):
+        from apps.notifications.models import Notification
+        from apps.payments.models import PaymentLedger
+        from apps.projects.models import ProjectCompletionRewardReceipt
+        from apps.rewards.models import CoinLedger
+
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            household = make_family(
+                "Project Notification Fixture", family_id=69,
+                parents=[{"id": 6, "username": "project-notification-parent", "display_name": "Alex"},
+                         {"id": 8, "username": "project-notification-coparent"}],
+                children=[{"id": 7, "username": "project-notification-child", "display_name": "Abby"}],
+            )
+            parent, coparent = household.parents
+            child = household.children[0]
+            outsider = make_family(
+                "Other Project Notification Fixture", family_id=70,
+                parents=[{"id": 99, "username": "project-notification-outsider"}],
+            ).parents[0]
+            self.client.force_authenticate(parent)
+            created = self.client.post("/api/projects/", {"title": "Build a shelf"},
+                                       format="json", HTTP_X_ABBY_SPACE="personal")
+            self.assertEqual(created.status_code, 201, created.data)
+            # Pin the actual source row before completion creates its receipts.
+            Project.objects.filter(pk=created.data["id"]).update(id=915)
+            for action in ("activate", "approve"):
+                response = self.client.post(f"/api/projects/915/{action}/", {},
+                                            format="json", HTTP_X_ABBY_SPACE="personal")
+                self.assertEqual(response.status_code, 200, response.data)
+            receipt = Notification.objects.get(user=parent, notification_type="project_approved")
+            if receipt.pk != 916:
+                occupied = Notification.objects.filter(pk=916)
+                if occupied.exists():
+                    occupied.update(id=Notification.objects.latest("pk").pk + 1)
+                Notification.objects.filter(pk=receipt.pk).update(id=916)
+            coin_history = list(CoinLedger.objects.values())
+            body = self.assert_response_fixture(
+                self.client.get("/api/notifications/916/", HTTP_X_ABBY_SPACE="personal"),
+                "parent-personal-project-notification.json",
+            )
+            self.assertEqual(body["title"], "Project completed: Build a shelf")
+            self.assertEqual(body["link"], "/projects/915?space=personal")
+            self.assertEqual(self.client.get("/api/notifications/916/").json(), body)
+            self.assertEqual(list(CoinLedger.objects.values()), coin_history)
+            self.assertEqual(ProjectCompletionRewardReceipt.objects.filter(project_id=915, user=parent).count(), 1)
+            self.assertFalse(PaymentLedger.objects.exists())
+            self.assertFalse(Notification.objects.filter(user__in=[child, coparent, outsider],
+                                                        notification_type="project_approved").exists())
+            for observer in (child, coparent, outsider):
+                self.client.force_authenticate(observer)
+                self.assertEqual(self.client.get("/api/notifications/916/").status_code, 404)
+
+    def test_journal_savings_and_chore_notifications_keep_explicit_recipient_spaces(self):
+        from decimal import Decimal
+
+        from apps.chronicle.models import ChronicleEntry
+        from apps.notifications.models import Notification
+        from apps.payments.models import PaymentLedger
+        from apps.payments.services import PaymentService
+        from apps.projects.savings_service import SavingsGoalService
+        from apps.rewards.models import CoinLedger
+
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            household = make_family(
+                "Activity Notification Fixture", family_id=67,
+                parents=[{"id": 6, "username": "activity-parent", "display_name": "Alex"},
+                         {"id": 8, "username": "activity-coparent", "display_name": "Morgan"}],
+                children=[{"id": 7, "username": "activity-child", "display_name": "Abby"}],
+            )
+            parent, coparent = household.parents
+            child = household.children[0]
+            outsider = make_family(
+                "Other Activity Fixture", family_id=68,
+                parents=[{"id": 99, "username": "activity-outsider"}],
+            ).parents[0]
+            for owner, entry_id in ((child, 810), (parent, 811)):
+                entry = ChronicleEntry.objects.create(
+                    id=entry_id, user=owner, kind="journal", occurred_on=date(2026, 10, 18),
+                    chapter_year=2026, is_private=False,
+                    title="Synthetic sensitive journal title", summary="Synthetic sensitive journal body",
+                )
+                self.client.force_authenticate(child if owner == child else coparent)
+                replied = self.client.post(f"/api/chronicle/entries/{entry.pk}/comments/", {
+                    "body": "Synthetic sensitive reply body",
+                }, format="json")
+                self.assertEqual(replied.status_code, 201, replied.data)
+
+            for owner, title in ((parent, "My savings goal"), (child, "Bike savings goal")):
+                goal = SavingsGoalService.create_goal(owner, title=title, target_amount=Decimal("25.00"))
+                PaymentService.record_entry(owner, Decimal("25.00"), PaymentLedger.EntryType.ADJUSTMENT,
+                                           description="Synthetic saved balance", created_by=parent)
+                SavingsGoalService.check_and_complete(owner)
+                goal.refresh_from_db()
+                self.assertTrue(goal.is_completed)
+                self.assertEqual(CoinLedger.objects.get(user=owner, description=f"Savings goal: {title}").amount, 50)
+
+            self.client.force_authenticate(parent)
+            created = self.client.post("/api/chores/", {"title": "Evening tidy", "coin_reward": 4},
+                                       format="json", HTTP_X_ABBY_SPACE="personal")
+            self.assertEqual(created.status_code, 201, created.data)
+            chore = Chore.objects.get(title="Evening tidy", assigned_to=parent)
+            completed = self.client.post(f"/api/chores/{chore.pk}/complete/", {},
+                                         format="json", HTTP_X_ABBY_SPACE="personal")
+            self.assertEqual(completed.status_code, 201, completed.data)
+            self.assertEqual(completed.data["status"], "approved")
+            self.assertEqual(PaymentLedger.objects.filter(user=parent).count(), 1)
+
+            cases = (
+                ("parent-family-journal-notification.json", 911, "journal_reply", "Abby added a reply",
+                 "/chronicle?tab=journal&child=7&space=family", False),
+                ("parent-personal-journal-notification.json", 912, "journal_reply", "Morgan replied to your memory",
+                 "/chronicle?tab=journal&space=personal", True),
+                ("parent-personal-savings-notification.json", 913, "savings_goal_completed", "Savings goal reached!",
+                 "/treasury?tab=hoards&space=personal", True),
+                ("parent-family-savings-notification.json", 914, "savings_goal_completed", "Abby completed a savings goal",
+                 "/family?child=7", False),
+                ("parent-personal-chore-notification.json", 915, "chore_approved", "Chore completed: Evening tidy",
+                 "/chores?space=personal", True),
+            )
+            coin_history = list(CoinLedger.objects.values())
+            for filename, wire_id, kind, title, link, personal in cases:
+                receipt = Notification.objects.get(user=parent, notification_type=kind, title=title)
+                if receipt.pk != wire_id:
+                    # Pin actual saved row identities independently of full-
+                    # suite PostgreSQL sequences, just like the pet producer.
+                    occupied = Notification.objects.filter(pk=wire_id)
+                    if occupied.exists():
+                        occupied.update(id=Notification.objects.latest("pk").pk + 1)
+                    Notification.objects.filter(pk=receipt.pk).update(id=wire_id)
+                headers = {"HTTP_X_ABBY_SPACE": "personal"} if personal else {}
+                body = self.assert_response_fixture(
+                    self.client.get(f"/api/notifications/{wire_id}/", **headers), filename,
+                )
+                self.assertEqual(body["link"], link)
+                self.assertNotIn("sensitive", str(body))
+                self.assertNotIn("token", body["link"])
+            self.assertEqual(list(CoinLedger.objects.values()), coin_history)
+            self.assertEqual(Notification.objects.get(
+                user=coparent, notification_type="journal_reply",
+            ).link, "/chronicle?tab=journal&child=7&space=family")
+            self.assertEqual(Notification.objects.get(
+                user=coparent, notification_type="savings_goal_completed", title="Alex completed a savings goal",
+            ).link, "/family")
+            self.assertEqual(Notification.objects.get(
+                user=child, notification_type="savings_goal_completed",
+            ).link, "/treasury?tab=hoards")
+            self.assertFalse(Notification.objects.filter(user=outsider).exists())
+
+            # A saved route never grants access after a journal is unshared.
+            hidden = self.client.patch("/api/chronicle/811/journal/", {"is_private": True}, format="json")
+            self.assertEqual(hidden.status_code, 200, hidden.data)
+            self.client.force_authenticate(coparent)
+            self.assertEqual(self.client.get("/api/chronicle/entries/811/comments/").status_code, 404)
+            for actor in (coparent, child, outsider):
+                self.client.force_authenticate(actor)
+                for _, wire_id, *_ in cases:
+                    self.assertEqual(self.client.get(f"/api/notifications/{wire_id}/").status_code, 404)
+            self.assertEqual(self.client.post("/api/chronicle/entries/810/comments/", {
+                "body": "Foreign reply",
+            }, format="json").status_code, 404)
+
     def test_pet_evolution_notifications_keep_personal_and_child_family_destinations(self):
         from apps.notifications.models import Notification
         from apps.pets.models import PetSpecies, PotionType, UserPet

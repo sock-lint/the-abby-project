@@ -5,6 +5,7 @@ import {
   Map as MapIcon, Box, Printer, CircleAlert, MessageCircle,
 } from 'lucide-react';
 import { CoinIcon } from './icons/JournalIcons';
+import { notificationLinkSpace, relativeNotificationUrl } from '../utils/notificationLinks';
 
 // Sensible default routes per notification type. Used as a fallback when
 // the backend ``link`` field is empty so a click always takes the user
@@ -131,18 +132,32 @@ export function destinationForNotification(notification, { isParentAccount = fal
   const { defaultRoute } = metaForNotification(notification);
   const target = notification?.link || defaultRoute;
   if (!isParentAccount) return { space: null, target };
+  const url = relativeNotificationUrl(target);
+  const linkedSpace = notificationLinkSpace(target);
   if (AMBIGUOUS_PET_NOTIFICATIONS.has(notification?.notification_type)) {
-    if (/^\/family(?:[/?#]|$)/.test(target || '')) return { space: 'family', target };
+    if (linkedSpace === 'family' && url?.pathname === '/family') return { space: 'family', target };
     // Earlier personal and parent fan-out rows share both type and URL. Only
     // new direct links identify personal events; never guess the subject of an
     // earlier row from its title or the parent's currently selected child.
-    if (/^\/bestiary(?:[?#]|$)/.test(target || '')) {
-      const url = new URL(target, 'https://abby.invalid');
-      const spaces = url.searchParams.getAll('space');
-      if (spaces.length === 1 && spaces[0] === 'personal') return { space: 'personal', target };
-    }
+    if (linkedSpace === 'personal' && url?.pathname === '/bestiary') return { space: 'personal', target };
     return { space: 'family', target: '/family' };
   }
+  if (notification?.notification_type === 'journal_reply') {
+    if (linkedSpace && ['/family', '/chronicle'].includes(url?.pathname)) return { space: linkedSpace, target };
+    return { space: 'family', target: '/family' };
+  }
+  if (notification?.notification_type === 'savings_goal_completed') {
+    if (linkedSpace === 'family' && url?.pathname === '/family') return { space: 'family', target };
+    if (url?.pathname === '/treasury' && url.searchParams.getAll('tab').length === 1
+      && url.searchParams.get('tab') === 'hoards'
+      && (linkedSpace === 'personal' || !url.searchParams.has('space'))) return { space: 'personal', target };
+    return { space: 'family', target: '/family' };
+  }
+  if (notification?.notification_type === 'chore_approved'
+    && (url?.pathname === '/chores' || (url?.pathname === '/quests' && url.searchParams.get('tab') === 'duties'))
+    && (linkedSpace === 'personal' || !url.searchParams.has('space'))) return { space: 'personal', target };
+  if (notification?.notification_type === 'project_approved' && linkedSpace === 'personal'
+    && url?.pathname.startsWith('/projects/')) return { space: 'personal', target };
   return { space: notificationSpace(notification), target };
 }
 

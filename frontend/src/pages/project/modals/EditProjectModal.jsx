@@ -42,7 +42,8 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
     if (k === 'assigned_to_id' && !rateEdited.current
       && project.assigned_to?.role === 'parent'
       && project.hourly_rate_override != null && Number(project.hourly_rate_override) === 0
-      && children.some((child) => String(child.id) === String(value))) {
+      && String(value) !== String(project.assigned_to.id)
+      && (!value || children.some((child) => String(child.id) === String(value)))) {
       patch.hourly_rate_override = '';
     }
     set(patch);
@@ -94,6 +95,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         {!personal && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Assign To" value={form.assigned_to_id} onChange={onField('assigned_to_id')}>
             <option value="">Unassigned</option>
+            {project.assigned_to?.role === 'parent' && <option value={project.assigned_to.id} disabled>{project.assigned_to.display_name || project.assigned_to.username || 'Current parent'}</option>}
             {children.map((c) => (
               <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
             ))}

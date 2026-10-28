@@ -66,9 +66,13 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         from apps.notifications.services import notify
 
         if instance.assigned_to:
-            notify(instance.assigned_to, f"Project approved: {instance.title}",
-                   "Your project has been approved! Great work!", "project_approved",
-                   link=f"/projects/{instance.id}")
+            parent_owner = instance.assigned_to.role == "parent"
+            verb = "completed" if parent_owner else "approved"
+            message = ("You completed your project! Great work!" if parent_owner
+                       else "Your project has been approved! Great work!")
+            link = f"/projects/{instance.pk}" + ("?space=personal" if parent_owner else "")
+            notify(instance.assigned_to, f"Project {verb}: {instance.title}",
+                   message, "project_approved", link=link)
 
         if instance.completed_at is None:
             instance.completed_at = timezone.now()

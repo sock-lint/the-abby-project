@@ -535,6 +535,10 @@ def _update_project_locked(params, parent):
         # child in this parent's family. resolve_target_user raises
         # MCPNotFoundError on cross-family.
         resolve_target_user(parent, data["assigned_to_id"])
+        from apps.projects.assignment import reassignment_rate_defaults
+        data.update(reassignment_rate_defaults(
+            project, data["assigned_to_id"], rate_supplied="hourly_rate_override" in data,
+        ))
     if "category_id" in data and data["category_id"] is not None:
         try:
             SkillCategory.objects.get(pk=data["category_id"])

@@ -395,12 +395,14 @@ class JournalCommentsView(APIView):
         if author.role == "parent" and author.pk != entry.user_id:
             notify(
                 entry.user, f"{name} replied to your memory",
-                f"Open your {place} to read the reply.", NotificationType.JOURNAL_REPLY, link=link,
+                f"Open your {place} to read the reply.", NotificationType.JOURNAL_REPLY,
+                link=f"{link}&space=personal" if entry.user.role == "parent" else link,
             )
         elif author.role == "child":
             notify_parents(
                 f"{name} added a reply", f"Open the shared memory in your {place}.",
-                NotificationType.JOURNAL_REPLY, link=link, about_user=entry.user,
+                NotificationType.JOURNAL_REPLY,
+                link=f"{link}&child={entry.user_id}&space=family", about_user=entry.user,
             )
         return Response(ChronicleCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
 

@@ -19,6 +19,32 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('EditProjectModal', () => {
+  it('shows the current parent assignment and clears its untouched zero rate when unassigning', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
+    render(<EditProjectModal project={buildProject({ assigned_to: { id: 99, role: 'parent', display_name: 'Parent' }, hourly_rate_override: '0.00' })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.getByLabelText('Assign To')).toHaveTextContent('Parent');
+    await selectDropdown(user, screen.getByLabelText('Assign To'), 'Unassigned');
+    expect(screen.getByLabelText('Rate Override ($)')).toHaveDisplayValue('');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ assigned_to_id: null, hourly_rate_override: null });
+  });
+
+  it('preserves a deliberately chosen zero override when unassigning parent work', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
+    render(<EditProjectModal project={buildProject({ assigned_to: { id: 99, role: 'parent', display_name: 'Parent' }, hourly_rate_override: '0.00' })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.clear(screen.getByLabelText('Rate Override ($)'));
+    await user.type(screen.getByLabelText('Rate Override ($)'), '0');
+    await selectDropdown(user, screen.getByLabelText('Assign To'), 'Unassigned');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ assigned_to_id: null, hourly_rate_override: '0' });
+  });
+
   it('restores a child’s default hourly rate when assigning an unchanged personal zero override', async () => {
     const user = userEvent.setup();
     const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });

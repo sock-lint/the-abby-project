@@ -217,7 +217,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                     completions = ChoreCompletion.objects.filter(
                         user=user, chore_id__in=[chore.pk for chore in retained],
                     ).exclude(status=ChoreCompletion.Status.REJECTED).filter(
-                        Q(chore__recurrence=Chore.Recurrence.ONE_TIME)
+                        Q(chore__recurrence=Chore.Recurrence.ONE_TIME, completed_date=today)
                         | Q(chore__recurrence=Chore.Recurrence.DAILY, completed_date=today)
                         | Q(chore__recurrence=Chore.Recurrence.WEEKLY, completed_date=monday),
                     ).order_by("chore_id", "-created_at", "-pk").values("chore_id", "pk", "status")

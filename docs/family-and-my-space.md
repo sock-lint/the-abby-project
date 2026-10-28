@@ -40,6 +40,8 @@ Today's daily bonus and saved challenge progress appear in My space. Opening
 a challenge's details records that opening for your own challenge history.
 Checking Family does not clear the personal catch-up summary on your next
 visit to My space.
+Your birthday, streak, and Perfect Day celebrations wait for My space, so a
+Family visit does not use them up.
 
 Your own chores are confirmed when you mark them done. Children still submit
 chores for parent review. New personal chores and projects do not promise
@@ -66,6 +68,8 @@ tab. Finish or close an open form before switching; unfinished work and busy
 saves keep the other space unavailable. Switching clears the previous view's
 forms and data before loading the new space. Your Family review indicator
 remains visible in My space.
+Opening a notification also remembers its destination space in this tab, so
+reloading or continuing to another page keeps you in that space.
 
 My space uses your own records. Selecting a child in Family never signs in as
 that child. Children cannot switch into Family or gain parent permissions.
@@ -77,4 +81,8 @@ private journal remains private, including in the Children overview.
 Your manually added personal memories and challenge details are private to you.
 Notifications about a child's pet open that child's Family overview; your own
 pet notifications open your Pets.
-Older pet notifications that do not identify an owner open Children in Family.
+Older pet and reply notifications that do not identify an owner open Family.
+Replies to a child's shared journal or grades open that child's Family view.
+Replies to your shared journal, your savings receipts, and your own chore or
+project completion receipts open My space. A child's savings notification opens
+their Family overview.

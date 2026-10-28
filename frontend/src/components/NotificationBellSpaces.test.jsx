@@ -21,8 +21,8 @@ function Probe() {
   const { user } = useAuth();
   return <><output aria-label="Current page">{pathname}{search}</output><output aria-label="Current space">{space}</output><output aria-label="Account role">{user?.role}</output></>;
 }
-function tree(blocked) {
-  return <MemoryRouter initialEntries={['/projects/new']}><AuthProvider><PwaStatusContext.Provider value={{ updateBlocked: blocked }}><MockPulse pulse={pulse}><SpaceProvider><NotificationBell /><Probe /></SpaceProvider></MockPulse></PwaStatusContext.Provider></AuthProvider></MemoryRouter>;
+function tree(blocked, seededPulse = pulse) {
+  return <MemoryRouter initialEntries={['/projects/new']}><AuthProvider><PwaStatusContext.Provider value={{ updateBlocked: blocked }}><MockPulse pulse={seededPulse}><SpaceProvider><NotificationBell /><Probe /></SpaceProvider></MockPulse></PwaStatusContext.Provider></AuthProvider></MemoryRouter>;
 }
 
 beforeEach(() => {
@@ -31,6 +31,18 @@ beforeEach(() => {
 });
 
 describe('Notification navigation with unfinished work', () => {
+  it.each([['desktop', true], ['mobile', false]])('opens an own-parent project completion in My space from the %s inbox', async (_name, desktop) => {
+    window.matchMedia = vi.fn(query => ({ matches: desktop && query.includes('min-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
+    const user = userEvent.setup();
+    render(tree(false, emptyPulse({ notifications: [{ id: 18, notification_type: 'project_approved', title: 'Project completed: My bookshelf', link: '/projects/123?space=personal', is_read: true }] })));
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Account role' })).toHaveTextContent('parent'));
+    await user.click(screen.getByRole('button', { name: 'Notifications' }));
+    await user.click(await screen.findByRole('button', { name: 'Project completed: My bookshelf' }));
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Current space' })).toHaveTextContent('personal'));
+    expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/projects/123?space=personal');
+    expect(screen.getByRole('status', { name: 'Account role' })).toHaveTextContent('parent');
+  });
+
   it.each([['desktop', true], ['mobile', false]])('keeps the %s notification unread and open when a space switch is refused, then retries after saving', async (_name, desktop) => {
     window.matchMedia = vi.fn(query => ({ matches: desktop && query.includes('min-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
     const mark = spyHandler('post', /\/api\/notifications\/17\/mark_read\/$/, {});

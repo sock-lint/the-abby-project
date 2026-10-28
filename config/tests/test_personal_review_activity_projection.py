@@ -1,6 +1,7 @@
 """Personal activity displays match payouts and preserve the personal visit gap."""
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -39,6 +40,10 @@ class PersonalActivityProjectionTests(APITestCase):
             title=title, reward_amount=Decimal("5.00"), coin_reward=4, xp_reward=12,
             **kwargs,
         )
+
+    def offweek_reference(self):
+        iso_year, iso_week, _ = timezone.localdate().isocalendar()
+        return date.fromisocalendar(iso_year, 2 if iso_week % 2 else 1, 1)
 
     def test_personal_catalog_projects_zero_cash_without_changing_family_or_history(self):
         chore = self.chore()
@@ -114,9 +119,9 @@ class PersonalActivityProjectionTests(APITestCase):
             self.assertIn(chore.title, note.message)
         with self.subTest(surface="submission_audit"):
             event = ActivityEvent.objects.get(subject=self.parent, event_type="chore.submit")
-            self.assertEqual(Decimal(event.context["extras"]["reward_snapshot"]), 0)
+            self.assertEqual(event.context["extras"]["reward_snapshot"], "0.00")
             reward_note = next(row for row in event.context["breakdown"] if row["label"] == "reward")
-            self.assertEqual(Decimal(reward_note["value"]), 0)
+            self.assertEqual(reward_note["value"], "0.00")
 
     def test_child_submission_and_approval_keep_cash_snapshot_and_notification(self):
         chore = self.chore(owner=self.child)
@@ -125,6 +130,9 @@ class PersonalActivityProjectionTests(APITestCase):
         self.assertEqual(submitted.status_code, 201, submitted.data)
         self.assertEqual(submitted.data["status"], "pending")
         self.assertEqual(submitted.data["reward_amount_snapshot"], "5.00")
+        event = ActivityEvent.objects.get(subject=self.child, event_type="chore.submit")
+        self.assertEqual(event.context["extras"]["reward_snapshot"], "5.00")
+        self.assertEqual(next(row["value"] for row in event.context["breakdown"] if row["label"] == "reward"), "5.00")
         self.assertFalse(PaymentLedger.objects.exists())
         self.client.force_authenticate(self.parent)
         approved = self.client.post(f"/api/chore-completions/{submitted.data['id']}/approve/", {}, format="json")
@@ -177,7 +185,7 @@ class PersonalActivityProjectionTests(APITestCase):
     def test_offweek_personal_chore_remains_editable_without_becoming_available(self):
         chore = self.chore(
             "Own alternating chore", week_schedule="alternating",
-            schedule_start_date=timezone.localdate() - timedelta(days=7),
+            schedule_start_date=self.offweek_reference(),
         )
         listed = self.personal("get", "/api/chores/")
         with self.subTest(surface="editable_list"):
@@ -196,7 +204,7 @@ class PersonalActivityProjectionTests(APITestCase):
         self.assertEqual(edited.status_code, 200, edited.data)
         self.assertEqual(self.personal("delete", f"/api/chores/{chore.pk}/").status_code, 204)
 
-    def test_completed_one_time_personal_chore_stays_editable_with_saved_status(self):
+    def test_completed_one_time_personal_chore_stays_editable_without_counting_as_done_today(self):
         chore = self.chore("Own one-time chore", recurrence="one_time")
         completed = self.personal("post", f"/api/chores/{chore.pk}/complete/")
         self.assertEqual(completed.status_code, 201, completed.data)
@@ -209,8 +217,12 @@ class PersonalActivityProjectionTests(APITestCase):
         with self.subTest(surface="editable_list"):
             self.assertEqual([row["id"] for row in listed.data], [chore.pk])
             self.assertFalse(listed.data[0]["is_available"])
-            self.assertEqual(listed.data[0]["today_status"], "approved")
-            self.assertEqual(listed.data[0]["today_completion_id"], completed.data["id"])
+            self.assertIsNone(listed.data[0]["today_status"])
+            self.assertIsNone(listed.data[0]["today_completion_id"])
+        history = self.personal("get", f"/api/chore-completions/{completed.data['id']}/")
+        self.assertEqual(history.status_code, 200, history.data)
+        self.assertEqual(history.data["status"], "approved")
+        self.assertEqual(history.data["completed_date"], (timezone.localdate() - timedelta(days=2)).isoformat())
         self.assertEqual(self.personal("post", f"/api/chores/{chore.pk}/complete/").status_code, 400)
         self.assertEqual(ChoreCompletion.objects.filter(chore=chore).count(), 1)
         self.assertEqual(CoinLedger.objects.filter(user=self.parent).count(), coin_count)
@@ -224,11 +236,11 @@ class PersonalActivityProjectionTests(APITestCase):
 
     def test_personal_catalog_retention_keeps_child_family_and_proposal_scopes(self):
         offweek = self.chore("Own offweek", week_schedule="alternating",
-                             schedule_start_date=timezone.localdate() - timedelta(days=7))
+                             schedule_start_date=self.offweek_reference())
         pending = self.chore("Own pending", pending_parent_review=True)
         for owner in (self.child, self.coparent, self.foreign):
             self.chore(f"Other offweek {owner.pk}", owner, week_schedule="alternating",
-                       schedule_start_date=timezone.localdate() - timedelta(days=7))
+                       schedule_start_date=self.offweek_reference())
             self.chore(f"Other one-time {owner.pk}", owner, recurrence="one_time", is_active=False)
         Chore.objects.create(family=self.family, created_by=self.parent, title="Shared published")
         with self.subTest(surface="personal_published"):
@@ -241,6 +253,35 @@ class PersonalActivityProjectionTests(APITestCase):
         self.client.force_authenticate(self.child)
         child_rows = self.personal("get", "/api/chores/").data
         self.assertEqual([row["title"] for row in child_rows], ["Shared published"])
+
+    def test_retained_one_time_today_status_uses_household_day_and_keeps_history(self):
+        self.family.timezone = "Pacific/Kiritimati"
+        self.family.save(update_fields=["timezone"])
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 10, 27, 12, tzinfo=datetime_timezone.utc)):
+            historical = self.chore("Earlier one-time chore", recurrence="one_time")
+            old = ChoreCompletion.objects.create(
+                chore=historical, user=self.parent, completed_date=date(2026, 10, 27),
+                status="approved", reward_amount_snapshot=0, coin_reward_snapshot=0,
+            )
+            current = self.chore("Today's one-time chore", recurrence="one_time")
+            completed = self.personal("post", f"/api/chores/{current.pk}/complete/")
+            self.assertEqual(completed.status_code, 201, completed.data)
+            self.assertEqual(completed.data["completed_date"], "2026-10-28")
+            coin_history = list(CoinLedger.objects.values())
+            rows = {row["id"]: row for row in self.personal("get", "/api/chores/").data}
+            self.assertEqual(set(rows), {historical.pk, current.pk})
+            with self.subTest(surface="old_completion"):
+                self.assertIsNone(rows[historical.pk]["today_status"])
+                self.assertIsNone(rows[historical.pk]["today_completion_id"])
+            with self.subTest(surface="current_completion"):
+                self.assertEqual(rows[current.pk]["today_status"], "approved")
+                self.assertEqual(rows[current.pk]["today_completion_id"], completed.data["id"])
+            self.assertTrue(all(not row["is_available"] for row in rows.values()))
+            self.assertEqual(sum(row["today_status"] in ("approved", "pending") for row in rows.values()), 1)
+            history = self.personal("get", f"/api/chore-completions/{old.pk}/")
+            self.assertEqual((history.data["status"], history.data["completed_date"]), ("approved", "2026-10-27"))
+            self.assertEqual(list(CoinLedger.objects.values()), coin_history)
+            self.assertFalse(PaymentLedger.objects.exists())
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])

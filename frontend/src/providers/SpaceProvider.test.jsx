@@ -36,6 +36,7 @@ function Probe() {
     <p data-testid="location">{location.pathname}{location.search}</p><p data-testid="payload">{payload}</p>
     <input aria-label="Local draft" value={draft} onChange={e => setDraft(e.target.value)} />
     <button onClick={() => navigate('/quests?tab=rituals')}>Open habits</button>
+    <button onClick={() => navigate('/sigil')}>Open profile</button>
     <button onClick={() => getPendingRedemptions()}>Read family reviews</button>
     <ChapterBottomBar user={auth.user} />
   </>;
@@ -107,7 +108,35 @@ describe('Family and My space as one unchanged parent identity', () => {
     },
   );
 
-  it.each(['/manage?space=personal', '/quests?space=unknown', '/quests?space=personal&space=family'])(
+  it.each([
+    '/quests?space=personal', '/bestiary?tab=mounts&space=personal',
+    '/chores?space=personal', '/chronicle?tab=journal&space=personal', '/treasury?tab=hoards&space=personal',
+    '/projects/123?space=personal',
+  ])('persists a notification-selected personal space and its later route across reload: %s', async (path) => {
+    const key = `abby:spaces:${auth.user.family?.id}:${auth.user.id}`;
+    sessionStorage.setItem(key, JSON.stringify({ space: 'family', family: '/family' }));
+    const user = userEvent.setup();
+    const view = render(tree(false, path));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
+    await user.click(screen.getByRole('button', { name: 'Open profile' }));
+    expect(JSON.parse(sessionStorage.getItem(key))).toMatchObject({ space: 'personal', personal: '/sigil', family: '/family' });
+    view.unmount();
+    render(tree(false, '/sigil'));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
+    expect(screen.getByTestId('role')).toHaveTextContent('parent');
+  });
+
+  it('starts and persists an explicit child journal link in Family despite a personal preference', async () => {
+    const key = `abby:spaces:${auth.user.family?.id}:${auth.user.id}`;
+    sessionStorage.setItem(key, JSON.stringify({ space: 'personal', personal: '/sigil' }));
+    const path = '/chronicle?tab=grades&child=7&space=family';
+    render(tree(false, path));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
+    expect(screen.getByTestId('location')).toHaveTextContent(path);
+    expect(JSON.parse(sessionStorage.getItem(key))).toMatchObject({ space: 'family', family: path, personal: '/sigil' });
+  });
+
+  it.each(['/manage?space=personal', '/quests?space=unknown', '/quests?space=personal&space=family', '/chronicle?tab=grades&space=personal', '/treasury?tab=coffers&space=personal', '/projects/0?space=personal', '/projects/9007199254740992?space=personal', '/projects/new?space=personal'])(
     'keeps a parent Family launch for unsupported or ambiguous hints: %s', async (path) => {
       render(tree(false, path));
       await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
@@ -115,9 +144,27 @@ describe('Family and My space as one unchanged parent identity', () => {
     },
   );
 
-  it('keeps a child personal launch without changing child API authority for a notification hint', async () => {
+  it('keeps a notification-selected personal space while blocking a later switch with unfinished work', async () => {
+    render(tree(true, '/chronicle?tab=journal&space=personal'));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
+    expect(screen.getByRole('button', { name: /^Family/ })).toBeDisabled();
+    expect(screen.getByText(/Save or close your current form/)).toBeVisible();
+    expect(JSON.parse(sessionStorage.getItem(`abby:spaces:${auth.user.family?.id}:${auth.user.id}`)).space).toBe('personal');
+  });
+
+  it('ignores a child’s Family notification hint without changing role or transport authority', async () => {
     auth.user = buildUser();
-    render(tree(false, '/quests?space=personal'));
+    render(tree(false, '/chronicle?tab=journal&child=7&space=family'));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
+    expect(screen.getByTestId('space')).toHaveTextContent('personal');
+    expect(screen.getByTestId('role')).toHaveTextContent('child');
+    expect(requestSpace(getToken())).toBe('family');
+    expect(screen.queryByRole('group', { name: 'Choose your space' })).toBeNull();
+  });
+
+  it.each(['/quests?space=personal', '/projects/123?space=personal'])('keeps a child personal launch without changing child API authority for a notification hint: %s', async (path) => {
+    auth.user = buildUser();
+    render(tree(false, path));
     await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
     expect(screen.getByTestId('space')).toHaveTextContent('personal');
     expect(screen.getByTestId('role')).toHaveTextContent('child');

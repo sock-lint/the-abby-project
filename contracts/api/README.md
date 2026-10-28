@@ -14,6 +14,14 @@ client's explicit Family override when reading a child profile from My space.
 responses after real parent and child evolutions. The former identifies the
 owner's personal Pets destination; the latter identifies the child's Family
 overview. The same parent producer and React consumer verify both destinations.
+`parent-{family,personal}-journal-notification.json`,
+`parent-{family,personal}-savings-notification.json`, and
+`parent-personal-{chore,project}-notification.json` extend that pair with raw
+notification details after real replies, savings completions, and a parent's
+own chore or project completion. Child replies retain the child and Family
+destination; parent receipts select their own My space view. A child's savings
+notification opens their Family overview. Detail reads award nothing, and another family member
+cannot fetch the recipient's notification.
 
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment

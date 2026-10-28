@@ -482,16 +482,14 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         extras = {}
         if is_personal_space(self.request):
             extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0)
-        else:
-            previous_owner = serializer.instance.assigned_to
+        elif "assigned_to" in serializer.validated_data:
+            from .assignment import reassignment_rate_defaults
+
             next_owner = serializer.validated_data.get("assigned_to")
-            if (previous_owner and previous_owner.role == "parent"
-                    and next_owner and next_owner.role == "child"
-                    and serializer.instance.hourly_rate_override == 0
-                    and "hourly_rate_override" not in serializer.validated_data):
-                # A parent's personal zero must not silently suppress the
-                # child's normal pay. An explicitly supplied zero still wins.
-                extras["hourly_rate_override"] = None
+            extras.update(reassignment_rate_defaults(
+                serializer.instance, next_owner.pk if next_owner else None,
+                rate_supplied="hourly_rate_override" in serializer.validated_data,
+            ))
         serializer.save(**extras)
 
     def get_permissions(self):

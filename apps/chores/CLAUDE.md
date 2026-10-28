@@ -41,7 +41,9 @@ stored Family configuration and historical completion snapshots stay intact.
 Personal lists retain all own published chores for editing, including inactive,
 off-week and completed one-time chores. These retained rows are unavailable and
 stay out of dashboard actions; completion eligibility still comes from the
-existing service. Completed one-time rows retain their saved completion status.
+existing service. Today annotations use the current household day for one-time
+and daily chores, and the current Monday period for weekly chores. Older saved
+completion statuses remain in completion history without inflating today's count.
 `?pending=true` remains pending-only.
 - `services.py` — `ChoreService` (all business logic).
 - `models.py` — `Chore.WeekSchedule`, `ChoreCompletion.Status`.
