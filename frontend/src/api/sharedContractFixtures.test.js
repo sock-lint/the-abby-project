@@ -88,11 +88,12 @@ import dailyExpeditionLimit from '../../../contracts/api/fixtures/expedition-dai
 import expiredExpedition from '../../../contracts/api/fixtures/expedition-expired.json';
 import retiredBreedingStable from '../../../contracts/api/fixtures/pets-stable-breeding-retired.json';
 import retiredBreeding from '../../../contracts/api/fixtures/mount-breed-retired.json';
+import invalidQuestFilter from '../../../contracts/api/fixtures/quest-create-invalid-filter.json';
 import { server } from '../test/server';
-import { normalizeList } from '../utils/api';
+import { fieldErrors, normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  activateMount, activatePet, claimExpedition, closeTimecard, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
+  activateMount, activatePet, claimExpedition, closeTimecard, createQuest, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
   getClockStatus, getMe, getNotifications, getPulse, getStable, getIncubation, startIncubation, hatchIncubation, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
@@ -100,6 +101,25 @@ import {
 // These are the raw response files checked against Django views and loaded
 // directly by Unity. Do not replace them with a second client-specific factory.
 describe('shared Django response fixtures through the React API client', () => {
+  it('retains a rejected custom challenge filter as an actionable field error without retrying', async () => {
+    const data = {
+      name: 'Fixture project challenge', description: 'Track project work.', quest_type: 'collection', target_value: 1,
+      duration_days: 7, coin_reward: 0, xp_reward: 0,
+      trigger_filter: { allowed_triggers: ['clock_out'], project_id: '7' },
+    };
+    let requests = 0;
+    server.use(http.post('*/api/quests/', async ({ request }) => {
+      requests += 1;
+      expect(await request.json()).toEqual(data);
+      return HttpResponse.json(invalidQuestFilter, { status: 400 });
+    }));
+    const error = await createQuest(data).catch((caught) => caught);
+    expect(error).toMatchObject({ status: 400, response: invalidQuestFilter });
+    expect(fieldErrors(error)).toEqual({ trigger_filter: invalidQuestFilter.trigger_filter[0] });
+    expect(fieldErrors(error).trigger_filter).toContain('project_id');
+    expect(requests).toBe(1);
+  });
+
   it('preserves the activity streak in the header heartbeat without requiring work-timer activity', async () => {
     server.use(http.get('*/api/pulse/', () => HttpResponse.json(activityStreakPulse)));
 
