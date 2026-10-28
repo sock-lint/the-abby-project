@@ -163,6 +163,19 @@ trigger lists keep their existing unfiltered meaning. Retained definitions repor
 `catalog_available: false` when they cannot progress; saved campaigns, history,
 rewards and identical creation-request retries stay preserved.
 
+Custom filters reject malformed values when created. Project, skill-category
+and savings-goal IDs must be positive integers, chore IDs must be a list of
+positive integers, on-time must be a boolean, and trigger lists contain only
+supported trigger strings. Optional null selectors and empty lists keep their
+existing meaning; saved requests and accepted challenge history remain intact.
+
+Focus Master asks for 200 damage from tracked project work, at 10 damage per
+tracked hour. Each completed session's damage is rounded down separately, so
+equal total hours can produce different progress when sessions have different
+lengths. Its challenge period and rewards are unchanged. New offers use the
+clarified description; already accepted automatic challenges retain their saved
+descriptions and promises.
+
 One activity must be able to satisfy every selected filter. On-time rules need
 approved homework, and category rules need activities with saved skill-tag
 categories. For example, a creation-only rule with a category filter cannot open

@@ -373,6 +373,15 @@ filter requires approved homework. Catalog/workbench availability and new item
 or companion reward hints use the same check as assignment. Saved campaigns and
 their accepted reward promises retain their existing fulfillment paths.
 
+Private challenge filters use typed values: `project_id`, `skill_category_id`
+and `savings_goal_id` are positive integer IDs; `chore_ids` is a list of positive
+integer IDs; `on_time` is a boolean; and `allowed_triggers` is a list of supported
+trigger strings. Text, fractional and boolean IDs are rejected rather than
+converted. Optional null selectors, an empty chore list, and null or empty
+trigger lists retain their existing unrestricted meaning. Invalid new requests
+return validation errors before saving a definition or reward promise. An
+identical saved MCP creation request still returns its original receipt.
+
 ## Reusable projects
 
 Project templates retain weighted project skill tags and fixed milestone XP
