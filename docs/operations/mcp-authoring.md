@@ -344,6 +344,13 @@ Catalog inspection is paginated with real totals and continuation. Iterate
 all pages for a complete audit. Availability/reachability findings use runtime
 selectors without querying a child's private ownership or progress.
 
+New challenge offers need one saved activity type that can satisfy all selected
+filters together. Category filters use categories frozen with activity skill
+tags; a project's own category does not substitute for those tags. An on-time
+filter requires approved homework. Catalog/workbench availability and new item
+or companion reward hints use the same check as assignment. Saved campaigns and
+their accepted reward promises retain their existing fulfillment paths.
+
 ## Reusable projects
 
 Project templates retain weighted project skill tags and fixed milestone XP
@@ -514,6 +521,12 @@ Publication requires its exact revision, preview ID, digest, matching paired
 simulation and explicit confirmation. Private drafts use `mcp:author`, publication
 uses `mcp:publish`, and references use `mcp:catalog`; grants remain independent.
 Private reads and replays recheck the current author under family/member locks.
+
+Challenge activities must satisfy every selected filter in the same saved-work
+activity. For example, an on-time filter requires approved homework and cannot
+match a chore-only challenge. The workbench reports `unreachable_challenge_filters`
+for these incompatible combinations; choose matching activities and filters
+before saving or republishing.
 
 `get_progression_lab` describes the installed simulator. The catalog-only
 `simulate_progression_scenario` runs an anonymous baseline, including supported

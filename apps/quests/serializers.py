@@ -101,6 +101,9 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_available(self, obj):
         from .availability import definition_is_available
+        from .progress_sources import has_progress_source
+        if not has_progress_source(obj.quest_type, obj.trigger_filter):
+            return False
         if not definition_is_available(obj):
             return False
         if obj.required_badge_id is None:
@@ -207,6 +210,14 @@ class QuestWriteSerializer(serializers.Serializer):
         child=serializers.DictField(), required=False, allow_empty=True,
         write_only=True,
     )
+
+    def validate(self, attrs):
+        from .progress_sources import require_progress_source
+        try:
+            require_progress_source(attrs["quest_type"], attrs.get("trigger_filter"))
+        except ValueError as exc:
+            raise serializers.ValidationError({"trigger_filter": str(exc)}) from exc
+        return attrs
 
     def validate_trigger_filter(self, value):
         try:

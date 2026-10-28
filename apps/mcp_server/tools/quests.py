@@ -169,7 +169,10 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
         qs = qs.filter(quest_type=params.quest_type)
     qs = qs.order_by("quest_type", "name")
     from apps.quests.availability import definition_is_available
-    return {"quest_definitions": [_definition_to_dict(d) for d in qs if definition_is_available(d)]}
+    from apps.quests.progress_sources import has_progress_source
+    return {"quest_definitions": [_definition_to_dict(d) for d in qs
+                                  if definition_is_available(d)
+                                  and has_progress_source(d.quest_type, d.trigger_filter)]}
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +218,10 @@ def create_quest_definition(
             raise MCPValidationError(f"assigned_to_id {params.assigned_to_id} does not match any child.")
 
     def create(actor, target):
+        # Only new authoring needs a reachable activity. A saved UUID replay
+        # returns its original promise before entering this callback.
+        from apps.quests.progress_sources import require_progress_source
+        require_progress_source(params.quest_type, params.trigger_filter)
         if definitions_visible_to(actor).filter(name=params.name).exists():
             raise MCPValidationError(f"A quest named {params.name!r} already exists.")
         definition = QuestDefinition.objects.create(
