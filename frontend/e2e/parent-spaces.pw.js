@@ -479,10 +479,11 @@ for (const width of [320, 390, 768]) {
       await page.keyboard.press('Escape');
       await expect(profile).toHaveCount(0);
       await bell.click();
-      const notifications = page.getByRole('dialog', { name: 'Notifications', exact: true });
+      const notifications = page.getByRole(width < 768 ? 'dialog' : 'region', { name: 'Notifications', exact: true });
       await expect(notifications).toBeVisible();
       await expect(notifications.getByRole('button', { name: notice.title, exact: true })).toBeVisible();
-      await notifications.getByRole('button', { name: 'Close', exact: true }).click();
+      if (width < 768) await notifications.getByRole('button', { name: 'Close', exact: true }).click();
+      else await bell.click();
       await expect(notifications).toHaveCount(0);
       await clock.focus();
       await clock.click();
