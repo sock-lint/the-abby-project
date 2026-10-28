@@ -1052,6 +1052,13 @@ Clients show the rule, target and saved period beneath themed titles instead of
 inferring requirements from a name. Deadline filters use the last included date
 in the saved timezone; they do not change server eligibility.
 
+`quest-create-invalid-filter.json` is a real parent-authenticated rejection from
+`POST /api/quests/`. New custom filters reject malformed selector values with
+HTTP 400 and a `trigger_filter` field error, before saving a definition. The
+shared React API consumer retains that error for `fieldErrors` without retrying
+the write. The producer covers a text project ID; the endpoint and registered
+MCP regressions additionally cover the other selector types and saved UUID replay.
+
 `challenge-retried.json` and `challenges-retry-completed.json` exercise explicit
 retry through `POST /api/challenges/<occurrence_id>/retry/` with `{}`. An eligible
 unpaid expired one-time personal catalog challenge receives a new window, zero

@@ -40,6 +40,11 @@ filters require different activities cannot start a new campaign. Reward
 awards do not replay the game loop. Keep this gate outside saved progress,
 history and UUID recovery; new-start rejection consumes no scroll or reward.
 Private MCP authoring checks inside its create callback, after saved replay.
+Shared filter validation rejects malformed selector values before new saves:
+non-null IDs are positive exact integers, chore IDs form a list, on-time is a
+boolean, and trigger entries are strings. Null/empty controls keep their prior
+meaning. MCP shape validation stays inside the create callback so a saved UUID
+can recover its original receipt even if its old filters are now invalid.
 Unavailable retained definitions expose `catalog_available: false`.
 Workbench availability and new item/companion acquisition hints use the same
 admission check. Saved promises retain their existing fulfillment paths.

@@ -82,7 +82,7 @@ quests:
 
   # 2026-04-23 — bumped from 75c to 100c to land in the Easy-tier band.
   - name: Focus Master
-    description: Clock 20 hours of focused project work to defeat the distraction monster!
+    description: Deal 200 damage through tracked project work (10 damage per tracked hour) to defeat the distraction monster! Damage is rounded down for each completed session.
     icon: "🧠"
     sprite_key: quest-focus-master
     quest_type: boss
