@@ -147,10 +147,21 @@ for (const width of [320, 390, 1280]) {
     await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
     const switcher = page.getByRole('group', { name: 'Choose your space' });
     const switcherBox = await switcher.boundingBox();
-    if (width < 1024) expect(switcherBox.width).toBeLessThanOrEqual(256);
-    else expect(switcherBox.width).toBe(448);
+    if (width < 1024) {
+      expect(switcherBox.width).toBeLessThanOrEqual(256);
+      expect(switcherBox.height).toBeLessThan(52);
+    } else {
+      expect(switcherBox.width).toBe(448);
+      expect(switcherBox.height).toBe(52);
+    }
     for (const button of await switcher.getByRole('button').all()) {
-      expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+      const box = await button.boundingBox();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(switcherBox.x - 0.1);
+      expect(box.y).toBeGreaterThanOrEqual(switcherBox.y - 0.1);
+      expect(box.x + box.width).toBeLessThanOrEqual(switcherBox.x + switcherBox.width + 0.1);
+      expect(box.y + box.height).toBeLessThanOrEqual(switcherBox.y + switcherBox.height + 0.1);
+      expect(await button.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
     }
     await assertFits(page);
     await page.screenshot({ path: testInfo.outputPath(`family-${width}.png`), fullPage: true });
