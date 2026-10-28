@@ -40,7 +40,10 @@ def project_category_resolution(name):
     from apps.rpg.models import RPGContentOverride
 
     if not isinstance(name, str):
-        return ProjectCategoryResolution(())
+        # Keep native ORM coercion for saved legacy current-name selectors.
+        # Their original values do not become retained source aliases.
+        return ProjectCategoryResolution(SkillCategory.objects.filter(
+            name__iexact=name).values_list("pk", flat=True))
     current = SkillCategory.objects.filter(name__iexact=name)
     # A current category's own override is not a competing historical identity.
     # Only genuinely renamed rows need the bounded ambiguity check.

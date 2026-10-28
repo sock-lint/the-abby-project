@@ -390,6 +390,12 @@ class ContentPack:
         return reference
 
     @staticmethod
+    def _startup_node_sort_key(node):
+        """Order legacy scalar names without changing their source identities."""
+        kind, name = node
+        return kind, type(name).__name__, name if isinstance(name, str) else repr(name)
+
+    @staticmethod
     def prepare_startup_dependencies(loaders):
         """Read the selected source graph under the ordinary catalog fence.
 
@@ -588,7 +594,9 @@ class ContentPack:
             return state.dependency_reasons.get((kind, name),
                 f"{kind.title()} source {name!r} was deferred in this bundled load.")
 
-        # Actual row deferrals and direct source failures remain immutable seeds.
+        # Actual row deferrals and direct source failures always remain refused.
+        # A False seed can strengthen to True through a genuine dependency, but
+        # it cannot be admitted or weakened by a speculative policy choice.
         # Derived badge/quest plans must be rebuilt: a rejected edit can restore
         # the saved challenge's repeatability, making a tentative badge reachable.
         seeds, seed_causes = {}, {}
@@ -621,6 +629,13 @@ class ContentPack:
             if self._badge_uses_conflicted_category(entry["criteria_type"], rule):
                 plan(seeds, seed_causes, "badge", entry["name"], True,
                     f"Category source {rule['category']!r} was deferred for a retained category identity conflict.")
+
+        retirement_causes = {seed_causes[node] for node, conflict in seeds.items() if not conflict}
+        if not seeds and not state.cycle_pins:
+            state.planned_badges.clear()
+            state.planned_quests.clear()
+            state.dependency_reasons.clear()
+            return
 
         def admission_input(kind, name, selection):
             key = kind, name
@@ -716,7 +731,7 @@ class ContentPack:
                 for child in children:
                     reverse[child].add(parent)
             visited, order = set(), []
-            for start in sorted(nodes):
+            for start in sorted(nodes, key=self._startup_node_sort_key):
                 stack = [(start, False)]
                 while stack:
                     node, finished = stack.pop()
@@ -725,7 +740,7 @@ class ContentPack:
                     elif node not in visited:
                         visited.add(node)
                         stack.append((node, True))
-                        stack.extend((child, False) for child in sorted(graph[node], reverse=True) if child not in visited)
+                        stack.extend((child, False) for child in sorted(graph[node], key=self._startup_node_sort_key, reverse=True) if child not in visited)
             visited, components, component_for = set(), [], {}
             for start in reversed(order):
                 component, stack = set(), [start]
@@ -807,6 +822,8 @@ class ContentPack:
             return not existing_badges[name]
 
         for parent in graph:
+            if not graph[parent]:
+                continue  # Terminal sources cannot influence another admission choice.
             kind, name = parent
             if can_change_admission(kind, name):
                 continue
@@ -824,7 +841,7 @@ class ContentPack:
             for child in children:
                 reverse[child].add(parent)
         visited, order = set(), []
-        for start in sorted(nodes):
+        for start in sorted(nodes, key=self._startup_node_sort_key):
             stack = [(start, False)]
             while stack:
                 node, finished = stack.pop()
@@ -833,7 +850,7 @@ class ContentPack:
                 elif node not in visited:
                     visited.add(node)
                     stack.append((node, True))
-                    stack.extend((child, False) for child in sorted(graph[node], reverse=True) if child not in visited)
+                    stack.extend((child, False) for child in sorted(graph[node], key=self._startup_node_sort_key, reverse=True) if child not in visited)
         visited, components = set(), []
         for start in reversed(order):
             component, stack = set(), [start]
@@ -857,26 +874,26 @@ class ContentPack:
             badge_entries["badge", entry["name"]].append(entry)
 
         for component in components:
-            local_quests = [entry for node in sorted(component) for entry in quest_entries[node]]
-            local_badges = [entry for node in sorted(component) for entry in badge_entries[node]]
+            local_quests = [entry for node in sorted(component, key=self._startup_node_sort_key) for entry in quest_entries[node]]
+            local_badges = [entry for node in sorted(component, key=self._startup_node_sort_key) for entry in badge_entries[node]]
             cyclic = len(component) > 1 or any(node in graph[node] for node in component)
             if cyclic:
                 # Prefer retained capacity provisionally, after external inputs
                 # have settled. This is not a seed: every following round must
                 # justify the refusal from actual source or dependency evidence.
-                for kind, name in sorted(component):
+                for kind, name in sorted(component, key=self._startup_node_sort_key):
                     candidates, saved = by_name.get(name, []), quest_matches(name) if kind == "quest" else []
                     if (kind == "quest" and (kind, name) not in planned and len(candidates) == len(saved) == 1
                             and saved[0].is_repeatable and not candidates[0].get("is_repeatable", False)):
                         planned[kind, name] = False
                         causes[kind, name] = source_reason(kind, name)
-            def following_plans(proposed=None):
+            def following_plans(proposed=None, *, include_cycle_pins=True):
                 following = {node: flag for node, flag in planned.items() if node not in component}
                 following_causes = {node: reason for node, reason in causes.items() if node not in component}
                 for node in component:
                     if node in seeds:
                         plan(following, following_causes, *node, seeds[node], seed_causes[node])
-                    if node in state.cycle_pins:
+                    if include_cycle_pins and node in state.cycle_pins:
                         plan(following, following_causes, *node, *state.cycle_pins[node])
                 for entry in local_quests:
                     parents = []
@@ -902,7 +919,7 @@ class ContentPack:
             while True:
                 seen, history = {}, []
                 for _ in range(max(2, 2 * len(component) + 1)):
-                    signature = tuple((node, planned.get(node)) for node in sorted(component))
+                    signature = tuple((node, planned.get(node)) for node in sorted(component, key=self._startup_node_sort_key))
                     if signature in seen:
                         history = history[seen[signature]:]
                         break
@@ -917,34 +934,57 @@ class ContentPack:
                     stable = False
                 if stable:
                     break
-                changed = cycle_roots(history, component)
-                added = False
-                for node in sorted(changed):
-                    if node in state.cycle_pins:
-                        continue
-                    # Only direct/actual refusals are immutable conflicts.
-                    # A transient derived True must not become its own evidence.
-                    reason = next((reasons[node] for row, reasons in reversed(history) if row.get(node) is False),
-                        next(reasons[node] for row, reasons in reversed(history) if node in row))
-                    state.cycle_pins[node] = False, reason
-                    plan(planned, causes, *node, False, reason)
-                    added = True
-                assert added, "Changing admission plans must include an unresolved selected source cycle."
+                # Only revisable cycle policy can strengthen False -> True.
+                # Actual/direct refusals remain in `seeds`. A True policy pin
+                # cannot vary; a False pin is always present, so its variation
+                # must include True. Thus any nonstable history has a varying
+                # node that can advance, even after every causal root was pinned.
+                # Each pass raises absent -> False -> True, at most 2*n times.
+                def can_advance(node):
+                    previous = state.cycle_pins.get(node)
+                    return previous is None or (not previous[0] and any(
+                        row.get(node) is True for row, _reasons in history))
+
+                changed = {node for node in cycle_roots(history, component) if can_advance(node)}
+                if not changed:
+                    # A delayed conflict can keep circulating through roots
+                    # already pinned False. Include every varying local input
+                    # in that case; a True decision itself cannot vary.
+                    changed = {node for node in component if can_advance(node)
+                        and len({row.get(node) for row, _reasons in history}) > 1}
+                for node in sorted(changed, key=self._startup_node_sort_key):
+                    previous = state.cycle_pins.get(node)
+                    retirement = [(row, reasons) for row, reasons in history if row.get(node) is False]
+                    conflict = (previous is not None and not previous[0]) or not retirement
+                    rows = [(row, reasons) for row, reasons in history if row.get(node) is conflict]
+                    reason = rows[-1][1][node]
+                    if not conflict and reason not in retirement_causes:
+                        reason = (f"{node[0].title()} source {node[1]!r} was withheld for an unresolved "
+                            "bundled admission cycle; retained catalog history is unchanged.")
+                    state.cycle_pins[node] = conflict, reason
+                    plan(planned, causes, *node, conflict, reason)
             # A conflict can otherwise justify itself around a capacity cycle:
             # the refusal removes saved repeatability, which then sustains that
             # same refusal. Try retained conditional capacity locally. Accept a
             # result only when the ordinary, unforced equations independently
-            # reproduce it and its genuine conflicts are a strict subset.
+            # reproduce it and reduce the True set, or preserve that set and
+            # reduce all refusals. This lexicographic measure bounds successful
+            # refinements by (n+1)^2; no trial can remove an actual/direct seed.
             while True:
                 original, original_causes = planned.copy(), causes.copy()
                 original_true = {node for node in component if original.get(node) is True}
+                if not original_true and not any(node in state.cycle_pins for node in component):
+                    break
                 conditional = []
-                for kind, name in sorted(component):
-                    candidates, saved = by_name.get(name, []), quest_matches(name) if kind == "quest" else []
-                    if (kind == "quest" and original.get((kind, name)) is True and (kind, name) not in seeds
-                            and (kind, name) not in state.cycle_pins and len(candidates) == len(saved) == 1
-                            and saved[0].is_repeatable and not candidates[0].get("is_repeatable", False)):
-                        conditional.append((kind, name))
+                for kind, name in sorted(component, key=self._startup_node_sort_key):
+                    node = kind, name
+                    candidates = by_name.get(name, [])
+                    if (kind != "quest" or node not in original or node in seeds or len(candidates) != 1
+                            or candidates[0].get("is_repeatable", False)):
+                        continue
+                    saved = quest_matches(name)
+                    if len(saved) == 1 and saved[0].is_repeatable:
+                        conditional.append(node)
                 accepted = False
                 for proposed in conditional:
                     planned = {node: flag for node, flag in original.items() if node not in component}
@@ -952,25 +992,30 @@ class ContentPack:
                     for node in component:
                         if node in seeds:
                             plan(planned, causes, *node, seeds[node], seed_causes[node])
-                        if node in state.cycle_pins:
-                            plan(planned, causes, *node, *state.cycle_pins[node])
+                    # Reconsider policy, never actual/direct seed decisions.
                     plan(planned, causes, *proposed, False, source_reason(*proposed))
                     seen = set()
                     for _ in range(max(2, 2 * len(component) + 1)):
-                        signature = tuple((node, planned.get(node)) for node in sorted(component))
+                        signature = tuple((node, planned.get(node)) for node in sorted(component, key=self._startup_node_sort_key))
                         if signature in seen:
                             break
                         seen.add(signature)
-                        following, following_causes = following_plans(proposed)
+                        following, following_causes = following_plans(proposed, include_cycle_pins=False)
                         stable = all(following.get(node) == planned.get(node) for node in component)
                         planned, causes = following, following_causes
                         if not stable:
                             continue
-                        unforced, unforced_causes = following_plans()
+                        unforced, unforced_causes = following_plans(include_cycle_pins=False)
                         supported = all(unforced.get(node) == planned.get(node) for node in component)
                         remaining_true = {node for node in component if unforced.get(node) is True}
-                        if supported and remaining_true < original_true:
+                        original_withheld = set(original) & component
+                        remaining_withheld = set(unforced) & component
+                        improves = (remaining_true < original_true or
+                            (remaining_true == original_true and remaining_withheld < original_withheld))
+                        if supported and improves:
                             planned, causes = unforced, unforced_causes
+                            for node in component:
+                                state.cycle_pins.pop(node, None)
                             accepted = True
                         break
                     if accepted:
