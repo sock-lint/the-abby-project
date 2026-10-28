@@ -36,6 +36,8 @@ from apps.pets.lifecycle import growth_thresholds
 from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
 from apps.quests.availability import promised_potion_ids
+from apps.quests.category_matching import matches_category
+from apps.quests.progress_sources import has_progress_source
 from apps.quests.services import QuestService, TRIGGER_DAMAGE
 from apps.quests import goals
 from apps.quests.models import DailyBonus
@@ -321,6 +323,8 @@ def rules_fingerprint(*, incubation_policy=None):
                 SkillService.level_for_xp,
                 MovementSessionService.compute_xp_pool,
                 _amount,
+                matches_category,
+                has_progress_source,
                 companion_drop_weights,
                 random_item_is_available,
                 available_random_items,

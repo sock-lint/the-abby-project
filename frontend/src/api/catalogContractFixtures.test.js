@@ -91,10 +91,11 @@ describe('current owned-art API contracts', () => {
     expect(rows.filter((row) => row.item.name === 'Fire Potion').map((row) => row.item.catalog_icon)).toEqual(['item-fire-potion', null]);
   });
 
-  it('transports sixteen shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
+  it('transports twenty shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
     server.use(http.get('*/api/quests/catalog/', () => HttpResponse.json(elementalChallenges)));
     const rows = await getQuestCatalog();
     expect(rows).toEqual(elementalChallenges);
+    expect(rows.filter((row) => row.is_system)).toHaveLength(20);
     expect(new Map(rows.map((row) => [row.id, row.catalog_icon]))).toEqual(new Map([
       [91, 'challenge-ember-nest'], [92, 'challenge-frost-nest'], [93, 'challenge-ember-trail'], [94, 'challenge-frost-trail'], [95, null],
       [96, 'challenge-ember-grove'], [97, 'challenge-frost-grove'], [98, 'challenge-ember-summit'], [99, 'challenge-frost-summit'],
@@ -102,12 +103,15 @@ describe('current owned-art API contracts', () => {
       [102, 'review-bat-fire-acquisition-icon'], [103, 'review-bat-ice-acquisition-icon'],
       [104, 'review-snake-fire-acquisition-icon'], [105, 'review-snake-ice-acquisition-icon'],
       [106, 'review-hermit-crab-fire-acquisition-icon'], [107, 'review-hermit-crab-ice-acquisition-icon'],
+      [108, 'review-ghost-fire-acquisition-icon'], [109, 'review-ghost-ice-acquisition-icon'],
+      [110, 'review-potted-plant-fire-acquisition-icon'], [111, 'review-potted-plant-ice-acquisition-icon'],
     ]));
     for (const [id, egg, potion, target, days] of [
       [91, 71, 51, 5, 180], [92, 71, 52, 5, 180], [93, 72, 51, 20, 180], [94, 72, 52, 20, 180],
       [96, 74, 51, 10, 180], [97, 74, 52, 10, 180], [98, 75, 51, 50, 365], [99, 75, 52, 50, 365],
       [100, 76, 51, 5, 180], [101, 76, 52, 5, 180], [102, 73, 51, 10, 180], [103, 73, 52, 10, 180],
       [104, 77, 51, 10, 180], [105, 77, 52, 10, 180], [106, 78, 51, 10, 180], [107, 78, 52, 10, 180],
+      [108, 79, 51, 20, 180], [109, 79, 52, 20, 180], [110, 80, 51, 5, 180], [111, 80, 52, 5, 180],
     ]) {
       const challenge = rows.find((row) => row.id === id);
       expect(challenge).toMatchObject({ quest_type: 'collection', is_system: true, is_repeatable: false, target_value: target, duration_days: days, coin_reward: 0, xp_reward: 0 });
@@ -116,9 +120,12 @@ describe('current owned-art API contracts', () => {
       expect(challenge.reward_items.every((reward) => reward.quantity === 1 && reward.item_catalog_available === true)).toBe(true);
       expect(challenge.reward_items.find((reward) => reward.item_type === 'potion').item_catalog_icon).toBe(potion === 51 ? 'item-fire-potion' : 'item-ice-potion');
     }
+    for (const [id, name] of [[108, 'Ember Wisp'], [109, 'Frost Wisp'], [110, 'Ember Sprout'], [111, 'Frost Sprout']]) {
+      expect(rows.find((row) => row.id === id)).toMatchObject({ name });
+    }
     expect(rows.find((row) => row.id === 95)).toMatchObject({ name: 'Ember Nest', is_system: false, catalog_icon: null, reward_items: [] });
   });
-  it('uses server-confirmed Fire/Ice compatibility for all eight accepted families', async () => {
+  it('uses server-confirmed Fire/Ice compatibility for all ten fixture families', async () => {
     server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(elementalCatalog)));
     const codex = await getPetCodex();
     expect(codex).toEqual(elementalCatalog);
@@ -127,12 +134,14 @@ describe('current owned-art API contracts', () => {
       chick: ['base', 'fire', 'ice'], 'meshtint-wolf': ['base', 'fire', 'ice'], 'meshtint-bat': ['base', 'fire', 'ice'],
       'meshtint-mushroom': ['base', 'fire', 'ice'], 'meshtint-dragon': ['base', 'fire', 'ice'],
       'meshtint-bee': ['base', 'fire', 'ice'], 'meshtint-snake': ['base', 'fire', 'ice'], 'meshtint-hermit-crab': ['base', 'fire', 'ice'],
+      'meshtint-ghost': ['base', 'fire', 'ice'], 'meshtint-potted-plant': ['base', 'fire', 'ice'],
     });
     expect(Object.fromEntries(codex.species.map((species) => [species.slug, species.id]))).toEqual({
       chick: 61, 'meshtint-wolf': 62, 'meshtint-bat': 63, 'meshtint-mushroom': 64, 'meshtint-dragon': 65,
       'meshtint-bee': 66, 'meshtint-snake': 67, 'meshtint-hermit-crab': 68,
+      'meshtint-ghost': 69, 'meshtint-potted-plant': 70,
     });
-    expect(codex.totals).toEqual({ species: 8, discovered_species: 0, mounts_possible: 24, mounts_owned: 0 });
+    expect(codex.totals).toEqual({ species: 10, discovered_species: 0, mounts_possible: 30, mounts_owned: 0 });
   });
   it('uses the shared species allowance for every saved potion appearance', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));

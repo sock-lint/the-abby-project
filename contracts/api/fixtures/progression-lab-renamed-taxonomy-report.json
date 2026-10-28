@@ -70,7 +70,7 @@
     "system_challenges": 2,
     "nonrepeatable_challenges": 2
   },
-  "rules_fingerprint": "08f74e2948d3a320e4b067153258deb464eac91f1d7a52044a3911f481d5e747",
+  "rules_fingerprint": "4b3002e436da7d6c6160b0863be59ed6db797a249aa7bd5ee40f45ca8987fd1f",
   "engine_version": "2026-10-23.1",
   "source_commit": "unavailable",
   "coverage": {
@@ -4011,8 +4011,8 @@
     "longest_novelty_gap_p50": 29,
     "eligible_challenges": 1,
     "finite_breakdown": {
-      "badge": 1,
-      "quest": 1
+      "quest": 1,
+      "badge": 1
     },
     "level_p50": 2,
     "inventory_units_p50": 7,

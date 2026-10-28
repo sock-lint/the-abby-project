@@ -23,14 +23,14 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "name": "Practice snack",
           "rarity": "common",
+          "icon": "🍎",
+          "description": "",
+          "sprite_key": "",
           "metadata": {
             "growth": 5
           },
-          "description": "",
-          "sprite_key": "",
-          "name": "Practice snack",
-          "icon": "🍎",
           "coin_value": 2
         },
         "has_database_override": false,
@@ -105,26 +105,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 10,
           "required_skill_level": 1,
+          "duration_days": 7,
           "description": "Complete two daily Reading Adventures.",
+          "target_value": 2,
+          "is_repeatable": false,
+          "sprite_key": "",
+          "xp_reward": 15,
+          "quest_type": "collection",
+          "name": "Practice challenge",
+          "is_cooperative": false,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "is_cooperative": false,
+          "coin_reward": 10,
           "icon": "⚔️",
-          "is_repeatable": false,
-          "xp_reward": 15,
-          "sprite_key": "",
-          "target_value": 2,
-          "quest_type": "collection",
-          "duration_days": 7,
-          "name": "Practice challenge",
-          "required_badge": null,
-          "prerequisite_quest": 908,
           "required_skill": 902,
+          "prerequisite_quest": 908,
+          "required_badge": null,
           "reward_items": [
             {
               "item_id": 903,
@@ -175,26 +175,88 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 0,
           "required_skill_level": 0,
+          "duration_days": 7,
           "description": "Complete one approved chore.",
+          "target_value": 1,
+          "is_repeatable": false,
+          "sprite_key": "",
+          "xp_reward": 0,
+          "quest_type": "collection",
+          "name": "Starter practice",
+          "is_cooperative": false,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "is_cooperative": false,
+          "coin_reward": 0,
           "icon": "⚔️",
-          "is_repeatable": false,
-          "xp_reward": 0,
-          "sprite_key": "",
-          "target_value": 1,
-          "quest_type": "collection",
-          "duration_days": 7,
-          "name": "Starter practice",
-          "required_badge": null,
-          "prerequisite_quest": null,
           "required_skill": null,
+          "prerequisite_quest": null,
+          "required_badge": null,
+          "reward_items": [],
+          "skill_tags": []
+        },
+        "has_database_override": false
+      },
+      {
+        "id": 909,
+        "name": "Unreachable practice",
+        "description": "Synthetic retained challenge with incompatible filters.",
+        "icon": "⚔️",
+        "sprite_key": "",
+        "quest_type": "collection",
+        "target_value": 1,
+        "duration_days": 7,
+        "trigger_filter": {
+          "allowed_triggers": [
+            "chore_complete"
+          ],
+          "on_time": true
+        },
+        "coin_reward": 0,
+        "xp_reward": 0,
+        "is_repeatable": false,
+        "is_system": true,
+        "is_cooperative": false,
+        "required_badge": null,
+        "required_badge_name": null,
+        "superseded_by": null,
+        "prerequisite_quest": null,
+        "prerequisite_quest_name": null,
+        "required_skill": null,
+        "required_skill_name": null,
+        "required_skill_level": 0,
+        "automatic_tracking_available": false,
+        "unsupported_triggers": [],
+        "available_for_new_user": false,
+        "skill_tags": [],
+        "reward_items": [],
+        "editable": true,
+        "edit_reason": "",
+        "values": {
+          "required_skill_level": 0,
+          "duration_days": 7,
+          "description": "Synthetic retained challenge with incompatible filters.",
+          "target_value": 1,
+          "is_repeatable": false,
+          "sprite_key": "",
+          "xp_reward": 0,
+          "quest_type": "collection",
+          "name": "Unreachable practice",
+          "is_cooperative": false,
+          "trigger_filter": {
+            "allowed_triggers": [
+              "chore_complete"
+            ],
+            "on_time": true
+          },
+          "coin_reward": 0,
+          "icon": "⚔️",
+          "required_skill": null,
+          "prerequisite_quest": null,
+          "required_badge": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -306,7 +368,15 @@
     "storage": "Bundled YAML supplies defaults; published database overrides survive content reloads."
   },
   "audits": {
-    "findings": [],
+    "findings": [
+      {
+        "code": "unreachable_challenge_filters",
+        "section": "quests",
+        "id": 909,
+        "severity": "warning",
+        "detail": "Choose compatible activities and filters for this automatic challenge. Every selected filter must match the same saved-work activity."
+      }
+    ],
     "incomplete": false
   },
   "simulation": {
@@ -721,6 +791,11 @@
           "id": 908,
           "name": "Starter practice",
           "is_repeatable": false
+        },
+        {
+          "id": 909,
+          "name": "Unreachable practice",
+          "is_repeatable": false
         }
       ],
       "skills": [
@@ -732,15 +807,15 @@
       ]
     },
     "catalog": {
-      "fingerprint": "c7d4301d714c5668cf50fc9495c35a0db3ae2bd79aa28f14778ec22a4baa3f97",
+      "fingerprint": "ddb131b19117f68742bae5b66fcaa82997e1c0b16a2f6ee31642edae5ba6cead",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
       "modeled_badges": 0,
       "excluded_badges": 0,
       "excluded_badge_criteria": {},
-      "system_challenges": 2,
-      "nonrepeatable_challenges": 2
+      "system_challenges": 3,
+      "nonrepeatable_challenges": 3
     },
     "coverage": {
       "modeled": [
@@ -866,7 +941,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "08f74e2948d3a320e4b067153258deb464eac91f1d7a52044a3911f481d5e747",
+    "rules_fingerprint": "4b3002e436da7d6c6160b0863be59ed6db797a249aa7bd5ee40f45ca8987fd1f",
     "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "work_budget": {

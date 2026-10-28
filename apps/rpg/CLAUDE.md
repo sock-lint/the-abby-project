@@ -8,12 +8,12 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and exact namespaced Wolf,
-Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab accept Base, Fire and Ice;
-the other seven prepared families accept Base only (31 exact pairs). Fire/Ice
-potions remain excluded from random pools. Sixteen one-time challenges guarantee
-exact egg/potion bundles. The Snake/Hermit Crab artwork is owner-accepted and
-its exact canonical release has passed application readback; application rollout
-still requires the ordinary MAIN gates.
+Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant accept
+Base, Fire and Ice; the other five prepared families accept Base only (35 exact
+pairs). Fire/Ice potions remain excluded from random pools. Twenty one-time
+challenges guarantee exact egg/potion bundles. The owner approved all twelve
+Ghost/Potted Plant appearances. That exact runtime has passed canonical
+application readback; the ordinary MAIN rollout gates remain.
 Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
@@ -58,6 +58,16 @@ Base/Fire/Ice compatibility only when their exact species/sprite identity has
 positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
 come from the receiving descriptor and do not establish artwork publication.
+
+Ghost/Potted Plant activation is described in
+[its runbook](../../docs/operations/elemental-ghost-potted-plant.md). Initial
+content supplies Wisp (20) and Sprout (5) guarantees within 180 days, once, with
+one unchanged natural species egg plus matching global potion and zero authored
+Coins/XP. Ghost remains Rare and Potted Plant Common. The positive policy and
+initial compatibility change together to 35 pairs/20 guarantees; the exact
+runtime is the fifteenth pin, preserving all fourteen prior releases and code
+integrity pins. The historical preparation pack remains unregistered. Existing
+accepted rewards and incubation/expedition promises remain fulfillable.
 
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.
@@ -156,6 +166,10 @@ offers also require a trigger with positive damage. Reward-only badge,
 Perfect Day and quest-completion filters cannot consume a reroll. Mixed filters,
 ordinary unfiltered campaigns and explicit reading retain their existing
 eligibility; an empty candidate pool rolls back inventory consumption.
+One candidate activity must satisfy every active selector, including category,
+project, chores, timeliness and savings filters. New item and companion reward
+hints share that admission check; accepted reward promises keep their saved
+paths.
 
 Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, retains the configured local worker/streak date (currently America/Phoenix), and awards `perfect_days_count += 1`, 15 bonus coins and an Uncommon-or-better accomplishment drop once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 

@@ -100,11 +100,11 @@ class HatcheryDiscoveryTests(TestCase):
         with CaptureQueriesContext(connection) as queries:
             body = self.catalog()
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 31)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 35)
         for species in body["species"]:
             expected = {"base", "fire", "ice"} if species["slug"] in {
                 "chick", "meshtint-wolf", "meshtint-mushroom", "meshtint-dragon", "meshtint-bee", "meshtint-bat",
-                "meshtint-snake", "meshtint-hermit-crab",
+                "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant",
             } else {"base"}
             self.assertEqual({row["slug"] for row in species["available_potions"]}, expected)
             for potion in species["available_potions"]:
@@ -315,6 +315,61 @@ class HatcheryDiscoveryTests(TestCase):
         self.assertTrue(wrong_pair.reward_items.exists())
         self.assertEqual([row["definition_id"] for row in self.paths()], [good.pk])
         self.assertEqual(self.paths(species="meshtint-bee", potion="base"), [])
+
+    def test_zero_damage_boss_is_not_an_available_new_reward_offer(self):
+        from apps.quests.services import QuestService
+
+        definition = self.definition()
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        with self.assertRaisesRegex(ValueError, "Choose a saved-work activity"):
+            QuestService.start_quest(self.child, definition.pk)
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertIsNone(row["attempt"])
+        self.assertFalse(ChallengeGoal.objects.exists())
+
+    def test_creation_collection_and_mixed_boss_keep_new_reward_offers(self):
+        for quest_type, triggers in (
+            ("collection", ["creation_logged"]),
+            ("boss", ["creation_logged", "habit_log"]),
+        ):
+            definition = self.definition(name=f"Reachable {quest_type}")
+            QuestDefinition.objects.filter(pk=definition.pk).update(
+                quest_type=quest_type, trigger_filter={"allowed_triggers": triggers},
+            )
+        rows = self.paths()
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row["offer_available"] for row in rows))
+        self.assertFalse(ChallengeGoal.objects.exists())
+
+    def test_new_admission_change_keeps_a_saved_goal_attempt(self):
+        definition = self.definition()
+        occurrence = self.accepted(definition)
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertEqual(row["attempt"]["id"], f"goal:{occurrence.pk}")
+        self.assertEqual(row["attempt"]["progress"], "3")
+        self.assertEqual(row["attempt"]["target"], "8")
+
+    def test_new_admission_change_keeps_a_saved_legacy_attempt(self):
+        from apps.quests.services import QuestService
+
+        definition = self.definition()
+        quest = QuestService.start_quest(self.child, definition.pk)
+        Quest.objects.filter(pk=quest.pk).update(current_progress=3)
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertEqual(row["attempt"]["id"], f"legacy:{quest.pk}")
+        self.assertEqual(row["attempt"]["progress"], "3")
+        self.assertEqual(row["attempt"]["target"], "10")
 
     def test_progress_and_names_are_self_scoped_even_with_targeting_query_parameters(self):
         definition = self.definition()
@@ -561,7 +616,7 @@ class HatcheryDiscoveryProductionTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Actual discovery catalog", children=[{"username": "actual-discovery"}]).children[0]
 
-    def test_all_sixteen_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
+    def test_all_twenty_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
         from apps.rpg.catalog_icons import challenge_catalog_icon
 
         client = APIClient()
@@ -571,11 +626,12 @@ class HatcheryDiscoveryProductionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.data
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 31)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 35)
         expected = {"chick": ("Nest", 5, 180), "meshtint-wolf": ("Trail", 20, 180),
                     "meshtint-mushroom": ("Grove", 10, 180), "meshtint-dragon": ("Summit", 50, 365),
                     "meshtint-bee": ("Hive", 5, 180), "meshtint-bat": ("Cave", 10, 180),
-                    "meshtint-snake": ("Coil", 10, 180), "meshtint-hermit-crab": ("Shore", 10, 180)}
+                    "meshtint-snake": ("Coil", 10, 180), "meshtint-hermit-crab": ("Shore", 10, 180),
+                    "meshtint-ghost": ("Wisp", 20, 180), "meshtint-potted-plant": ("Sprout", 5, 180)}
         checked = set()
         for species in body["species"]:
             for potion in species["available_potions"]:
@@ -590,10 +646,11 @@ class HatcheryDiscoveryProductionTests(TestCase):
                     self.assertTrue(path["offer_available"])
                     self.assertIsNone(path["attempt"])
                     self.assertEqual((path["target"], path["duration_days"]), (str(target), days))
-                    icon = (f"review-{species['slug'].removeprefix('meshtint-')}-{potion['slug']}-acquisition-icon"
-                            if suffix in {"Hive", "Cave", "Coil", "Shore"} else f"challenge-{prefix.lower()}-{suffix.lower()}")
+                    icon_species = species["slug"].removeprefix("meshtint-")
+                    icon = (f"review-{icon_species}-{potion['slug']}-acquisition-icon"
+                            if suffix in {"Hive", "Cave", "Coil", "Shore", "Wisp", "Sprout"} else f"challenge-{prefix.lower()}-{suffix.lower()}")
                     self.assertEqual(challenge_catalog_icon(QuestDefinition.objects.get(pk=path["definition_id"])), icon)
                     checked.add((species["slug"], potion["slug"]))
-        self.assertEqual(len(checked), 16)
+        self.assertEqual(len(checked), 20)
         self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in queries))
         self.assertFalse(ChallengeGoal.objects.exists())

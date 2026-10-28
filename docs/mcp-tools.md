@@ -559,6 +559,14 @@ for source ownership, stale-plan checks, retained history and repeat cadence.
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
 
+New private definitions and solo/shared assignments require a matching saved-work
+progress source; bosses also require positive damage. Reward-only rules are
+rejected without creating a campaign, consuming inventory or reserving a new
+request receipt. An identical saved creation UUID still returns its original
+result. `list_quest_catalog` omits unreachable new choices; saved quest reads
+retain their definitions and rewards. Category filters match the trusted category
+snapshot of saved activity tags rather than later taxonomy edits.
+
 
 ## reading
 

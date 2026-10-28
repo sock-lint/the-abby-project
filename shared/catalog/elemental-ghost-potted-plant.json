@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "preparation": {
+    "state": "active",
+    "acquisition_active": true,
+    "artwork_accepted": true,
+    "application_ids_agreed": true,
+    "candidate_verified": true
+  },
+  "release": {
+    "family_id": "abby-elemental-ghost-potted-plant",
+    "release_version": "1.0.0",
+    "manifest_sha256": "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "egg_item_slug": "meshtint-ghost-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Wisp",
+          "target_count": 20,
+          "window_days": 180,
+          "catalog_icon": "review-ghost-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Wisp",
+          "target_count": 20,
+          "window_days": 180,
+          "catalog_icon": "review-ghost-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-ghost-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-ghost-ice-acquisition-icon"
+        }
+      ]
+    },
+    {
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "egg_item_slug": "meshtint-potted-plant-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Sprout",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-potted-plant-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Sprout",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-potted-plant-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-potted-plant-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-potted-plant-ice-acquisition-icon"
+        }
+      ]
+    }
+  ],
+  "private_review": {
+    "index_uri": "s3://abby-assets-releases/releases/candidates/abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9/65a17e650fcc964541413268f0b5f08b8ad5223204a3333cfabac84324a489c6/index.json",
+    "index_sha256": "12e87df4f4066b008767d3b281b1c8b12a8e965f227d39aaeec5735aaeffbb76",
+    "index_bytes": 4994,
+    "manifest_bytes": 292313,
+    "runtime_files": 154,
+    "runtime_bytes": 51889149,
+    "glb_files": 138,
+    "png_files": 16,
+    "canonical_publication": "not_performed",
+    "source_backup": "pending",
+    "physical_phone_acceptance": "pending",
+    "snapshot": "Historical private review before owner artwork/release approval and canonical publication; current canonical verification is recorded separately."
+  },
+  "canonical_publication": {
+    "version_index_uri": "s3://abby-assets-releases/releases/versions/abby-elemental-ghost-potted-plant/1.0.0.json",
+    "version_index_sha256": "737b7e90c70ed64af4b9f483bfd2a2af09a72a4ae7ddd8faa76d666321ad6955",
+    "version_index_bytes": 174,
+    "manifest_uri": "s3://abby-assets-releases/releases/abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9/manifest.json",
+    "manifest_bytes": 292313,
+    "canonical_objects": 156,
+    "canonical_bytes": 52181636,
+    "runtime_files": 154,
+    "runtime_bytes": 51889149,
+    "glb_files": 138,
+    "png_files": 16,
+    "application_get_only_verification": "156/156 SHA-256 and size verified on 2026-10-27",
+    "anonymous_access": "156/156 HTTP 403",
+    "approved_runtime_bytes_unchanged": true,
+    "publisher_coordinator_receipt": {
+      "status": "passed",
+      "source_session": "Prepare Fire and Ice assets",
+      "source_turn_id": "01a17f26-fa7d-7061-a004-bd984ed93c4d",
+      "retrieved_receipt_sha256": "4baf9dac66c6a29b41616a56991d6b9282b4778fd974b231240137e79cd5775c",
+      "scoped_publisher_and_permanent_coordinator": "passed",
+      "immutable_version_reserved_first": true,
+      "manifest_published_last": true,
+      "publisher_hash_size_readback": 156,
+      "permanent_canonical_claims_verified": 156,
+      "prior_claims_unchanged": 5488,
+      "protected_files_unchanged": 9430,
+      "unresolved_publication_access_holds": "none"
+    }
+  }
+}
