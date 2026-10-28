@@ -587,10 +587,14 @@ class GoalApiTests(_GoalFixture, TestCase):
         self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
 
     def test_rolling_catalog_cycle_keeps_saved_wall_clock_across_dst_and_zone_change(self):
-        ChallengeEnrollment.objects.filter(user=self.child).update(timezone_name="America/New_York")
-        definition = self.definition(is_repeatable=True)
         offered_at = datetime(2026, 10, 28, 16, 15, tzinfo=ZoneInfo("UTC"))
         with patch("django.utils.timezone.now", return_value=offered_at):
+            # Both admission cutoffs belong to the fixture clock, even when
+            # this test runs after its fixed offer date.
+            ChallengeEnrollment.objects.filter(user=self.child).update(
+                starts_at=offered_at - timedelta(days=1), timezone_name="America/New_York",
+            )
+            definition = self.definition(is_repeatable=True)
             first = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
         original = first.data["results"][0]
         self.assertEqual(original["ends_at"], datetime(2026, 11, 4, 17, 15, tzinfo=ZoneInfo("UTC")).isoformat())
