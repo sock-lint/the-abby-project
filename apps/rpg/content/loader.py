@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 import yaml
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Value
 
 
 # File names inside a pack (all optional).
@@ -51,16 +51,28 @@ class RetiredContentReference(ContentPackError):
     """A valid source row introduces a reference to retired taxonomy."""
 
 
+class CategorySourceConflict(ContentPackError):
+    """A source row would create or depend on a retained category collision."""
+
+
 @dataclass
 class StartupDeferrals:
-    """Retired source identities shared only by one default bundled load."""
+    """Withheld source identities shared only by one default bundled load."""
 
     skills: set[tuple[str, str]] = field(default_factory=set)
     quests: set[str] = field(default_factory=set)
+    categories: set[str] = field(default_factory=set)
+    conflict_skills: set[tuple[str, str]] = field(default_factory=set)
+    badges: set[str] = field(default_factory=set)
+    conflict_quests: set[str] = field(default_factory=set)
 
     def clear(self):
         self.skills.clear()
         self.quests.clear()
+        self.categories.clear()
+        self.conflict_skills.clear()
+        self.badges.clear()
+        self.conflict_quests.clear()
 
 
 @dataclass
@@ -272,6 +284,7 @@ class ContentPack:
             weight = 1 if isinstance(tag, str) else int(tag.get("weight", 1))
             if not isinstance(reference, str) or not reference:
                 raise ContentPackError("Quest skill references must be nonempty names.")
+            self._check_conflicted_skill_source(reference)
             if "::" in reference:
                 matches = self._qualified_skill_matches(reference)
             else:
@@ -295,6 +308,32 @@ class ContentPack:
                    (f"{key[0]}::{key[1]}" == reference if "::" in reference else
                     key[1] == reference and (category is None or key[0] == category))]
         return len(matches) == 1
+
+    def _check_conflicted_skill_source(self, reference, *, category=None):
+        # Check before resolving surviving DB rows: a bare name must not bind
+        # an unrelated skill just because its intended source was withheld.
+        if any(f"{parent}::{name}" == reference if "::" in reference else
+               name == reference and (category is None or parent == category)
+               for parent, name in self._startup_deferrals.conflict_skills):
+            raise CategorySourceConflict(f"Skill source {reference!r} was deferred for a retained category identity conflict.")
+
+    def _badge_uses_conflicted_category(self, kind, rule):
+        names = self._startup_deferrals.categories
+        name = rule.get("category")
+        if not names or not isinstance(name, str):
+            return False
+        if kind == "category_mastery":
+            return name in names
+        if kind != "category_projects" or rule.get("categories"):
+            return False
+        from apps.achievements.models import SkillCategory
+        matches = Q()
+        for source in names:
+            matches |= Q(_source_category_selector__iexact=source)
+        # Native project selectors use the database's case comparison, while
+        # mastery retains its exact selector. A conflict guarantees a saved
+        # category exists; no household rows or Python casefolding are needed.
+        return SkillCategory.objects.annotate(_source_category_selector=Value(name)).filter(matches).exists()
 
     def _protect_active_quest(self, quest, defaults, entry):
         active, changed = self._active_quest_changes(quest, defaults, entry)
@@ -394,7 +433,18 @@ class ContentPack:
                     self.stats.bump("skipped", skip[0])
                     self.warnings.append(skip[1])
                     return None, False
-            self._validate_taxonomy_links(model, model.objects.filter(**lookup).first(), {**lookup, **defaults})
+            previous = model.objects.filter(**lookup).first()
+            if model._meta.label_lower == "achievements.skillcategory" and previous is None:
+                from .authoring import validate_source_identity
+                try:
+                    validate_source_identity(model(**lookup, **defaults))
+                except ContentPackError as error:
+                    raise CategorySourceConflict(str(error)) from error
+            if model._meta.label_lower == "achievements.badge" and self.defer_retired_references:
+                kind, rule = defaults.get("criteria_type"), defaults.get("criteria_value") or {}
+                if self._badge_uses_conflicted_category(kind, rule):
+                    raise CategorySourceConflict(f"Category source {rule['category']!r} was deferred for a retained category identity conflict.")
+            self._validate_taxonomy_links(model, previous, {**lookup, **defaults})
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
         from django.core.exceptions import ValidationError
@@ -469,8 +519,8 @@ class ContentPack:
 
     @contextmanager
     def _source_row(self, kind, name):
-        """Defer one retired-reference row without retaining any of its writes."""
-        state = {"deferred": False}
+        """Defer only known unavailable sources, rolling back the complete row."""
+        state = {"deferred": False, "category_conflict": False}
         if not self.defer_retired_references:
             yield state
             return
@@ -479,12 +529,14 @@ class ContentPack:
         try:
             with transaction.atomic():
                 yield state
-        except RetiredContentReference as error:
+        except (RetiredContentReference, CategorySourceConflict) as error:
             self.stats = stats
             self._created_taxonomy = created
             state["deferred"] = True
+            state["category_conflict"] = isinstance(error, CategorySourceConflict)
             del self.warnings[warnings:]
-            self.stats.bump("skipped", "retired_reference_" + kind)
+            reason = "category_source_conflict_" if state["category_conflict"] else "retired_reference_"
+            self.stats.bump("skipped", reason + kind)
             self.warnings.append(f"Left {kind} {name!r} unchanged: {error}")
 
     @staticmethod
@@ -574,13 +626,19 @@ class ContentPack:
             }
             if "is_retired" in entry:
                 defaults["is_retired"] = entry["is_retired"]
-            obj, created = self._upsert(SkillCategory, entry=entry,
-                name=name, defaults=defaults,
-            )
-            if created:
-                self._created_taxonomy.setdefault(SkillCategory, set()).add(obj.pk)
-            cat_by_name[name] = obj
-            self.stats.bump("created" if created else "updated", "skill_category")
+            cat_by_name[name] = None
+            with self._source_row("category", name) as source:
+                obj, created = self._upsert(SkillCategory, entry=entry,
+                    name=name, defaults=defaults,
+                )
+                if created:
+                    self._created_taxonomy.setdefault(SkillCategory, set()).add(obj.pk)
+                cat_by_name[name] = obj
+                self.stats.bump("created" if created else "updated", "skill_category")
+            if source["category_conflict"]:
+                self._startup_deferrals.categories.add(name)
+            else:
+                self._startup_deferrals.categories.discard(name)
 
         # Subjects (grouping tier between Category and Skill). Unique per category.
         subject_by_key: dict[tuple[str, str], Any] = {}
@@ -592,6 +650,8 @@ class ContentPack:
                     raise ContentPackError(
                         f"subject {entry['name']!r} references unknown category {cat_name!r}"
                     )
+                if cat_by_name[cat_name] is None:
+                    raise CategorySourceConflict(f"Category source {cat_name!r} was deferred for a retained category identity conflict.")
                 defaults = {
                     "icon": entry.get("icon", ""),
                     "order": entry.get("order", 0),
@@ -614,12 +674,14 @@ class ContentPack:
         explicit_prereqs: dict[int, list[int]] = {}
         for entry in data.get("skills", []) or []:
             skill_by_key[entry["category"], entry["name"]] = None
-            with self._source_row("skill", entry["name"]):
+            with self._source_row("skill", entry["name"]) as source:
                 cat_name = entry["category"]
                 if cat_name not in cat_by_name:
                     raise ContentPackError(
                         f"skill {entry['name']!r} references unknown category {cat_name!r}"
                     )
+                if cat_by_name[cat_name] is None:
+                    raise CategorySourceConflict(f"Category source {cat_name!r} was deferred for a retained category identity conflict.")
                 defaults = {
                     "icon": entry.get("icon", ""),
                     "level_names": entry.get("levels", {}),
@@ -652,6 +714,7 @@ class ContentPack:
                     self._created_taxonomy.setdefault(Skill, set()).add(obj.pk)
                 skill_by_key[cat_name, entry["name"]] = obj
                 self._deferred_skill_references.discard((cat_name, entry["name"]))
+                self._startup_deferrals.conflict_skills.discard((cat_name, entry["name"]))
                 self.stats.bump("created" if created else "updated", "skill")
                 from .authoring import preserves_skill_prerequisites
                 if preserves_skill_prerequisites(obj):
@@ -670,6 +733,8 @@ class ContentPack:
                     })
             if skill_by_key[entry["category"], entry["name"]] is None:
                 self._deferred_skill_references.add((entry["category"], entry["name"]))
+                if source["category_conflict"]:
+                    self._startup_deferrals.conflict_skills.add((entry["category"], entry["name"]))
 
         # Prerequisites (after all skills exist)
         qualified_skills = {}
@@ -691,6 +756,7 @@ class ContentPack:
                     else:
                         name = req
                         level = 2
+                    self._check_conflicted_skill_source(name, category=p["category"])
                     if "::" in name:
                         matches = qualified_skills.get(name, {})
                         if len(matches) > 1:
@@ -760,6 +826,7 @@ class ContentPack:
             candidate.is_retired = previous.is_retired
         for prerequisite in entry.get("prereqs", []) or []:
             name = prerequisite["skill"] if isinstance(prerequisite, dict) else prerequisite
+            self._check_conflicted_skill_source(name, category=entry["category"])
             targets = (self._qualified_skill_matches(name) if "::" in name else
                        self._source_reference_matches(Skill, category=category, name=name))
             if len(targets) > 1:
@@ -778,7 +845,7 @@ class ContentPack:
                 # A durable rename can be addressed by its current name while
                 # YAML still uses the original source name. Resolve the same
                 # numeric identity, never infer ownership from a display word.
-                sources = [row for row in entries if row["category"] in categories and any(
+                sources = [row for row in entries if categories.get(row["category"]) is not None and any(
                     match.pk == targets[0].pk for match in self._source_reference_matches(
                         Skill, category=categories[row["category"]], name=row["name"],
                     ))]
@@ -787,6 +854,8 @@ class ContentPack:
             if sources and sources[0]["category"] in categories:
                 source = sources[0]
                 parent = categories[source["category"]]
+                if parent is None:
+                    raise CategorySourceConflict(f"Category source {source['category']!r} was deferred for a retained category identity conflict.")
                 subject_key = (source["category"], source.get("subject"))
                 subject = subjects.get(subject_key)
                 if subject_key in subjects and subject is None:
@@ -830,10 +899,15 @@ class ContentPack:
                 "rarity": entry.get("rarity", "common"),
                 "award_coins": bool(entry.get("award_coins", True)),
             }
-            _, created = self._upsert(Badge, entry=entry,
-                name=entry["name"], defaults=defaults,
-            )
-            self.stats.bump("created" if created else "updated", "badge")
+            with self._source_row("badge", entry["name"]) as source:
+                _, created = self._upsert(Badge, entry=entry,
+                    name=entry["name"], defaults=defaults,
+                )
+                self.stats.bump("created" if created else "updated", "badge")
+            if source["category_conflict"]:
+                self._startup_deferrals.badges.add(entry["name"])
+            else:
+                self._startup_deferrals.badges.discard(entry["name"])
 
     # ---- potion types + auto potion items -------------------------------
 
@@ -1186,6 +1260,8 @@ class ContentPack:
                 }
                 if "prerequisite_quest" in entry:
                     reference = entry["prerequisite_quest"]
+                    if reference in self._startup_deferrals.conflict_quests:
+                        raise CategorySourceConflict(f"Challenge source {reference!r} was deferred for a retained category identity conflict.")
                     matches = self._source_reference_matches(QuestDefinition, name=reference) if reference else []
                     if reference and len(matches) != 1:
                         if not matches and reference in self._deferred_quests:
@@ -1199,6 +1275,8 @@ class ContentPack:
                 if "required_badge" in entry:
                     defaults["required_badge"] = None
                 if entry.get("required_badge") is not None:
+                    if entry["required_badge"] in self._startup_deferrals.badges:
+                        raise CategorySourceConflict(f"Badge source {entry['required_badge']!r} was deferred for a retained category identity conflict.")
                     matches = self._source_reference_matches(Badge, name=entry["required_badge"])
                     if len(matches) != 1:
                         raise ContentPackError(
@@ -1261,8 +1339,11 @@ class ContentPack:
                         self.stats.bump("created" if created else "updated", "quest_skill_tag")
             if source["deferred"]:
                 self._deferred_quests.add(entry["name"])
+                if source["category_conflict"]:
+                    self._startup_deferrals.conflict_quests.add(entry["name"])
             else:
                 self._deferred_quests.discard(entry["name"])
+                self._startup_deferrals.conflict_quests.discard(entry["name"])
 
     # ---- rewards -------------------------------------------------------
 

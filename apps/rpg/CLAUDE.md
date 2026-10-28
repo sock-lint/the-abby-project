@@ -330,6 +330,19 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
   back the entire publication. `tests/test_startup_loader_safety.py` covers
   these boundaries through the actual loader and startup command.
 
+  Unkeyed loads also reserve genuinely renamed authored category source names,
+  including database case-insensitive matches. Exact retained sources keep
+  their existing numeric identity; other spellings never adopt that identity.
+  Explicit/manual loads reject a new conflicting category and roll back the
+  load. Default startup instead reports and withholds that source category and
+  its dependent subjects, skills, prerequisites, named category badges and
+  challenges, including dependencies in later bundled packs. Each withheld row
+  retains its complete saved scalar rules and links; unrelated content still
+  loads. Deferral markers exist only for that command, so an explicit source
+  repair can load the withheld content on the next run. Unknown references and
+  unrelated validation errors remain strict. See
+  `tests/test_loader_category_source_conflicts.py`.
+
 ## RPG tunables (hardcoded constants in `apps/rpg/services.py`)
 These are intentionally NOT in settings — they're game-design constants, not deploy-time config.
 - `BASE_CHECK_IN_COINS = 5` — base daily check-in bonus before streak multiplier.

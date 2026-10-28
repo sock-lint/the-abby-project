@@ -43,9 +43,14 @@ Badge catalog, earned-list and summary reads share lazy availability inputs
 within one request, including supported companion pairs and that account's
 saved collections. `available_pet_pairs` batches authored compatibility reads;
 an empty compatibility relation keeps its existing unrestricted meaning.
-Standalone service checks and later requests recompute availability after
+Named category goals batch distinct selectors in groups of 100 within that
+read, preserving database exact/case-insensitive matching and the native
+1,001-source overflow check before filtering malformed or dangling sources.
+Catalog and earned/summary serializers share those results. Standalone service
+checks resolve only their requested selector and later requests recompute after
 ownership or catalog changes. Query-growth and account-isolation regressions
-live in `tests/test_badge_availability_queries.py`.
+live in `tests/test_badge_availability_queries.py` and
+`tests/test_named_goal_availability_queries.py`.
 
 ## Models
 - `SkillCategory → Subject → Skill → Badge` — full hierarchy.

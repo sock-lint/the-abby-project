@@ -567,12 +567,18 @@ redirect a saved rule to another category with the old name. Existing earned
 badge receipts and payouts are preserved.
 
 Category authoring rejects case-insensitive reuse of a genuinely renamed source
-and a direct rename that would introduce a retained/current identity conflict.
+and a direct rename that would introduce a retained/current identity conflict
+or leave two renamed-only sources competing for the same spelling.
 This includes renaming a case-variant duplicate of an otherwise unchanged badge
 category. The rejected edit saves nothing. Current-only case variants and
 case-only renames remain supported. Create a distinct category and retire the
-old choice when a rename would overlap another source identity. Unrelated
-metadata changes and explicit repairs keep their existing validation rules.
+old choice when a rename would overlap another source identity. In an existing
+tie between a renamed category and a current case variant, restore the renamed
+category's original spelling first; moving the current competitor away can
+close off that repair route and is rejected. Unrelated metadata and retirement
+edits remain available. Already-persisted ties between two renamed-only sources
+stay fail-closed and require explicit source reconciliation; these tools do not
+guess an owner, rewrite provenance or replay awards.
 
 Existing badges with unreachable skill-level requirements are unavailable for
 new goals and reported by the catalog audit. Earned badges remain readable and
@@ -608,14 +614,21 @@ its temporary identity tracking clears after success, failure and dry runs. This
 catalog cleanup described in the companion lifecycle runbook.
 Default bundled startup loads report and defer individual new retired-reference
 rows, rolling back their scalar fields and links while loading safe content.
+They also report new categories which would compete with a retained source and
+defer their dependent subjects, skills, prerequisites, named badges and quests.
+Project badge selectors follow the database's case-insensitive matching;
+mastery and skill-source references keep their exact matching. Deferred rows
+keep their complete saved fields and relationships, including in later bundled
+packs; startup never adopts another category by folding its name.
 Later bundled packs recognize those deferred skill and quest identities within
 the same atomic startup batch. The temporary markers clear on success, failure
 and dry runs, including when a command instance is reused. A dependent skill's
 source prerequisites are checked before any scalar or link changes, including
 existing targets and forward references, so deferred rules leave its full saved
-row intact. Existing saved references remain valid. Explicit `--pack` loads, keyed previews
-and publication stay strict; unknown references, invalid source and identity
-conflicts still fail rather than being classified as retirement deferrals.
+row intact. Existing saved references remain valid. Explicit `--pack` loads,
+keyed previews and publication reject category-source conflicts atomically.
+Unknown references and unrelated validation errors still fail startup instead
+of being treated as a deferral.
 
 Skill identities include their category. Duplicate labels show their category in
 the native pickers; if literal names imitate those labels, escaped quoted name

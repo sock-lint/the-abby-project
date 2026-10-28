@@ -71,23 +71,29 @@ def _canonical_lookup(model, lookup):
     return result
 
 
-def _validate_category_alias_reuse(obj):
-    # Existing members of a current-name union can keep their namespace. Only
-    # a genuinely renamed source reserves a new incoming case-insensitive name.
-    current = SkillCategory.objects.filter(name__iexact=obj.name)
-    if obj.pk and current.filter(pk=obj.pk).exists():
-        return
+def _has_retained_category_source(name, *, exclude_object_id):
+    current = SkillCategory.objects.filter(name__iexact=name)
     sources = RPGContentOverride.objects.filter(
         model_label="achievements.skillcategory",
-        source_lookup__name__iexact=obj.name,
+        source_lookup__name__iexact=name,
         values___authoring={"version": 1, "source": "mcp"},
-    ).exclude(object_id=obj.pk).exclude(object_id__in=current.values("pk"))
+    ).exclude(object_id=exclude_object_id).exclude(object_id__in=current.values("pk"))
     for source in sources:
         if (isinstance(source.source_lookup, dict)
                 and set(source.source_lookup) == {"name"}
                 and isinstance(source.source_lookup["name"], str)
                 and SkillCategory.objects.filter(pk=source.object_id).exists()):
-            raise ContentPackError("This category name is retained by another renamed entry; choose another name.")
+            return True
+    return False
+
+
+def _validate_category_alias_reuse(obj):
+    # Existing members of a current-name union can keep their namespace. Only
+    # a genuinely renamed source reserves a new incoming case-insensitive name.
+    if obj.pk and SkillCategory.objects.filter(pk=obj.pk, name__iexact=obj.name).exists():
+        return
+    if _has_retained_category_source(obj.name, exclude_object_id=obj.pk):
+        raise ContentPackError("This category name is retained by another renamed entry; choose another name.")
 
 
 def _validate_direct_category_source(obj, previous):
@@ -107,8 +113,6 @@ def _validate_direct_category_source(obj, previous):
         _candidate_name=Value(obj.name),
     ).filter(_candidate_name__iexact=name).exists():
         return
-    if not SkillCategory.objects.filter(name__iexact=name).exclude(pk=obj.pk).exists():
-        return
     was_retained = not SkillCategory.objects.filter(pk=obj.pk, name__iexact=name).exists()
     was_valid = source and RPGContentOverride.objects.filter(
         pk=source.pk, values___authoring={"version": 1, "source": "mcp"},
@@ -117,7 +121,11 @@ def _validate_direct_category_source(obj, previous):
         # Already-persisted ambiguity keeps the established fail-closed policy;
         # unrelated metadata/retirement edits do not introduce a new conflict.
         return
-    raise ContentPackError("This edit would retain a category name used by another current entry; choose another name.")
+    if (SkillCategory.objects.filter(name__iexact=name).exclude(pk=obj.pk).exists()
+            or _has_retained_category_source(name, exclude_object_id=obj.pk)):
+        # Removing the last current spelling must not leave two retained-only
+        # identities that the source-name guard prevents either owner repairing.
+        raise ContentPackError("This edit would retain a category name used by another entry; choose another name.")
 
 
 def validate_source_identity(obj):
