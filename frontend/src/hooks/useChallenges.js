@@ -4,13 +4,15 @@ import { useApi } from './useApi';
 import { useRole } from './useRole';
 import { usePulse } from '../providers/pulseContext';
 import { getToken } from '../api/client';
+import { useSpace } from './useSpace';
 
 export const CHALLENGES_CHANGED = 'abby:challenges-changed';
 
 export default function useChallenges({ userId, refreshKey } = {}) {
-  const { user, isParent } = useRole();
+  const { user } = useRole();
+  const { isFamilySpace: isParent, space } = useSpace();
   const { pulse } = usePulse();
-  const scope = `${user?.id}:${getToken()}:${userId || 'self'}`;
+  const scope = `${user?.id}:${getToken()}:${space}:${userId || 'self'}`;
   const fetch = useCallback(async () => ({
     ...(user && (!isParent || userId) ? await getChallenges(userId) : { results: [], pin: null, daily_bonus: null }),
     _challengeScope: scope,

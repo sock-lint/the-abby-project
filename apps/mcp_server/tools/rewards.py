@@ -67,6 +67,11 @@ def get_coin_balance(params: GetCoinBalanceIn) -> dict[str, Any]:
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
     with household_context(user, target, allow_inactive_target=True) as (user, target):
+        # This response includes free-text ledger descriptions, unlike the
+        # aggregate accounting tools. Recheck the fresh locked target using
+        # the same self-or-child boundary as the native Coin history read.
+        if target.pk != user.pk and target.role != "child":
+            raise MCPNotFoundError(f"User {params.user_id} not found.")
 
         balance = CoinService.get_balance(target)
         breakdown = CoinService.get_breakdown(target)

@@ -61,6 +61,7 @@ class Project(TimestampedModel):
     hourly_rate_override = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True
     )
+    hourly_rate_is_personal_default = models.BooleanField(default=False, editable=False)
     materials_budget = models.DecimalField(
         max_digits=8, decimal_places=2, default=Decimal("0.00")
     )

@@ -4,11 +4,12 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Q
 from rest_framework import mixins, permissions, status, viewsets
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from config.viewsets import RoleFilteredQuerySetMixin
 
 from .models import ReadingDiscoveryFeedback, ReadingFamilySuggestion
@@ -72,6 +73,8 @@ class ReadingFamilySuggestionViewSet(
         return queryset
 
     def create(self, request, *args, **kwargs):
+        if is_personal_space(request):
+            raise PermissionDenied("Switch to Family to suggest a book to a child.")
         target = _target_user(request, source="data")
         write = FamilySuggestionCreateSerializer(data=request.data)
         write.is_valid(raise_exception=True)

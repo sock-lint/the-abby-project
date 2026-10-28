@@ -95,6 +95,7 @@
   "bonus_amount": "0.00",
   "payment_kind": "required",
   "hourly_rate_override": null,
+  "hourly_rate_is_personal_default": false,
   "materials_budget": "0.00",
   "due_date": null,
   "started_at": null,

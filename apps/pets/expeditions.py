@@ -273,14 +273,14 @@ class ExpeditionService:
                 notify(
                     user, title=title, message=msg,
                     notification_type="expedition_returned",
-                    link="/bestiary?tab=mounts",
+                    link="/bestiary?tab=mounts&space=personal" if user.role == "parent" else "/bestiary?tab=mounts",
                 )
                 notify_parents(
                     title=f"{display_name}'s mount returned",
                     message=msg,
                     notification_type="expedition_returned",
                     about_user=user,
-                    link="/bestiary?tab=mounts",
+                    link=f"/family?child={user.pk}" if user.role == "child" else "/bestiary?tab=mounts",
                 )
             except Exception:
                 logger.exception("Notification hook failed in expedition claim")

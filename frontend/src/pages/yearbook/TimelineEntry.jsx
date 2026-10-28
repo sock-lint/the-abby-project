@@ -11,10 +11,10 @@ export default function TimelineEntry({ entry }) {
   const [open, setOpen] = useState(false)
   const [savedEdit, setSavedEdit] = useState(null)
   const currentEntry = savedEdit?.source === entry ? savedEdit.value : entry
-  const { isParent } = useRole()
+  const { user, isParent } = useRole()
   const isPersonalEntry = ['journal', 'daily_note', 'grade'].includes(currentEntry.kind)
   const isPrivate = isPersonalEntry && (currentEntry.kind === 'daily_note' || currentEntry.is_private !== false)
-  if (isPrivate && isParent) return null
+  if (isPrivate && isParent && currentEntry.user !== user?.id) return null
 
   return (
     <>
@@ -34,7 +34,7 @@ export default function TimelineEntry({ entry }) {
                   size="sm"
                   icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}
                 >
-                  {isPrivate ? 'Only me' : 'Shared with parents'}
+                  {isPrivate ? 'Only me' : isParent && currentEntry.user === user?.id ? 'Shared with co-parents' : 'Shared with parents'}
                 </RuneBadge>
               )}
             </span>

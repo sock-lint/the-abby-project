@@ -168,7 +168,7 @@ def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
     credit, while parent-authored goals still count their saved work.
     """
     from .models import ChallengeActivity
-    if str(trigger_type) not in {"homework_created", "creation_logged"} or user.role != "child":
+    if str(trigger_type) not in {"homework_created", "creation_logged"} or user.role not in {"child", "parent"}:
         return
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
     data = resolve_activity(user, trigger_type, context)
@@ -192,7 +192,7 @@ def freeze_milestone_eligibility(user, trigger_type, context):
     """
     from .goals import _catalog_goals
     from .models import ChallengeActivity
-    if str(trigger_type) != "reading_logged" or user.role != "child":
+    if str(trigger_type) != "reading_logged" or user.role not in {"child", "parent"}:
         return
     from .milestone_eligibility import gated_definitions
     if not gated_definitions().exists():
@@ -214,7 +214,7 @@ def record_activity(user, trigger_type, context=None):
     """Persist before evaluation so a failed downstream step stays retryable."""
     from .models import ChallengeActivity
     data = resolve_activity(user, trigger_type, context or {})
-    if data is None or user.role != "child":
+    if data is None or user.role not in {"child", "parent"}:
         return {"goals": [], "daily_bonus": None}
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
     identity = {field: data[field] for field in ("source_type", "source_id", "trigger_type")}
@@ -249,7 +249,7 @@ def retry_pending_activity(user=None, limit=100):
     from .goals import ingest_activity
     from .daily_bonus import process_daily_bonus
     query = ChallengeActivity.objects.filter(
-        processed_at__isnull=True, voided=False, user__is_active=True, user__role="child",
+        processed_at__isnull=True, voided=False, user__is_active=True, user__role__in=["child", "parent"],
     ).select_related("user__family")
     if user is not None:
         query = query.filter(user=user)

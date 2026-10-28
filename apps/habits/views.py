@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from config.viewsets import WriteReadSerializerMixin
 
 from .models import Habit, HabitSkillTag
@@ -70,6 +71,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         qs = Habit.objects.prefetch_related("skill_tags__skill").filter(
             user__family=family,
         )
+        if is_personal_space(self.request):
+            qs = qs.filter(user=user)
         pending_filter = self.request.query_params.get("pending") == "true"
         if user.role == "child":
             qs = qs.filter(user=user)
@@ -169,6 +172,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 about_user=user,
             )
         else:
+            if is_personal_space(self.request):
+                serializer.validated_data["user"] = user
             habit = serializer.save(created_by=user)
             if tags is not None:
                 _apply_skill_tags(habit, tags)

@@ -404,6 +404,16 @@ class HatcheryDiscoveryTests(TestCase):
         self.assertTrue(all("acquisition_challenges" not in potion
                             for species in response.data for potion in species["available_potions"]))
 
+    def test_parent_personal_codex_has_own_earnable_offers_without_child_progress(self):
+        definition = self.definition()
+        self.accepted(definition, user=self.child, progress=6)
+        self.client.force_authenticate(self.parent)
+        self.client.credentials(HTTP_X_ABBY_SPACE="personal")
+        path = self.paths(user_id=self.child.pk)[0]
+        self.assertTrue(path["offer_available"])
+        self.assertIsNone(path["attempt"])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.parent).exists())
+
     def test_a_repeated_codex_read_does_not_call_enrollment_or_payout_paths(self):
         self.definition()
         with patch("apps.quests.goals.list_goals", side_effect=AssertionError("materializing list")), \

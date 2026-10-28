@@ -59,6 +59,14 @@ positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
 come from the receiving descriptor and do not establish artwork publication.
 
+Parents keep their parent role while participating in My space. Character,
+check-in, streak, drop and inventory services already operate on the owning
+account. Scheduled Perfect Day checks and streak reminders include parents
+with a personal challenge enrollment; reminders never fan out to family members.
+Perfect Day requires the parent's own assigned daily chores. Children continue
+to require their assigned and shared family daily chores. The required set must
+be nonempty and every qualifying completion must be approved.
+
 Ghost/Potted Plant activation is described in
 [its runbook](../../docs/operations/elemental-ghost-potted-plant.md). Initial
 content supplies Wisp (20) and Sprout (5) guarantees within 180 days, once, with

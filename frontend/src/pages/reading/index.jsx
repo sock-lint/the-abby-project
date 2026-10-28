@@ -1,3 +1,4 @@
+import { useSpace } from '../../hooks/useSpace';
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Check, Clock3, Headphones, Plus } from 'lucide-react';
 import {
@@ -221,6 +222,7 @@ function BookCard({ book, onLog, onEdit, onRemove, canLog, onSimilar }) {
 }
 
 function SessionCard({ session, onEdit, onRemove }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
   const reaction = REACTIONS.find(([value]) => value === session.reaction)?.[1];
   return <ParchmentCard as="article" aria-label={`Reading log: ${session.book_title}`} className="!p-4 space-y-3">
     <div className="flex items-start gap-3"><span className="rounded-xl bg-sheikah-teal/10 p-2 text-sheikah-teal-deep" aria-hidden="true">{session.format === 'audiobook' ? <Headphones className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}</span>
@@ -232,7 +234,7 @@ function SessionCard({ session, onEdit, onRemove }) {
       <span>{session.format === 'audiobook' ? 'Audiobook' : session.format === 'ebook' ? 'Ebook' : 'Print book'}</span>
       {session.reaction && reaction && <RuneBadge tone="moss">{reaction}</RuneBadge>}
     </div>
-    {session.reflection && <div className="rounded-xl bg-ink-page-rune-glow p-3"><p className="whitespace-pre-wrap break-words text-body text-ink-primary">{session.reflection}</p><p className="mt-2 text-tiny text-ink-secondary">Shared with parents</p></div>}
+    {session.reflection && <div className="rounded-xl bg-ink-page-rune-glow p-3"><p className="whitespace-pre-wrap break-words text-body text-ink-primary">{session.reflection}</p><p className="mt-2 text-tiny text-ink-secondary">{isParentAccount && isPersonalSpace ? 'Only me' : 'Shared with parents'}</p></div>}
     {session.reading_reward && <p className="text-caption font-semibold text-moss-deep">Daily reading reward: {session.reading_reward.xp_awarded} Reading Comprehension XP · {session.reading_reward.coins_awarded} Coins · earned {formatDate(session.reading_reward.day)}</p>}
     <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={onEdit}>Edit log<span className="sr-only">: {session.book_title}</span></Button><Button size="sm" variant="ghost" onClick={onRemove}>Delete log<span className="sr-only">: {session.book_title}</span></Button></div>
   </ParchmentCard>;

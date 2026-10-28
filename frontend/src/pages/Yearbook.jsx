@@ -13,6 +13,7 @@ import {
   PROGRESS_TIER,
 } from '../components/atlas/mastery.constants'
 import { useRole } from '../hooks/useRole'
+import { useSpace } from '../hooks/useSpace'
 import useChronicleRevision from '../hooks/useChronicleRevision'
 import { getChronicleSummary } from '../api'
 import ChapterCard from './yearbook/ChapterCard'
@@ -21,7 +22,8 @@ import ManualEntryFormModal from './yearbook/ManualEntryFormModal'
 const ACTIVE_CHAPTER_KEY_PREFIX = 'atlas:yearbook:active-chapter:'
 
 export default function Yearbook() {
-  const { user, isParent } = useRole()
+  const { user } = useRole()
+  const { isFamilySpace: isParent } = useSpace()
   if (!user?.id) return <Loader />
 
   // Auth can change without this page unmounting. Keep the child list and

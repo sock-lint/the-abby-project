@@ -124,16 +124,16 @@ function byRecent(a, b) {
 // Each fetch in load() is paired with a label here; failures get reported
 // up to the dashboard so a 500 doesn't silently disappear from the queue.
 const SOURCES = [
-  { key: 'chores',         label: 'chore approvals',      fn: () => getAllApprovalPages(() => getChoreCompletions('pending')), fallback: [] },
+  { key: 'chores',         label: 'chore approvals',      fn: () => getAllApprovalPages(() => getChoreCompletions('pending', { space: 'family' })), fallback: [] },
   { key: 'homework',       label: 'homework approvals',   fn: () => getHomeworkDashboard(),          fallback: { pending_submissions: [] } },
   { key: 'redemptions',    label: 'reward redemptions',   fn: getPendingRedemptions,                 fallback: [] },
-  { key: 'dashboard',      label: 'week summary',         fn: (signal) => callWithDeferredRecovery(getDashboard, signal), withSignal: true, fallback: null },
+  { key: 'dashboard',      label: 'week summary',         fn: (signal) => callWithDeferredRecovery((requestSignal) => getDashboard(requestSignal, { space: 'family' }), signal), withSignal: true, fallback: null },
   { key: 'creations',      label: 'creation bonuses',     fn: () => getAllApprovalPages(listPendingCreations),      fallback: [] },
   { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
   { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
   { key: 'exchanges',      label: 'coin exchanges',       fn: getPendingExchangeRequests,            fallback: [] },
   { key: 'deliveries', label: 'reward deliveries', fn: getAwaitingRedemptions, fallback: [] },
-  { key: 'prints',         label: 'print approvals',      fn: () => getAllApprovalPages(() => listPrintRequests({ status: 'pending' })), fallback: [] },
+  { key: 'prints',         label: 'print approvals',      fn: () => getAllApprovalPages(() => listPrintRequests({ status: 'pending' }, { space: 'family' })), fallback: [] },
 ];
 
 /**

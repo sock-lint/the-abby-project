@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePulse } from '../providers/pulseContext';
 import { useAuth } from './useApi';
+import { useSpaceForUser } from './useSpace';
 
 export function useQuestProgressToasts() {
   const { user } = useAuth();
+  const { isPersonalSpace } = useSpaceForUser(user);
   const { pulse } = usePulse();
   const [toasts, setToasts] = useState([]);
   const seenRef = useRef({ account: null, ids: new Set() });
 
   useEffect(() => {
-    const account = user?.role === 'child' ? String(user.id) : null;
+    const account = user?.id && isPersonalSpace ? String(user.id) : null;
     if (seenRef.current.account !== account) {
       let ids = [];
       try { ids = JSON.parse(localStorage.getItem(`abby:challenge-receipts:${account}`) || '[]'); } catch { /* storage may be unavailable */ }
       seenRef.current = { account, ids: new Set(Array.isArray(ids) ? ids : []) };
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- receipts belong to the authenticated child
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- receipts belong to the authenticated participant
       setToasts([]);
     }
     if (!account || !pulse) return;
@@ -28,7 +30,7 @@ export function useQuestProgressToasts() {
     // keeps the newest completions rather than dropping them as already seen.
     const visible = receipts.filter((receipt) => receipt.goals?.length || receipt.daily_bonus?.awarded).reverse();
     setToasts((previous) => [...previous, ...visible].slice(-3));
-  }, [pulse, user]);
+  }, [pulse, user, isPersonalSpace]);
 
   const dismiss = (id) => setToasts((previous) => previous.filter((receipt) => receipt.id !== id));
   return { toasts, dismiss };

@@ -93,6 +93,13 @@ does not count the same redemption twice or repeat its badge payout.
 - `ExchangeRequest` — money→coins exchange pending parent approval. Statuses: `pending → approved` or `pending → denied`. Snapshots `exchange_rate` at request time. Money is NOT held at request time — balance re-verified at approval.
 
 ## Services
+
+In parent My space (`X-Abby-Space: personal`), shop lists use the same available
+active offers as a child, wallet/history requests are self-scoped, and purchases
+spend the parent's own Coins. Existing approval, stock reservation and physical
+delivery rules remain in force, with no new money payout. Family retains shop
+authoring, unavailable-offer visibility and household approval management.
+
 - `CoinService` (extends `BaseLedgerService`) — `award_coins`, `spend_coins`, `get_balance`, `get_breakdown`. Awards apply **Lucky Coin boost** via `coin_boost_multiplier(user)` from `apps/rpg/services` when the reason is on the `_BOOSTABLE_COIN_REASONS` whitelist (excludes `adjustment`, `refund`, `redemption`, `exchange`).
   Spending locks the user's wallet row inside a transaction before checking
   the balance. Optional 3D print exchanges use the same spending path with a

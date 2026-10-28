@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { STORAGE_KEYS } from '../constants/storage';
 import { usePulse } from '../providers/pulseContext';
 import { useAuth } from './useApi';
+import { useSpaceForUser } from './useSpace';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_APPROVAL_TOASTS;
 
-// Notification types where the *child* receives the row when a parent
-// has decided on their submission. Approval-style decisions only —
-// reminders / parent-side queue notifications are not in this set.
+// Approval-style decisions received by personal participants: children and
+// parents in My space. Family queue reminders are not in this set.
 const APPROVAL_TYPES = new Set([
   'chore_approved',
   'chore_rejected',
@@ -46,7 +46,7 @@ function loadSeen() {
 function persistSeen(set) {
   try {
     // Cap at the most recent 200 IDs so the key doesn't grow forever
-    // for long-tenured kids — older notifications won't re-toast either
+    // for long-tenured participants — older notifications won't re-toast either
     // way because they'll be marked is_read=true on the bell click.
     const trimmed = [...set].slice(-200);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
@@ -61,11 +61,11 @@ function persistSeen(set) {
  * (chore approved, homework approved, creation approved, etc.) and
  * emits a toast the first time we observe each one.
  *
- * Independent from `is_read` on the notification: a child can dismiss
+ * Independent from `is_read` on the notification: a participant can dismiss
  * the toast and still see the row in the bell. Seen IDs persist in
  * localStorage so a refresh doesn't re-toast.
  *
- * Parents never see these — child-only by role gate.
+ * Personal participants see their own decisions; Family keeps its review UI.
  *
  * Returns `{ toasts, dismiss }` — same contract as `useDropToasts` and
  * `useSavingsCompletionToasts`. Toast shape:
@@ -73,6 +73,7 @@ function persistSeen(set) {
  */
 export function useApprovalToasts() {
   const { user } = useAuth();
+  const { isPersonalSpace } = useSpaceForUser(user);
   const { pulse } = usePulse();
   const [toasts, setToasts] = useState([]);
   const seenRef = useRef(loadSeen());
@@ -80,7 +81,7 @@ export function useApprovalToasts() {
 
   useEffect(() => {
     if (!pulse) return;
-    if (!user || user.role !== 'child') return;
+    if (!user || !isPersonalSpace) return;
 
     const list = Array.isArray(pulse.notifications) ? pulse.notifications : [];
     const approvalRows = list.filter((n) => APPROVAL_TYPES.has(n.notification_type));
@@ -110,7 +111,7 @@ export function useApprovalToasts() {
         positive: POSITIVE_TYPES.has(n.notification_type),
       })),
     ]);
-  }, [pulse, user]);
+  }, [pulse, user, isPersonalSpace]);
 
   const dismiss = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
 

@@ -81,6 +81,18 @@ def _visible_definitions(actor):
     return definitions_visible_to(actor).filter(Q(is_system=True) | Q(created_by_id__in=locked_member_ids()))
 
 
+def _visible_instances(actor):
+    """Read personal instances for self and household child supervision."""
+    queryset = Quest.objects.select_related("definition").prefetch_related("participants")
+    if actor.role == "parent":
+        return queryset.filter(
+            Q(participants__user=actor)
+            | Q(participants__user__family_id=actor.family_id,
+                participants__user__role="child", participants__user_id__in=locked_member_ids()),
+        ).distinct()
+    return queryset.filter(participants__user=actor).distinct()
+
+
 # ---------------------------------------------------------------------------
 # Read tools
 # ---------------------------------------------------------------------------
@@ -91,8 +103,8 @@ def _visible_definitions(actor):
 def list_quests(params: ListQuestsIn) -> dict[str, Any]:
     """List quests visible to the current user.
 
-    Children see only their own participations; parents see all by default
-    or filter to a child with ``user_id``.
+    Children see their own participations; parents see their own and their
+    family's children, or filter to self/a child with ``user_id``.
 
     Audit C8: parent path was previously unscoped — returned every
     family's quests to every parent in the deployment.
@@ -103,19 +115,11 @@ def list_quests(params: ListQuestsIn) -> dict[str, Any]:
         user, target, allow_inactive_target=True,
         family_members=True,
     ) as (user, target):
-        qs = Quest.objects.select_related("definition").prefetch_related(
-            "participants",
-        )
-        if user.role == "parent":
-            family_id = getattr(user, "family_id", None)
-            if family_id is None:
-                return {"quests": []}
-            qs = qs.filter(participants__user__family_id=family_id,
-                           participants__user_id__in=locked_member_ids())
-            if params.user_id is not None:
-                qs = qs.filter(participants__user_id=params.user_id)
-        else:
-            qs = qs.filter(participants__user=user)
+        if target.pk != user.pk and target.role != "child":
+            raise MCPNotFoundError(f"User {params.user_id} not found.")
+        qs = _visible_instances(user)
+        if params.user_id is not None:
+            qs = qs.filter(participants__user=target)
         if not params.include_completed:
             qs = qs.filter(status=Quest.Status.ACTIVE)
         qs = qs.distinct().order_by("-start_date")[: params.limit]
@@ -128,19 +132,11 @@ def list_quests(params: ListQuestsIn) -> dict[str, Any]:
 def get_quest(params: GetQuestIn) -> dict[str, Any]:
     """Get a quest instance with its progress + participants.
 
-    Audit C8: parent path scopes by family via the participants link;
-    children stay scoped to their own participations.
+    Parents read self or current household children; children read themselves.
+    Shared definition authoring remains separate from accepted instances.
     """
     user = get_current_user()
-    qs = Quest.objects.select_related("definition")
-    if user.role == "parent":
-        family_id = getattr(user, "family_id", None)
-        if family_id is None:
-            raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
-        qs = qs.filter(participants__user__family_id=family_id,
-                       participants__user_id__in=locked_member_ids()).distinct()
-    else:
-        qs = qs.filter(participants__user=user).distinct()
+    qs = _visible_instances(user)
     try:
         quest = qs.get(pk=params.quest_id)
     except Quest.DoesNotExist:

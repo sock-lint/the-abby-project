@@ -19,6 +19,8 @@ import { useAuth } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
 import IdentityChips from '../identity/IdentityChips';
 import { identityForUser } from '../identity/identity';
+import SpaceSwitcher from './SpaceSwitcher';
+import { useSpace } from '../../hooks/useSpace';
 
 /**
  * JournalShell — the shared Meadow outer layout.
@@ -34,6 +36,7 @@ import { identityForUser } from '../identity/identity';
 export default function JournalShell() {
   const { user, logout, offline } = useAuth();
   const { pulse } = usePulse();
+  const { isFamilySpace } = useSpace();
   const identity = identityForUser(pulse?.identity, user);
   const { pathname } = useLocation();
   const customizingAvatar = pathname.toLowerCase().replace(/\/+$/, '') === '/profile/customize';
@@ -95,7 +98,7 @@ export default function JournalShell() {
           >
             <div className="identity-header__account flex min-w-0 items-center gap-2">
               <AvatarMenu user={user} compact showRecognition={false} />
-              <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge} compact />
+              {!isFamilySpace && <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge} compact />}
             </div>
             <div className="identity-header__status flex justify-end">
               <HeaderStatusPips user={user} />
@@ -105,7 +108,8 @@ export default function JournalShell() {
             </div>
           </header>
 
-          <HeaderProgressBand />
+          <SpaceSwitcher />
+          {!isFamilySpace && <HeaderProgressBand />}
 
           {/* Offline banner — shown when AuthProvider hydrated the session
               from the cached /auth/me/ snapshot because the network was

@@ -18,10 +18,18 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
   - `decay_all_habits(user, target_date)` — decays untapped habits toward 0 by `max(1, max_taps_per_day // 2)`. Called by Celery task.
 
 ## Endpoints
+
+Parent My space requests (`X-Abby-Space: personal`) list and manage only that
+parent's habits. Create defaults `user` to self, accepts the existing parent
+XP/tag controls, and publishes directly; a supplied nonself owner is rejected.
+Family retains household management and child proposal review. Every tap is
+owner-only, so managing a child's habit cannot earn the parent progress. Daily
+strength decay applies equally to active parents' and children's habits.
+
 - `GET /api/habits/history/?days=14` — per-habit daily net taps (sum of `HabitLog.direction` per local day), zero-filled, keyed by habit id (string keys — JSON). Role-scoped through `HabitViewSet.get_queryset` (children get only their own habits' series). `days` clamped 1..30 via `config.viewsets.clamp_int_param`. Feeds the 14-day `HabitHistoryBars` mini-bars on each ritual card in `Habits.jsx`, which refetch on every confirmed tap so today's bar moves immediately.
 
 ## Celery task
-- `decay_habit_strength_task` — runs daily at 00:05 in the configured scheduler timezone. Evaluates the previous calendar day in each child's family timezone, preserving taps from that completed day. Strength and `last_decay_date` commit together under a habit lock; repeat or older deliveries cannot decay it again. Tapped and zero-strength days also advance the guard.
+- `decay_habit_strength_task` — runs daily at 00:05 in the configured scheduler timezone. Evaluates the previous calendar day in each person's family timezone, preserving taps from that completed day. Strength and `last_decay_date` commit together under a habit lock; repeat or older deliveries cannot decay it again. Tapped and zero-strength days also advance the guard.
 
 ## Gotchas
 - **Proposal ownership**: child create requests omit `user`; the write serializer treats it as read-only and the view saves the authenticated child as owner and creator. Parent create requests still require an explicit `user`.
