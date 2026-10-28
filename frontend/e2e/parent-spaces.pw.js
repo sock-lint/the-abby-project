@@ -145,6 +145,13 @@ for (const width of [320, 390, 1280]) {
     await expect(family).toHaveAttribute('aria-pressed', 'true');
     await assertNavigation(page, width, FAMILY_NAV);
     await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
+    const switcher = page.getByRole('group', { name: 'Choose your space' });
+    const switcherBox = await switcher.boundingBox();
+    if (width < 1024) expect(switcherBox.width).toBeLessThanOrEqual(256);
+    else expect(switcherBox.width).toBe(448);
+    for (const button of await switcher.getByRole('button').all()) {
+      expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
     await assertFits(page);
     await page.screenshot({ path: testInfo.outputPath(`family-${width}.png`), fullPage: true });
     await visibleNav(page, width).getByRole('link', { name: 'Children', exact: true }).click();
