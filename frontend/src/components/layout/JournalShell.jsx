@@ -36,7 +36,7 @@ import { useSpace } from '../../hooks/useSpace';
 export default function JournalShell() {
   const { user, logout, offline } = useAuth();
   const { pulse } = usePulse();
-  const { isFamilySpace } = useSpace();
+  const { isFamilySpace, isParentAccount } = useSpace();
   const identity = identityForUser(pulse?.identity, user);
   const { pathname } = useLocation();
   const customizingAvatar = pathname.toLowerCase().replace(/\/+$/, '') === '/profile/customize';
@@ -92,14 +92,15 @@ export default function JournalShell() {
             ~47px on the sensor-housing side. */}
         <div data-journal-sticky-header="true" className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-3 pt-3 lg:pt-4 pb-3 lg:pb-4
+            className={`grid ${isParentAccount ? 'identity-header--spaces grid-cols-[auto_auto_minmax(0,1fr)_auto] gap-x-1 lg:gap-y-4 lg:pb-0' : 'grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 lg:pb-4'} lg:grid-cols-[auto_minmax(0,1fr)_auto] items-center lg:gap-x-3 pt-3 lg:pt-4 pb-3
                        pl-[max(1rem,env(safe-area-inset-left))]
-                       pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
+                       pr-[max(1rem,env(safe-area-inset-right))] lg:px-6`}
           >
             <div className="identity-header__account flex min-w-0 items-center gap-2">
               <AvatarMenu user={user} compact showRecognition={false} />
               {!isFamilySpace && <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge} compact />}
             </div>
+            <SpaceSwitcher />
             <div className="identity-header__status flex justify-end">
               <HeaderStatusPips user={user} />
             </div>
@@ -108,7 +109,6 @@ export default function JournalShell() {
             </div>
           </header>
 
-          <SpaceSwitcher />
           {!isFamilySpace && <HeaderProgressBand />}
 
           {/* Offline banner — shown when AuthProvider hydrated the session

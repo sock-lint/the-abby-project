@@ -276,3 +276,13 @@
     max-width: 8rem;
   }
 }
+
+@media (max-width: 1023px) {
+  .identity-header--spaces .identity-header__account > .identity-chips {
+    display: none;
+  }
+
+  .identity-header--spaces .identity-summary--compact .identity-summary__copy {
+    display: none;
+  }
+}
