@@ -33,10 +33,11 @@ function Probe() {
   return <>
     <SpaceSwitcher />
     <p data-testid="space">{space}</p><p data-testid="role">{isParentAccount ? 'parent' : 'child'}</p>
-    <p data-testid="location">{location.pathname}{location.search}</p><p data-testid="payload">{payload}</p>
+    <p data-testid="location">{location.pathname}{location.search}{location.hash}</p><p data-testid="payload">{payload}</p>
     <input aria-label="Local draft" value={draft} onChange={e => setDraft(e.target.value)} />
     <button onClick={() => navigate('/quests?tab=rituals')}>Open habits</button>
     <button onClick={() => navigate('/sigil')}>Open profile</button>
+    <button onClick={() => navigate(-1)}>Back</button>
     <button onClick={() => getPendingRedemptions()}>Read family reviews</button>
     <ChapterBottomBar user={auth.user} />
   </>;
@@ -96,6 +97,41 @@ describe('Family and My space as one unchanged parent identity', () => {
     expect(screen.getByTestId('space')).toHaveTextContent('family');
   });
 
+  it.each(['/Manage', '/Family?child=7', '/%66amily?child=7', '/ACTIVITY'])(
+    'recovers an already-saved noncanonical Family destination when opening My space: %s', async (path) => {
+      sessionStorage.setItem(`abby:spaces:${auth.user.family?.id}:${auth.user.id}`, JSON.stringify({ space: 'family', personal: path }));
+      const user = userEvent.setup();
+      render(tree());
+      await user.click(screen.getByRole('button', { name: 'My space' }));
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);
+      expect(screen.getByTestId('space')).toHaveTextContent('personal');
+    },
+  );
+
+  it.each([
+    { launch: '/chronicle?tab=journal&space=personal', from: 'personal', to: 'family', switchName: /^Family/ },
+    { launch: '/chronicle?tab=grades&child=7&space=family', from: 'family', to: 'personal', switchName: 'My space' },
+  ])('consumes a $from launch hint so Back and reload preserve the selected $to space', async ({ launch, from, to, switchName }) => {
+    const key = `abby:spaces:${auth.user.family?.id}:${auth.user.id}`;
+    const clean = launch.replace(/&space=(personal|family)/, '');
+    const user = userEvent.setup();
+    const view = render(tree(false, launch));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent(from));
+    await user.click(screen.getByRole('button', { name: 'Open profile' }));
+    await user.click(screen.getByRole('button', { name: switchName }));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent(to));
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('space')).toHaveTextContent(to);
+    const path = screen.getByTestId('location').textContent;
+    expect(JSON.parse(sessionStorage.getItem(key)).space).toBe(to);
+    view.unmount();
+    render(tree(false, path));
+    await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent(to));
+    expect(screen.getByTestId('space')).toHaveTextContent(to);
+    expect(path).toBe(clean);
+    expect(JSON.parse(sessionStorage.getItem(key))[to]).not.toContain('space=');
+  });
+
   it.each(['/quests?space=personal', '/bestiary?tab=mounts&space=personal'])(
     'opens a parent personal notification in the correct space from a new tab: %s', async (path) => {
       sessionStorage.setItem(`abby:spaces:${auth.user.family?.id}:${auth.user.id}`, JSON.stringify({ space: 'family' }));
@@ -103,7 +139,7 @@ describe('Family and My space as one unchanged parent identity', () => {
       await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
       expect(screen.getByTestId('space')).toHaveTextContent('personal');
       expect(screen.getByTestId('role')).toHaveTextContent('parent');
-      expect(screen.getByTestId('location')).toHaveTextContent(path);
+      expect(screen.getByTestId('location')).toHaveTextContent(path.replace(/[?&]space=personal/, ''));
       expect(requestSpace(getToken())).toBe('personal');
     },
   );
@@ -129,11 +165,12 @@ describe('Family and My space as one unchanged parent identity', () => {
   it('starts and persists an explicit child journal link in Family despite a personal preference', async () => {
     const key = `abby:spaces:${auth.user.family?.id}:${auth.user.id}`;
     sessionStorage.setItem(key, JSON.stringify({ space: 'personal', personal: '/sigil' }));
-    const path = '/chronicle?tab=grades&child=7&space=family';
+    const path = '/chronicle?tab=grades&child=7&space=family&origin=notification#grades';
     render(tree(false, path));
     await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
-    expect(screen.getByTestId('location')).toHaveTextContent(path);
-    expect(JSON.parse(sessionStorage.getItem(key))).toMatchObject({ space: 'family', family: path, personal: '/sigil' });
+    const consumed = path.replace('&space=family', '');
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(consumed));
+    expect(JSON.parse(sessionStorage.getItem(key))).toMatchObject({ space: 'family', family: consumed, personal: '/sigil' });
   });
 
   it.each(['/manage?space=personal', '/quests?space=unknown', '/quests?space=personal&space=family', '/chronicle?tab=grades&space=personal', '/treasury?tab=coffers&space=personal', '/projects/0?space=personal', '/projects/9007199254740992?space=personal', '/projects/new?space=personal'])(
@@ -141,14 +178,21 @@ describe('Family and My space as one unchanged parent identity', () => {
       render(tree(false, path));
       await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('family'));
       expect(screen.getByTestId('space')).toHaveTextContent('family');
+      expect(screen.getByTestId('location')).toHaveTextContent(path);
     },
   );
 
   it('keeps a notification-selected personal space while blocking a later switch with unfinished work', async () => {
+    const user = userEvent.setup();
     render(tree(true, '/chronicle?tab=journal&space=personal'));
     await waitFor(() => expect(screen.getByTestId('payload')).toHaveTextContent('personal'));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/chronicle\?tab=journal$/));
+    await user.type(screen.getByLabelText('Local draft'), 'Keep my unfinished note');
+    await user.click(screen.getByRole('button', { name: /^Family/ }));
     expect(screen.getByRole('button', { name: /^Family/ })).toBeDisabled();
     expect(screen.getByText(/Save or close your current form/)).toBeVisible();
+    expect(screen.getByLabelText('Local draft')).toHaveValue('Keep my unfinished note');
+    expect(screen.getByTestId('space')).toHaveTextContent('personal');
     expect(JSON.parse(sessionStorage.getItem(`abby:spaces:${auth.user.family?.id}:${auth.user.id}`)).space).toBe('personal');
   });
 
@@ -160,6 +204,7 @@ describe('Family and My space as one unchanged parent identity', () => {
     expect(screen.getByTestId('role')).toHaveTextContent('child');
     expect(requestSpace(getToken())).toBe('family');
     expect(screen.queryByRole('group', { name: 'Choose your space' })).toBeNull();
+    expect(screen.getByTestId('location')).toHaveTextContent('/chronicle?tab=journal&child=7&space=family');
   });
 
   it.each(['/quests?space=personal', '/projects/123?space=personal'])('keeps a child personal launch without changing child API authority for a notification hint: %s', async (path) => {

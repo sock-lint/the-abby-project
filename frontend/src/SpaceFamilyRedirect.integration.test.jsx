@@ -32,7 +32,8 @@ function renderPersonalParent(destination) {
 }
 
 describe('Family-only destination integration', () => {
-  it.each(['/family?child=7', '/manage'])('returns to the previous personal page after reloading a Family-only link: %s', async (destination) => {
+  it.each(['/family?child=7', '/manage', '/Manage', '/Family?child=7', '/%66amily?child=7', '/ACTIVITY'])(
+    'returns to the previous personal page after reloading a Family-only link: %s', async (destination) => {
     const user = renderPersonalParent(destination);
     await screen.findByRole('button', { name: /^Family/ });
     await waitFor(() => expect(screen.getByRole('button', { name: /^Family/ })).toHaveAttribute('aria-pressed', 'true'));

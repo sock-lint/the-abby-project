@@ -390,10 +390,13 @@ function ChoresWorkspace({ context }) {
     setShowForm(true);
   };
 
-  const doneCount = chores.filter(
+  // Personal lists retain unavailable chores for editing. Only today's
+  // available work and current submissions belong in the progress summary.
+  const progressChores = isParent ? chores : chores.filter((c) => c.is_available || c.today_status != null);
+  const doneCount = progressChores.filter(
     (c) => c.is_done || c.today_status === 'approved' || c.today_status === 'pending',
   ).length;
-  const progressPct = chores.length > 0 ? Math.round((doneCount / chores.length) * 100) : 0;
+  const progressPct = progressChores.length > 0 ? Math.round((doneCount / progressChores.length) * 100) : 0;
   const versoStats = isParent
     ? [
       { value: completionsData === null ? '—' : pendingCompletions.length, label: 'awaiting approval' },
@@ -401,12 +404,12 @@ function ChoresWorkspace({ context }) {
     ]
     : [
       { value: choresData === null ? '—' : doneCount, label: 'done today' },
-      { value: choresData === null ? '—' : chores.length, label: 'chores' },
+      { value: choresData === null ? '—' : progressChores.length, label: 'chores' },
     ];
   const versoProgressLabel = choresData === null ? 'Chores unavailable' : isParent
     ? `${chores.length} chores added`
-    : (chores.length > 0
-      ? `${doneCount} of ${chores.length} done today`
+    : (progressChores.length > 0
+      ? `${doneCount} of ${progressChores.length} done today`
       : 'No chores today');
 
   // Track which rubric numeral comes next so empty sections don't burn

@@ -203,7 +203,7 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     if user:
         notify(user, f"Milestone completed: {instance.title}",
                f"You completed a milestone on {instance.project.title}!", "milestone_completed",
-               link=f"/projects/{instance.project_id}")
+               link=f"/projects/{instance.project_id}" + ("?space=personal" if user.role == "parent" else ""))
 
     if not user:
         return

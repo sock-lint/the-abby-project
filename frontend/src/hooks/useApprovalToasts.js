@@ -6,9 +6,8 @@ import { useSpaceForUser } from './useSpace';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_APPROVAL_TOASTS;
 
-// Notification types where the *child* receives the row when a parent
-// has decided on their submission. Approval-style decisions only —
-// reminders / parent-side queue notifications are not in this set.
+// Approval-style decisions received by personal participants: children and
+// parents in My space. Family queue reminders are not in this set.
 const APPROVAL_TYPES = new Set([
   'chore_approved',
   'chore_rejected',
@@ -47,7 +46,7 @@ function loadSeen() {
 function persistSeen(set) {
   try {
     // Cap at the most recent 200 IDs so the key doesn't grow forever
-    // for long-tenured kids — older notifications won't re-toast either
+    // for long-tenured participants — older notifications won't re-toast either
     // way because they'll be marked is_read=true on the bell click.
     const trimmed = [...set].slice(-200);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
@@ -62,7 +61,7 @@ function persistSeen(set) {
  * (chore approved, homework approved, creation approved, etc.) and
  * emits a toast the first time we observe each one.
  *
- * Independent from `is_read` on the notification: a child can dismiss
+ * Independent from `is_read` on the notification: a participant can dismiss
  * the toast and still see the row in the bell. Seen IDs persist in
  * localStorage so a refresh doesn't re-toast.
  *

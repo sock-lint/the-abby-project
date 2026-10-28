@@ -156,7 +156,7 @@ export function destinationForNotification(notification, { isParentAccount = fal
   if (notification?.notification_type === 'chore_approved'
     && (url?.pathname === '/chores' || (url?.pathname === '/quests' && url.searchParams.get('tab') === 'duties'))
     && (linkedSpace === 'personal' || !url.searchParams.has('space'))) return { space: 'personal', target };
-  if (notification?.notification_type === 'project_approved' && linkedSpace === 'personal'
+  if (['project_approved', 'milestone_completed'].includes(notification?.notification_type) && linkedSpace === 'personal'
     && url?.pathname.startsWith('/projects/')) return { space: 'personal', target };
   return { space: notificationSpace(notification), target };
 }

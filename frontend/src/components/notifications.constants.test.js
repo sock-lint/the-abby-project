@@ -89,13 +89,20 @@ describe('notification destinations across parent spaces', () => {
     ['chore_approved', '/chores', 'personal', '/chores'],
     ['chore_approved', '', 'personal', '/quests?tab=duties'],
     ['project_approved', '/projects/123?space=personal', 'personal', '/projects/123?space=personal'],
+    ['milestone_completed', '/projects/123?space=personal', 'personal', '/projects/123?space=personal'],
   ])('routes known parent %s audiences from %s', (notification_type, link, space, target) => {
     expect(destinationForNotification({ notification_type, link }, { isParentAccount: true })).toEqual({ space, target });
   });
 
-  it('keeps legacy project approval notifications in their current space', () => {
-    expect(destinationForNotification({ notification_type: 'project_approved', link: '/projects/123' }, { isParentAccount: true }))
+  it.each(['project_approved', 'milestone_completed'])('keeps legacy %s notifications in their current space', notification_type => {
+    expect(destinationForNotification({ notification_type, link: '/projects/123' }, { isParentAccount: true }))
       .toEqual({ space: null, target: '/projects/123' });
+  });
+
+  it('preserves a child’s project destination when the receipt has a personal hint', () => {
+    const link = '/projects/123?space=personal';
+    expect(destinationForNotification({ notification_type: 'milestone_completed', link }))
+      .toEqual({ space: null, target: link });
   });
 
   it.each([

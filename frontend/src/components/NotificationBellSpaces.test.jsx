@@ -31,15 +31,18 @@ beforeEach(() => {
 });
 
 describe('Notification navigation with unfinished work', () => {
-  it.each([['desktop', true], ['mobile', false]])('opens an own-parent project completion in My space from the %s inbox', async (_name, desktop) => {
+  it.each([
+    ['desktop project', true, 'project_approved'], ['mobile project', false, 'project_approved'],
+    ['desktop milestone', true, 'milestone_completed'], ['mobile milestone', false, 'milestone_completed'],
+  ])('opens an own-parent completion in My space from the %s inbox', async (_name, desktop, notificationType) => {
     window.matchMedia = vi.fn(query => ({ matches: desktop && query.includes('min-width'), media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
     const user = userEvent.setup();
-    render(tree(false, emptyPulse({ notifications: [{ id: 18, notification_type: 'project_approved', title: 'Project completed: My bookshelf', link: '/projects/123?space=personal', is_read: true }] })));
+    render(tree(false, emptyPulse({ notifications: [{ id: 18, notification_type: notificationType, title: 'Completed: My bookshelf', link: '/projects/123?space=personal', is_read: true }] })));
     await waitFor(() => expect(screen.getByRole('status', { name: 'Account role' })).toHaveTextContent('parent'));
     await user.click(screen.getByRole('button', { name: 'Notifications' }));
-    await user.click(await screen.findByRole('button', { name: 'Project completed: My bookshelf' }));
+    await user.click(await screen.findByRole('button', { name: 'Completed: My bookshelf' }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'Current space' })).toHaveTextContent('personal'));
-    expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/projects/123?space=personal');
+    expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent(/^\/projects\/123$/);
     expect(screen.getByRole('status', { name: 'Account role' })).toHaveTextContent('parent');
   });
 

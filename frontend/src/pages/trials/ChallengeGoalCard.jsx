@@ -74,6 +74,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showPeriod = true, sh
 
 export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false, isPersonalParent = false }) {
   const period = goalPeriod(goal, timezone);
+  const canManageSchedule = isParent || isPersonalParent;
   const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   const { hideArt } = useChallengeSurprise(goal);
   return (
@@ -98,11 +99,11 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onR
               {goal.pinned ? 'Unpin' : 'Pin to Today'}
             </Button>}
             {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <Button variant="secondary" size="sm" aria-label={`Try ${goal.name} again`} disabled={busy || rewardUnavailable} onClick={() => onRetry(goal)}>Try again</Button>}
-            {isParent && goal.schedule?.next_week && <Button variant="ghost" size="sm" onClick={() => onSelect(goal)}>Manage future weeks</Button>}
+            {canManageSchedule && goal.schedule?.next_week && <Button variant="ghost" size="sm" onClick={() => onSelect(goal)}>Manage future weeks</Button>}
           </div>
           {goal.retry?.allowed === true && <p className="font-body text-caption text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p>}
           {rewardUnavailable && <p className="font-body text-caption text-ink-secondary">{REWARD_UNAVAILABLE_MESSAGE}</p>}
-          {isParent && goal.schedule?.next_week && <p className="font-body text-caption text-ink-secondary">{goal.schedule.next_week.paused ? 'Future weeks paused' : 'Future weeks scheduled'}</p>}
+          {canManageSchedule && goal.schedule?.next_week && <p className="font-body text-caption text-ink-secondary">{goal.schedule.next_week.paused ? 'Future weeks paused' : 'Future weeks scheduled'}</p>}
         </div>
     </AchievementCard>
   );

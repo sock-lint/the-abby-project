@@ -198,3 +198,56 @@ for (const width of [320, 390, 1280]) {
     await page.screenshot({ path: testInfo.outputPath(`child-${width}.png`), fullPage: true });
   });
 }
+
+for (const width of [390, 1280]) {
+  for (const launchSpace of ['personal', 'family']) {
+    test(`parent keeps the chosen space after Back and reload from a ${launchSpace} link at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      const { reads, errors, unexpected } = await mockApp(page);
+      const launchPath = launchSpace === 'personal' ? '/quests?space=personal'
+        : '/chronicle?tab=journal&child=7&space=family';
+      await page.goto(`${origin}${launchPath}`);
+      const family = page.locator('button[aria-pressed]').filter({ hasText: /^Family/ });
+      const personal = page.getByRole('button', { name: 'My space', exact: true });
+      const initialButton = launchSpace === 'personal' ? personal : family;
+      const chosenButton = launchSpace === 'personal' ? family : personal;
+      await expect(initialButton).toHaveAttribute('aria-pressed', 'true');
+      await expect.poll(() => new URL(page.url()).searchParams.get('space')).toBeNull();
+      if (launchSpace === 'family') {
+        expect(new URL(page.url()).searchParams.get('tab')).toBe('journal');
+        expect(new URL(page.url()).searchParams.get('child')).toBe('7');
+      }
+      // Keep the launch page in real browser history, then replace the next
+      // entry by deliberately choosing the other space.
+      await visibleNav(page, width).getByRole('link', {
+        name: launchSpace === 'personal' ? 'Progress' : 'Rewards', exact: true,
+      }).click();
+      await chosenButton.click();
+      await expect(chosenButton).toHaveAttribute('aria-pressed', 'true');
+      await page.goBack();
+      await expect(page).toHaveURL(launchSpace === 'personal' ? `${origin}/quests`
+        : `${origin}/chronicle?tab=journal&child=7`);
+      await expect(chosenButton).toHaveAttribute('aria-pressed', 'true');
+      await page.reload();
+      await expect(chosenButton).toHaveAttribute('aria-pressed', 'true');
+      const boundary = reads.length;
+      await visibleNav(page, width).getByRole('link', { name: 'Today', exact: true }).click();
+      await expect.poll(() => reads.slice(boundary).some(read => read.path === '/api/dashboard/'
+        && read.space === (launchSpace === 'personal' ? undefined : 'personal'))).toBe(true);
+      if (launchSpace === 'family') {
+        // Router decodes this Family route. It must never become the saved
+        // personal destination or make the My space button bounce to Family.
+        await page.goto(`${origin}/%66amily?child=7`);
+        await expect(family).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByRole('heading', { name: 'Abby', exact: true })).toBeVisible();
+        await personal.click();
+        await expect(personal).toHaveAttribute('aria-pressed', 'true');
+        await page.reload();
+        await expect(personal).toHaveAttribute('aria-pressed', 'true');
+      }
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('parent');
+      expect(errors).toEqual([]);
+      expect(unexpected).toEqual([]);
+    });
+  }
+}

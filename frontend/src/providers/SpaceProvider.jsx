@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useApi';
 import { getToken } from '../api/client';
@@ -11,11 +11,29 @@ function readPreferences(key) {
   try { return JSON.parse(sessionStorage.getItem(key)) || {}; } catch { return {}; }
 }
 
+function routePathname(pathname) {
+  // Match the router's decoded segments without treating an encoded slash
+  // inside one segment as a new route separator.
+  try { return pathname.split('/').map(part => decodeURIComponent(part).replaceAll('/', '%2F')).join('/').toLowerCase(); }
+  catch { return pathname.toLowerCase(); }
+}
+
+function isFamilyOnlyPath(pathname) {
+  return /^\/(family|manage|activity|codex)(\/|$)/.test(routePathname(pathname));
+}
+
+function consumeSpaceHint(path) {
+  if (!notificationLinkSpace(path)) return path;
+  const parsed = new URL(path, window.location.origin);
+  parsed.searchParams.delete('space');
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+
 function safePath(path, personal = false) {
   if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return '/';
   const parsed = new URL(path, window.location.origin);
-  if (/^\/(api|oauth|login|signup)(\/|$)/.test(parsed.pathname)) return '/';
-  if (personal && /^\/(family|manage|activity|codex)(\/|$)/.test(parsed.pathname)) return '/';
+  if (/^\/(api|oauth|login|signup)(\/|$)/.test(routePathname(parsed.pathname))) return '/';
+  if (personal && isFamilyOnlyPath(parsed.pathname)) return '/';
   if (personal) parsed.searchParams.delete('child');
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 }
@@ -51,13 +69,27 @@ function AccountSpaces({ user, token, children }) {
   // Preserve the last actual personal page instead of saving that transient
   // Family URL as the page My space should restore.
   useLayoutEffect(() => {
-    if (space === 'personal' && /^\/(family|manage|activity|codex)(\/|$)/.test(location.pathname)) return;
-    preferences.current[space] = safePath(`${location.pathname}${location.search}${location.hash}`, space === 'personal');
+    if (space === 'personal' && isFamilyOnlyPath(location.pathname)) return;
+    const path = `${location.pathname}${location.search}${location.hash}`;
+    // A hint selects the launch/notification destination once. Keeping it in
+    // history could otherwise override a later explicit switch after Back and
+    // reload. This only replaces the URL; it never bypasses switch guards.
+    const rememberedPath = isParentAccount ? consumeSpaceHint(path) : path;
+    preferences.current[space] = safePath(rememberedPath, space === 'personal');
     if (isParentAccount) {
       preferences.current.space = space;
       try { sessionStorage.setItem(storageKey, JSON.stringify(preferences.current)); } catch { /* Optional preference. */ }
     }
   }, [location, space, isParentAccount, storageKey]);
+
+  useEffect(() => {
+    if (!isParentAccount || (space === 'personal' && isFamilyOnlyPath(location.pathname))) return;
+    const path = `${location.pathname}${location.search}${location.hash}`;
+    const consumed = consumeSpaceHint(path);
+    // Router history listeners are installed in layout effects. Replace only
+    // after they are ready, so both the URL and router location lose the hint.
+    if (consumed !== path) navigate(consumed, { replace: true });
+  }, [isParentAccount, location, navigate, space]);
 
   const switchSpace = useCallback((next, destination) => {
     if (!isParentAccount || !['family', 'personal'].includes(next) || updateBlocked) return false;

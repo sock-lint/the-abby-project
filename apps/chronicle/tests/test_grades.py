@@ -417,8 +417,20 @@ class GradeAPITests(APITestCase):
         self.assertNotIn("study approach", notice.message)
         self.client.force_authenticate(self.child)
         self.assertEqual(self.client.get(url).json()[0]["body"], payload["body"])
-        self.client.post(url, {"body": "Thanks for helping"}, format="json")
-        self.assertEqual(Notification.objects.get(user=self.parent, notification_type=NotificationType.JOURNAL_REPLY).link, "/chronicle?tab=grades")
+        child_payload = {"body": "Thanks for helping", "client_comment_id": str(uuid4())}
+        child_reply = self.client.post(url, child_payload, format="json")
+        self.assertEqual(child_reply.status_code, 201)
+        child_replay = self.client.post(url, child_payload, format="json")
+        self.assertEqual(child_replay.status_code, 200)
+        self.assertEqual(child_replay.json()["id"], child_reply.json()["id"])
+        parent_notices = Notification.objects.filter(user=self.parent, notification_type=NotificationType.JOURNAL_REPLY)
+        self.assertEqual(parent_notices.count(), 1)
+        parent_notice = parent_notices.get()
+        expected_link = f"/chronicle?tab=grades&child={self.child.pk}&space=family"
+        self.assertEqual(parent_notice.link, expected_link)
+        self.assertEqual(self.client.get(f"/api/notifications/{parent_notice.pk}/").status_code, 404)
+        self.client.force_authenticate(self.parent)
+        self.assertEqual(self.client.get(f"/api/notifications/{parent_notice.pk}/").json()["link"], expected_link)
         self.assertEqual(GradeDailyCounter.objects.get(user=self.child).count, 1)
         self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 10)
 

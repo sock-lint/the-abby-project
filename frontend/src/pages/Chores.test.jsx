@@ -37,6 +37,101 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
+  it.each([false, true])('Today progress excludes retained management rows with another available chore=%s', async (hasAvailable) => {
+    const parent = buildParent({ id: 90 });
+    const retained = [
+      buildChore({ id: 2, title: 'Off-week chore', is_active: true, week_schedule: 'alternating', is_available: false, today_status: null }),
+      buildChore({ id: 3, title: 'Inactive chore', is_active: false, is_available: false, today_status: null }),
+      buildChore({ id: 4, title: 'Old one-time chore', recurrence: 'one_time', is_active: true, is_available: false, today_status: null }),
+    ];
+    const rows = [
+      buildChore({ id: 1, title: 'Daily done today', is_active: true, is_available: false, today_status: 'approved' }),
+      ...retained,
+      ...(hasAvailable ? [buildChore({ id: 5, title: 'Still available today', is_active: true, is_available: true, today_status: null })] : []),
+    ].map((chore) => ({ ...chore, assigned_to: parent.id }));
+    renderPage(parent, [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : rows,
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ], '/quests?tab=duties', {
+      space: 'personal', isParentAccount: true, isPersonalSpace: true, isFamilySpace: false,
+    });
+    await screen.findByText('Daily done today');
+    expect(screen.getAllByText(`1 of ${hasAvailable ? 2 : 1} done today`)).toHaveLength(2);
+    for (const bar of screen.getAllByRole('progressbar', { name: 'Chores progress' })) {
+      expect(bar).toHaveAttribute('aria-valuenow', hasAvailable ? '50' : '100');
+    }
+    for (const chore of retained) expect(screen.getByText(chore.title)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Edit chore' })).toHaveLength(rows.length);
+    expect(screen.queryAllByRole('button', { name: 'Done' })).toHaveLength(hasAvailable ? 1 : 0);
+  });
+
+  it('Today progress is empty when only retained personal management rows remain', async () => {
+    const parent = buildParent({ id: 90 });
+    renderPage(parent, [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : [
+          buildChore({ title: 'Historical one-time chore', assigned_to: parent.id, recurrence: 'one_time', is_active: true, is_available: false, today_status: null }),
+        ],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ], '/quests?tab=duties', {
+      space: 'personal', isParentAccount: true, isPersonalSpace: true, isFamilySpace: false,
+    });
+    await screen.findByText('Historical one-time chore');
+    expect(screen.getAllByText('No chores today')).toHaveLength(2);
+    for (const bar of screen.getAllByRole('progressbar', { name: 'Chores progress' })) {
+      expect(bar).toHaveAttribute('aria-valuenow', '0');
+    }
+    expect(screen.getByRole('button', { name: 'Edit chore' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument();
+  });
+
+  it('Today progress keeps child pending and approved work counted with available and rejected work', async () => {
+    const rows = [
+      buildChore({ id: 1, title: 'Available daily chore', is_available: true, today_status: null }),
+      buildChore({ id: 2, title: 'Submitted daily chore', is_available: false, today_status: 'pending' }),
+      buildChore({ id: 3, title: 'Retry rejected chore', is_available: true, today_status: 'rejected' }),
+      buildChore({ id: 4, title: 'Approved weekly chore', recurrence: 'weekly', is_available: false, today_status: 'approved' }),
+    ];
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : rows,
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+    ]);
+    await screen.findByText('Approved weekly chore');
+    expect(screen.getAllByText('2 of 4 done today')).toHaveLength(2);
+    for (const bar of screen.getAllByRole('progressbar', { name: 'Chores progress' })) {
+      expect(bar).toHaveAttribute('aria-valuenow', '50');
+    }
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('Today progress keeps every selected child row in the Family management total', async () => {
+    const child = buildUser({ id: 7 });
+    const rows = [
+      buildChore({ id: 1, title: 'Family daily chore', assigned_to: child.id, is_active: true, is_available: false }),
+      buildChore({ id: 2, title: 'Family inactive chore', assigned_to: child.id, is_active: false, is_available: false }),
+      buildChore({ id: 3, title: 'Family one-time chore', assigned_to: child.id, recurrence: 'one_time', is_active: true, is_available: false }),
+    ];
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : rows,
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([child])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ]);
+    await screen.findByText('Family inactive chore');
+    expect(screen.getAllByText('3 chores added')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Edit chore' })).toHaveLength(3);
+  });
+
   it('shows a published personal chore once without labeling it as a proposal', async () => {
     const parent = buildParent({ id: 90 });
     const published = buildChore({

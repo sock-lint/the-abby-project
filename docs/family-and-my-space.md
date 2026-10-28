@@ -38,6 +38,8 @@ your own pets, use your inventory, and spend your own Coins in the shop.
 Existing reward approval and delivery steps still apply.
 Today's daily bonus and saved challenge progress appear in My space. Opening
 a challenge's details records that opening for your own challenge history.
+For your recurring challenges, choose **Manage future weeks** to pause or
+resume future weeks. Your current and earlier progress stays saved.
 Checking Family does not clear the personal catch-up summary on your next
 visit to My space.
 Your birthday, streak, and Perfect Day celebrations wait for My space, so a
@@ -49,6 +51,10 @@ allowance or cash payments in My space; personal progression uses XP and Coins.
 Imported projects belong to you in My space. Personal project and milestone
 completion in My space earns progression without adding cash payments; previously recorded
 payments stay in the payment history.
+Editing or completing your own project in My space sets its hourly rate and
+project bonus to zero. Editing or completing its milestones there sets their
+cash bonus to zero. Review rates and bonuses in Family if you later want cash
+pay when assigning that work to a child.
 Personal chores remain in Tasks for editing or deletion when paused, during an
 off week, or after a one-time completion. You can reactivate a paused chore;
 completion still follows its schedule and saved completion history.
@@ -88,6 +94,6 @@ Notifications about a child's pet open that child's Family overview. Pet
 receipts that identify you as their owner open your Pets. Household copies and
 older replies that do not identify an owner open Family.
 Replies to a child's shared journal or grades open that child's Family view.
-Replies to your shared journal, your savings receipts, and your own chore or
-project completion receipts open My space. A child's savings notification opens
+Replies to your shared journal, your savings receipts, and your own chore,
+project, or milestone completion receipts open My space. A child's savings notification opens
 their Family overview.
