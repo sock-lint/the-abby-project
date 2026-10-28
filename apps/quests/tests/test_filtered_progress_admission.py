@@ -128,26 +128,39 @@ class FilteredProgressAdmissionTests(TestCase):
         self.assertFalse(any(row["id"] == definition.pk for row in result["quest_definitions"]))
 
     def test_workbench_projection_does_not_advertise_an_impossible_offer(self):
-        definition = self.definition()
-        metadata = describe_workbench(self.parent)
-        row = next(row for row in metadata["catalog"]["quests"] if row["id"] == definition.pk)
-        self.assertFalse(row["automatic_tracking_available"])
-        self.assertFalse(row["available_for_new_user"])
-        # The trigger itself is implemented; its additional selector is what
-        # makes this offer unreachable. Keep unsupported-trigger diagnostics exact.
-        self.assertEqual(row["unsupported_triggers"], [])
+        for filters in (self.filters(), {"allowed_triggers": ["chore_complete"], "on_time": True}):
+            with self.subTest(filters=filters):
+                definition = self.definition(trigger_filter=filters)
+                metadata = describe_workbench(self.parent)
+                row = next(row for row in metadata["catalog"]["quests"] if row["id"] == definition.pk)
+                self.assertFalse(row["automatic_tracking_available"])
+                self.assertFalse(row["available_for_new_user"])
+                # The activity is supported; explain why its selected filters
+                # cannot all match without calling the activity unsupported.
+                self.assertEqual(row["unsupported_triggers"], [])
+                warnings = [finding for finding in metadata["audits"]["findings"]
+                            if finding["section"] == "quests" and finding["id"] == definition.pk]
+                self.assertEqual(len(warnings), 1)
+                self.assertEqual(warnings[0]["code"], "unreachable_challenge_filters")
+                self.assertEqual(warnings[0]["severity"], "warning")
+                self.assertIn("Every selected filter must match the same saved-work activity", warnings[0]["detail"])
 
     def test_workbench_save_rejects_impossible_filter_without_saving_changes(self):
-        draft = create_draft(self.parent, "Unreachable category rule")
         from apps.rpg.models import RPGContentDraft
 
-        before = list(RPGContentDraft.objects.values())
-        with self.assertRaises(ContentPackError):
-            save_draft(self.parent, draft["id"], draft["revision"], [{
-                "section": "quests", "object_id": None, "key": "filtered-rule", "values": self.payload(),
-            }])
-        self.assertEqual(list(RPGContentDraft.objects.values()), before)
-        self.assertFalse(QuestDefinition.objects.exists())
+        for filters in (self.filters(), {"allowed_triggers": ["chore_complete"], "on_time": True}):
+            with self.subTest(filters=filters):
+                draft = create_draft(self.parent, "Unreachable activity filters")
+                before = list(RPGContentDraft.objects.values())
+                with self.assertRaises(ContentPackError) as raised:
+                    save_draft(self.parent, draft["id"], draft["revision"], [{
+                        "section": "quests", "object_id": None, "key": "filtered-rule",
+                        "values": self.payload(trigger_filter=filters),
+                    }])
+                self.assertEqual(list(RPGContentDraft.objects.values()), before)
+                self.assertFalse(QuestDefinition.objects.exists())
+                self.assertIn("Choose compatible activities and filters", str(raised.exception))
+                self.assertIn("Every selected filter must match the same saved-work activity", str(raised.exception))
 
     def test_one_candidate_must_supply_every_active_selector(self):
         cases = [

@@ -22,6 +22,10 @@ QUEST_FIELDS = {"name", "description", "icon", "sprite_key", "quest_type", "targ
                 "prerequisite_quest", "required_skill", "required_skill_level"}
 CREATE_ITEM_TYPES = set(ItemDefinition.ItemType.values) - {"egg", "potion"}
 MODELS = {"items": ItemDefinition, "quests": QuestDefinition}
+_UNREACHABLE_CHALLENGE_FILTERS = (
+    "Choose compatible activities and filters for this automatic challenge. "
+    "Every selected filter must match the same saved-work activity."
+)
 
 
 def supported_challenge_triggers(quest_type="collection"):
@@ -52,6 +56,9 @@ def challenge_trigger_findings(rows):
             findings.append({"code": "unsupported_challenge_trigger", "section": "quests", "id": row.pk,
                 "severity": "warning", "detail": "These activities cannot advance this automatic challenge: "
                 + ", ".join(status["unsupported"]) + ". Choose supported activities before republishing."})
+        elif not status["available"]:
+            findings.append({"code": "unreachable_challenge_filters", "section": "quests", "id": row.pk,
+                "severity": "warning", "detail": _UNREACHABLE_CHALLENGE_FILTERS})
     return findings
 
 
@@ -264,7 +271,7 @@ def validate_changes(actor, changes, *, lock=False):
                     raise ContentPackError("These activities cannot advance this automatic challenge: "
                         + ", ".join(status["unsupported"]) + ". Choose supported activities.")
                 if not status["available"]:
-                    raise ContentPackError("Choose valid supported activities for this automatic challenge.")
+                    raise ContentPackError(_UNREACHABLE_CHALLENGE_FILTERS)
         for change in changes:
             for row in change["values"].get("reward_items", []):
                 if "item_key" in row and row["item_key"] not in new_items:

@@ -522,6 +522,12 @@ simulation and explicit confirmation. Private drafts use `mcp:author`, publicati
 uses `mcp:publish`, and references use `mcp:catalog`; grants remain independent.
 Private reads and replays recheck the current author under family/member locks.
 
+Challenge activities must satisfy every selected filter in the same saved-work
+activity. For example, an on-time filter requires approved homework and cannot
+match a chore-only challenge. The workbench reports `unreachable_challenge_filters`
+for these incompatible combinations; choose matching activities and filters
+before saving or republishing.
+
 `get_progression_lab` describes the installed simulator. The catalog-only
 `simulate_progression_scenario` runs an anonymous baseline, including supported
 365-day horizons. It shares native work limits and the ten-per-minute quota;

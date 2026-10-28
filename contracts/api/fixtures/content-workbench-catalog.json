@@ -199,6 +199,68 @@
           "skill_tags": []
         },
         "has_database_override": false
+      },
+      {
+        "id": 909,
+        "name": "Unreachable practice",
+        "description": "Synthetic retained challenge with incompatible filters.",
+        "icon": "⚔️",
+        "sprite_key": "",
+        "quest_type": "collection",
+        "target_value": 1,
+        "duration_days": 7,
+        "trigger_filter": {
+          "allowed_triggers": [
+            "chore_complete"
+          ],
+          "on_time": true
+        },
+        "coin_reward": 0,
+        "xp_reward": 0,
+        "is_repeatable": false,
+        "is_system": true,
+        "is_cooperative": false,
+        "required_badge": null,
+        "required_badge_name": null,
+        "superseded_by": null,
+        "prerequisite_quest": null,
+        "prerequisite_quest_name": null,
+        "required_skill": null,
+        "required_skill_name": null,
+        "required_skill_level": 0,
+        "automatic_tracking_available": false,
+        "unsupported_triggers": [],
+        "available_for_new_user": false,
+        "skill_tags": [],
+        "reward_items": [],
+        "editable": true,
+        "edit_reason": "",
+        "values": {
+          "trigger_filter": {
+            "allowed_triggers": [
+              "chore_complete"
+            ],
+            "on_time": true
+          },
+          "sprite_key": "",
+          "target_value": 1,
+          "xp_reward": 0,
+          "icon": "⚔️",
+          "required_skill_level": 0,
+          "is_repeatable": false,
+          "name": "Unreachable practice",
+          "quest_type": "collection",
+          "description": "Synthetic retained challenge with incompatible filters.",
+          "is_cooperative": false,
+          "duration_days": 7,
+          "coin_reward": 0,
+          "prerequisite_quest": null,
+          "required_badge": null,
+          "required_skill": null,
+          "reward_items": [],
+          "skill_tags": []
+        },
+        "has_database_override": false
       }
     ],
     "skills": [
@@ -306,7 +368,15 @@
     "storage": "Bundled YAML supplies defaults; published database overrides survive content reloads."
   },
   "audits": {
-    "findings": [],
+    "findings": [
+      {
+        "code": "unreachable_challenge_filters",
+        "section": "quests",
+        "id": 909,
+        "severity": "warning",
+        "detail": "Choose compatible activities and filters for this automatic challenge. Every selected filter must match the same saved-work activity."
+      }
+    ],
     "incomplete": false
   },
   "simulation": {
@@ -721,6 +791,11 @@
           "id": 908,
           "name": "Starter practice",
           "is_repeatable": false
+        },
+        {
+          "id": 909,
+          "name": "Unreachable practice",
+          "is_repeatable": false
         }
       ],
       "skills": [
@@ -732,15 +807,15 @@
       ]
     },
     "catalog": {
-      "fingerprint": "6b2282b5772ee262b09549b1e879a6d9da18c8d1a370d109a52880b667d42875",
+      "fingerprint": "da2016ba70853ae95466b02fb52b6c9f55121ed0fb1ab7804a2834567e74c3d8",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
       "modeled_badges": 0,
       "excluded_badges": 0,
       "excluded_badge_criteria": {},
-      "system_challenges": 2,
-      "nonrepeatable_challenges": 2
+      "system_challenges": 3,
+      "nonrepeatable_challenges": 3
     },
     "coverage": {
       "modeled": [
