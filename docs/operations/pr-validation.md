@@ -168,7 +168,9 @@ unions, case-only renames, first-source identity and legacy repair rules.
 `apps.rpg.tests.test_loader_category_source_conflicts` checks manual rollback
 and selective startup deferral. `test_startup_quest_badge_closure` under that
 same package covers forward cross-pack dependencies, saved prerequisite
-overrides, safe alternative goals and retained history.
+overrides, safe alternative goals and retained history. They also check saved
+completion capacity across source orders, retraction of transient plans and
+bounded conditional cycles without withholding reachable downstream goals.
 `test_stale_category_source_identity` checks category recovery when only
 orphaned provenance remains, while live identities and keyed claims stay
 protected. MCP's `test_category_retained_repair_admission` checks departures
@@ -192,14 +194,22 @@ Exchange decisions additionally run
 They check foreign and missing request refusals, current actor and member
 admission, native decision parity, notes, once-only settlement, owner changes
 and native-versus-MCP lock contention. Both workers close their physical
-connections before test-database teardown. Native reward decision and wallet
-concurrency checks remain required.
+connections before test-database teardown. With PostgreSQL,
+`apps.rewards.tests.test_exchange_deleted_owner` races real child deletion with
+REST approval/rejection: a vanished owner returns 404 without settlement writes.
+Native reward decision and wallet concurrency checks remain required.
 
 `apps.rpg.tests.test_workbench_named_goal_queries` bounds the native REST
 content editor's named badge and quest-prerequisite lookups, preserving
 availability, editability, shop uses, catalog limits and fresh reads.
 The bundled-content command tests retain complete batch planning, ordered
 loading, explicit-pack behavior and rollback after an actual later failure.
+`apps.rpg.tests.test_startup_preflight_planning_context` requires planning errors
+to identify the supplying pack, including later entries scanned by the first
+loader. Bundled preflight tests retain parser details, grouped successful headers,
+manual strictness and dry-run rollback. `test_startup_live_deferral_warnings`
+under the same package retains the original named cause across real cross-pack
+deferrals without repeatedly prefixing it.
 
 OAuth client management shares `contracts/api/fixtures/oauth-applications.json` between
 `config.tests.test_oauth_api_contract_fixtures` and `src/pages/Manage.oauth.test.jsx`.

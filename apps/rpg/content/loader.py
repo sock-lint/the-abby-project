@@ -66,9 +66,11 @@ class StartupDeferrals:
     badges: set[str] = field(default_factory=set)
     conflict_quests: set[str] = field(default_factory=set)
     source_packs: list[dict] = field(default_factory=list)
+    source_paths: dict[int, str] = field(default_factory=dict)
     planned_badges: dict[str, bool] = field(default_factory=dict)
     planned_quests: dict[str, bool] = field(default_factory=dict)
     dependency_reasons: dict[tuple[str, str], str] = field(default_factory=dict)
+    cycle_pins: dict[tuple[str, str], tuple[bool, str]] = field(default_factory=dict)
 
     def clear(self):
         self.skills.clear()
@@ -78,9 +80,11 @@ class StartupDeferrals:
         self.badges.clear()
         self.conflict_quests.clear()
         self.source_packs.clear()
+        self.source_paths.clear()
         self.planned_badges.clear()
         self.planned_quests.clear()
         self.dependency_reasons.clear()
+        self.cycle_pins.clear()
 
 
 @dataclass
@@ -360,24 +364,45 @@ class ContentPack:
 
         _catalog_lock()
         for loader in loaders:
-            parsed = loader._parse_all()
-            validate_content(parsed, strict=False)
-            loader.parsed_content = parsed
-            loader._startup_deferrals.source_packs.append(parsed)
-            for entry in (parsed.get("skill_tree") or {}).get("categories", []):
-                name = entry["name"]
-                if (preserved_authoring_entry("achievements.skillcategory", {"name": name})
-                        or SkillCategory.objects.filter(name=name).exists()):
-                    continue
-                try:
-                    validate_source_identity(SkillCategory(name=name))
-                except ContentPackError:
-                    loader._startup_deferrals.categories.add(name)
+            try:
+                parsed = loader._parse_all()
+                validate_content(parsed, strict=False)
+                loader.parsed_content = parsed
+                loader._startup_deferrals.source_packs.append(parsed)
+                # Shared planning scans entries from every selected bundle.
+                # Keep their in-memory origins for this batch only.
+                loader._startup_deferrals.source_paths.update(
+                    (id(entry), str(loader.path)) for section in parsed.values()
+                    for entries in section.values() for entry in entries)
+                for entry in (parsed.get("skill_tree") or {}).get("categories", []):
+                    name = entry["name"]
+                    if (preserved_authoring_entry("achievements.skillcategory", {"name": name})
+                            or SkillCategory.objects.filter(name=name).exists()):
+                        continue
+                    try:
+                        validate_source_identity(SkillCategory(name=name))
+                    except ContentPackError:
+                        loader._startup_deferrals.categories.add(name)
+            except ContentPackError as exc:
+                raise ContentPackError(f"{loader.path}: {exc}") from exc
         if loaders:
             parent_flags = {}
             for loader in loaders:
-                loader._seed_retired_startup_skills(parent_flags)
+                try:
+                    loader._seed_retired_startup_skills(parent_flags)
+                except ContentPackError as exc:
+                    raise ContentPackError(f"{loader.path}: {exc}") from exc
             loaders[0]._expand_startup_dependencies()
+
+    def _startup_source_call(self, entry, callback, *args, **kwargs):
+        """Attribute a planning lookup to its entry, not the scanning loader."""
+        try:
+            return callback(*args, **kwargs)
+        except ContentPackError as exc:
+            path = self._startup_deferrals.source_paths.get(id(entry))
+            if path is None:
+                raise
+            raise type(exc)(f"{path}: {exc}") from exc
 
     def _preserves_startup_prerequisites(self, entry):
         from apps.achievements.models import Skill, SkillCategory
@@ -457,12 +482,13 @@ class ContentPack:
                 self._startup_deferrals.skills.add((category_name, entry["name"]))
 
     def _expand_startup_dependencies(self):
-        """Close only known withheld source edges, retaining safe alternatives."""
+        """Close known withheld edges using the catalog that will survive each edit."""
         state = self._startup_deferrals
         if not self.defer_retired_references or not state.source_packs:
             return
         if not (state.categories or state.skills or state.quests):
             return
+        from apps.achievements.models import Badge, Skill
         from apps.quests.models import QuestDefinition
         from .authoring import preserved_authoring_entry
         from .workbench import preserved_loader_entry
@@ -472,60 +498,118 @@ class ContentPack:
             skills.extend((parsed.get("skill_tree") or {}).get("skills", []))
             badges.extend((parsed.get("badges") or {}).get("badges", []))
             quests.extend((parsed.get("quests") or {}).get("quests", []))
-        badges = [entry for entry in badges if not preserved_authoring_entry(
-            "achievements.badge", {"name": entry["name"]})]
-        quests = [entry for entry in quests if not preserved_loader_entry(
-            "quests.questdefinition", {"name": entry["name"]})]
+        badges = [entry for entry in badges if not self._startup_source_call(
+            entry, preserved_authoring_entry, "achievements.badge", {"name": entry["name"]})]
+        quests = [entry for entry in quests if not self._startup_source_call(
+            entry, preserved_loader_entry, "quests.questdefinition", {"name": entry["name"]})]
         by_name = {}
         for entry in quests:
             by_name.setdefault(entry["name"], []).append(entry)
 
         def blocked_skill(reference, category=None):
-            for parent, name in state.conflict_skills:
-                if (f"{parent}::{name}" == reference if "::" in reference else
-                        name == reference and (category is None or parent == category)):
-                    return True
-            return False
+            return any(f"{parent}::{name}" == reference if "::" in reference else
+                name == reference and (category is None or parent == category)
+                for parent, name in state.conflict_skills)
 
-        def missing_retired_skill(reference):
-            from apps.achievements.models import Skill
-            if not self._deferred_skill_reference(reference):
-                return False
-            matches = (self._qualified_skill_matches(reference) if "::" in reference else
-                       self._source_reference_matches(Skill, name=reference))
-            return not matches
+        # Skill conflicts do not depend on quest admission and can close first.
+        while True:
+            before = len(state.conflict_skills)
+            for entry in skills:
+                if entry["category"] in state.categories or (any(blocked_skill(
+                    ref["skill"] if isinstance(ref, dict) else ref, entry["category"])
+                    for ref in entry.get("prereqs", []) or []) and not self._startup_source_call(
+                        entry, self._preserves_startup_prerequisites, entry)):
+                    state.conflict_skills.add((entry["category"], entry["name"]))
+            if len(state.conflict_skills) == before:
+                break
 
-        existing_quests = {}
+        existing_quests, existing_badges, retired_skills = {}, {}, {}
 
         def quest_matches(name):
             if name not in existing_quests:
                 existing_quests[name] = self._source_reference_matches(QuestDefinition, name=name)
             return existing_quests[name]
 
-        def unavailable_quest(name):
-            # A rejected source edit can leave its saved challenge usable.
-            # Match ordinary prerequisite resolution: retirement propagates
-            # only when no current/preserved definition survives. Conflicting
-            # source identities retain their stricter withholding contract.
-            return name in state.planned_quests and (
-                state.planned_quests[name] or not quest_matches(name))
+        def missing_retired_skill(reference, entry):
+            if reference not in retired_skills:
+                matches = (self._startup_source_call(entry, self._qualified_skill_matches, reference) if "::" in reference else
+                    self._source_reference_matches(Skill, name=reference)) if self._deferred_skill_reference(reference) else None
+                retired_skills[reference] = matches is not None and not matches
+            return retired_skills[reference]
 
-        def dependency_reason(kind, name):
+        def plan(target, causes, kind, name, conflict, reason):
+            key = kind, name
+            if key not in target or (conflict and not target[key]):
+                target[key] = conflict
+                causes[key] = reason
+
+        def source_reason(kind, name):
             return state.dependency_reasons.get((kind, name),
                 f"{kind.title()} source {name!r} was deferred in this bundled load.")
 
-        def plan(kind, name, conflict, reason):
-            selected = state.planned_badges if kind == "badge" else state.planned_quests
-            if name not in selected or (conflict and not selected[name]):
-                selected[name] = conflict
-                state.dependency_reasons[kind, name] = reason
-
-        def blocked_badge(entry):
+        # Actual row deferrals and direct source failures remain immutable seeds.
+        # Derived badge/quest plans must be rebuilt: a rejected edit can restore
+        # the saved challenge's repeatability, making a tentative badge reachable.
+        seeds, seed_causes = {}, {}
+        for name in state.quests:
+            plan(seeds, seed_causes, "quest", name, name in state.conflict_quests, source_reason("quest", name))
+        for name in state.badges:
+            plan(seeds, seed_causes, "badge", name, True, source_reason("badge", name))
+        for entry in quests:
+            references = [tag if isinstance(tag, str) else tag["skill"] for tag in entry.get("skill_tags", []) or []]
+            if entry.get("required_skill"):
+                references.append(entry["required_skill"])
+            conflicted = next((ref for ref in references if blocked_skill(ref)), None)
+            retired = next((ref for ref in references if missing_retired_skill(ref, entry)), None) if conflicted is None else None
+            if conflicted is not None:
+                plan(seeds, seed_causes, "quest", entry["name"], True,
+                    f"Skill source {conflicted!r} was deferred for a retained category identity conflict.")
+            elif retired is not None:
+                plan(seeds, seed_causes, "quest", entry["name"], False,
+                    f"Skill source {retired!r} was deferred for a retired reference.")
+        for entry in badges:
             rule = entry.get("criteria_value") or {}
             if self._badge_uses_conflicted_category(entry["criteria_type"], rule):
-                return True, f"Category source {rule['category']!r} was deferred for a retained category identity conflict."
+                plan(seeds, seed_causes, "badge", entry["name"], True,
+                    f"Category source {rule['category']!r} was deferred for a retained category identity conflict.")
+
+        def admission_input(kind, name, selection):
+            key = kind, name
+            if key not in selection:
+                return None  # Available; a rejected edit can retain a saved row.
+            if selection[key]:
+                return True  # Source conflicts remain strict, including saved rows.
+            if kind == "quest":
+                matches = quest_matches(name)
+            else:
+                if name not in existing_badges:
+                    existing_badges[name] = self._source_reference_matches(Badge, name=name)
+                matches = existing_badges[name]
+            return None if matches else False
+
+        def unavailable_quest(name):
+            return admission_input("quest", name, planned) is not None
+
+        def unavailable_badge(name):
+            return admission_input("badge", name, planned) is not None
+
+        def completion_capacity(name, selection):
+            if admission_input("quest", name, selection) is not None:
+                return 0
+            candidates = by_name.get(name, [])
+            if selection.get(("quest", name)) is False:
+                existing = quest_matches(name)
+            elif len(candidates) == 1:
+                return float("inf") if candidates[0].get("is_repeatable", False) else 1
+            else:
+                existing = quest_matches(name)
+            # Preserve the native loader's unknown/ambiguous auditable fallback.
+            return float("inf") if len(existing) != 1 or existing[0].is_repeatable else 1
+
+        def blocked_badge(entry):
             if entry["criteria_type"] != "quest_completed":
                 return None
+            rule = entry.get("criteria_value") or {}
             names = rule.get("quest_names")
             if names is None:
                 names = [rule["quest_name"]] if rule.get("quest_name") else []
@@ -537,68 +621,145 @@ class ContentPack:
             if remaining:
                 if count is None:
                     return None  # Native no-count lists mean ANY, not ALL.
-                for name in remaining:
-                    candidates = by_name.get(name, [])
-                    if name in state.planned_quests and not state.planned_quests[name]:
-                        # A withheld edit cannot change the saved challenge's
-                        # completion capacity through its stale source flags.
-                        existing = quest_matches(name)
-                        if len(existing) != 1 or existing[0].is_repeatable:
-                            return None
-                    elif len(candidates) == 1:
-                        if candidates[0].get("is_repeatable", False):
-                            return None
-                    else:
-                        existing = quest_matches(name)
-                        if len(existing) != 1 or existing[0].is_repeatable:
-                            return None  # Unknown/ambiguous references stay strict/auditable.
+                if any(completion_capacity(name, planned) > 1 for name in remaining):
+                    return None
                 if len(remaining) >= int(count):
                     return None
-            conflict = any(state.planned_quests[name] for name in affected)
-            source = next(name for name in sorted(affected) if state.planned_quests[name] == conflict)
-            return conflict, dependency_reason("quest", source)
+            conflict = any(planned["quest", name] for name in affected)
+            source = next(name for name in sorted(affected) if planned["quest", name] == conflict)
+            return conflict, causes["quest", source]
 
-        for name in state.quests:
-            plan("quest", name, name in state.conflict_quests, dependency_reason("quest", name))
-        for name in state.badges:
-            plan("badge", name, True, dependency_reason("badge", name))
-        changed = True
-        while changed:
-            before = (len(state.conflict_skills), state.planned_badges.copy(), state.planned_quests.copy())
-            for entry in skills:
-                key = (entry["category"], entry["name"])
-                if entry["category"] in state.categories or (any(blocked_skill(
-                    ref["skill"] if isinstance(ref, dict) else ref, entry["category"])
-                    for ref in entry.get("prereqs", []) or []) and not self._preserves_startup_prerequisites(entry)):
-                    state.conflict_skills.add(key)
+        nodes = {("quest", entry["name"]) for entry in quests} | {("badge", entry["name"]) for entry in badges}
+
+        def cycle_roots(history):
+            # Use varying admission inputs, not every structural reference. A
+            # saved prerequisite can stay available while its source is deferred;
+            # equal saved/source capacity cannot drive a completion cycle either.
+            graph = {node: set() for node in nodes}
+
+            def edge(parent, child, observe):
+                if parent in graph and child in graph and len({observe(row) for row, _causes in history}) > 1:
+                    graph[parent].add(child)
+
             for entry in quests:
-                name = entry["name"]
-                # A later badge edge can upgrade a retirement-only plan to a
-                # source conflict, even when its saved challenge still exists.
-                if state.planned_quests.get(name) is True:
-                    continue
-                references = [tag if isinstance(tag, str) else tag["skill"] for tag in entry.get("skill_tags", []) or []]
-                if entry.get("required_skill"):
-                    references.append(entry["required_skill"])
+                child = "quest", entry["name"]
                 prerequisite = entry.get("prerequisite_quest")
-                parents = [(state.planned_quests[prerequisite], dependency_reason("quest", prerequisite))] if unavailable_quest(prerequisite) else []
-                if entry.get("required_badge") in state.planned_badges:
-                    badge = entry["required_badge"]
-                    parents.append((state.planned_badges[badge], dependency_reason("badge", badge)))
-                conflicted = next((ref for ref in references if blocked_skill(ref)), None)
-                retired = next((ref for ref in references if missing_retired_skill(ref)), None) if conflicted is None else None
-                if conflicted is not None:
-                    parents.append((True, f"Skill source {conflicted!r} was deferred for a retained category identity conflict."))
-                elif retired is not None:
-                    parents.append((False, f"Skill source {retired!r} was deferred for a retired reference."))
-                if parents:
-                    conflict = any(flag for flag, _reason in parents)
-                    plan("quest", name, conflict, next(reason for flag, reason in parents if flag == conflict))
+                badge = entry.get("required_badge")
+                edge(("quest", prerequisite), child, lambda row: admission_input("quest", prerequisite, row))
+                edge(("badge", badge), child, lambda row: admission_input("badge", badge, row))
             for entry in badges:
-                blocked = blocked_badge(entry)
-                if blocked is not None:
-                    plan("badge", entry["name"], *blocked)
-            changed = before != (len(state.conflict_skills), state.planned_badges, state.planned_quests)
+                rule = entry.get("criteria_value") or {}
+                if entry["criteria_type"] != "quest_completed" or (rule.get("count") is not None and int(rule["count"]) <= 0):
+                    continue
+                names = rule.get("quest_names")
+                if names is None:
+                    names = [rule["quest_name"]] if rule.get("quest_name") else []
+                for name in names:
+                    edge(("quest", name), ("badge", entry["name"]), lambda row: (
+                        admission_input("quest", name, row),
+                        completion_capacity(name, row) if rule.get("count") is not None else None))
+            # Iterative SCC discovery avoids a recursion limit on long sources.
+            reverse = {node: set() for node in nodes}
+            for parent, children in graph.items():
+                for child in children:
+                    reverse[child].add(parent)
+            visited, order = set(), []
+            for start in sorted(nodes):
+                stack = [(start, False)]
+                while stack:
+                    node, finished = stack.pop()
+                    if finished:
+                        order.append(node)
+                    elif node not in visited:
+                        visited.add(node)
+                        stack.append((node, True))
+                        stack.extend((child, False) for child in sorted(graph[node], reverse=True) if child not in visited)
+            visited, components, component_for = set(), [], {}
+            for start in reversed(order):
+                component, stack = set(), [start]
+                while stack:
+                    node = stack.pop()
+                    if node not in visited:
+                        visited.add(node)
+                        component.add(node)
+                        stack.extend(reverse[node] - visited)
+                if component:
+                    index = len(components)
+                    components.append(component)
+                    component_for.update({node: index for node in component})
+            varied = {node for node in nodes if len({row.get(node) for row, _causes in history}) > 1}
+            affected = {index for index, group in enumerate(components)
+                if group & varied and (len(group) > 1 or any(node in graph[node] for node in group))}
+            links = {index: set() for index in range(len(components))}
+            for parent, children in graph.items():
+                for child in children:
+                    if component_for[parent] != component_for[child]:
+                        links[component_for[parent]].add(component_for[child])
+            downstream = set()
+            for root in affected:
+                reached, stack = set(), list(links[root])
+                while stack:
+                    node = stack.pop()
+                    if node not in reached:
+                        reached.add(node)
+                        stack.extend(links[node] - reached)
+                downstream.update(reached & affected)
+            # Settle causal upstream components first. A downstream cycle may
+            # disappear once the true conditional source choices are retained.
+            return set().union(*(components[index] & varied for index in affected - downstream))
+
+        while True:
+            planned, causes = seeds.copy(), seed_causes.copy()
+            for (kind, name), (conflict, reason) in state.cycle_pins.items():
+                plan(planned, causes, kind, name, conflict, reason)
+            seen, history = {}, []
+            # Acyclic admission settles within the source-node depth. Bound cyclic
+            # rounds too; each restart pins a new node or upgrades a pin to True.
+            for _ in range(max(2, 2 * len(nodes) + 1)):
+                signature = tuple(sorted(planned.items()))
+                if signature in seen:
+                    history = history[seen[signature]:]
+                    break
+                seen[signature] = len(history)
+                history.append((planned.copy(), causes.copy()))
+                following, following_causes = seeds.copy(), seed_causes.copy()
+                for (kind, name), (conflict, reason) in state.cycle_pins.items():
+                    plan(following, following_causes, kind, name, conflict, reason)
+                for entry in quests:
+                    parents = []
+                    prerequisite = entry.get("prerequisite_quest")
+                    if unavailable_quest(prerequisite):
+                        parents.append((planned["quest", prerequisite], causes["quest", prerequisite]))
+                    badge = entry.get("required_badge")
+                    if unavailable_badge(badge):
+                        parents.append((planned["badge", badge], causes["badge", badge]))
+                    if parents:
+                        conflict = any(flag for flag, _reason in parents)
+                        plan(following, following_causes, "quest", entry["name"], conflict,
+                            next(reason for flag, reason in parents if flag == conflict))
+                for entry in badges:
+                    blocked = blocked_badge(entry)
+                    if blocked is not None:
+                        plan(following, following_causes, "badge", entry["name"], *blocked)
+                if following == planned:
+                    state.planned_badges.clear()
+                    state.planned_badges.update({name: flag for (kind, name), flag in following.items() if kind == "badge"})
+                    state.planned_quests.clear()
+                    state.planned_quests.update({name: flag for (kind, name), flag in following.items() if kind == "quest"})
+                    state.dependency_reasons.clear()
+                    state.dependency_reasons.update(following_causes)
+                    return
+                planned, causes = following, following_causes
+            changed = cycle_roots(history)
+            added = False
+            for node in sorted(changed):
+                conflict = any(row.get(node) is True for row, _reasons in history)
+                previous = state.cycle_pins.get(node)
+                if previous is None or (conflict and not previous[0]):
+                    reason = next(reasons[node] for row, reasons in history if row.get(node) is conflict)
+                    state.cycle_pins[node] = conflict, reason
+                    added = True
+            assert added, "Changing admission plans must include an unresolved selected source cycle."
 
     def _check_planned_dependency(self, kind, name):
         planned = (self._startup_deferrals.planned_badges if kind == "badge"
@@ -827,7 +988,13 @@ class ContentPack:
             self.stats.bump("skipped", reason + kind)
             self.warnings.append(f"Left {kind} {name!r} unchanged: {error}")
             if kind in {"badge", "quest"}:
-                self._startup_deferrals.dependency_reasons[kind, name] = str(error)
+                message = str(error)
+                if not message.startswith((
+                    "Category source ", "Subject source ", "Skill source ", "Prerequisite source ",
+                    "Badge source ", "Quest source ", "Challenge source ",
+                )):
+                    message = f"{kind.title()} source {name!r} was deferred: {message}"
+                self._startup_deferrals.dependency_reasons[kind, name] = message
 
     @staticmethod
     def _admit_reference(model, ids, retained=()):

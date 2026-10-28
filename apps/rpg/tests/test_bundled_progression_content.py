@@ -2,7 +2,10 @@
 from io import StringIO
 from datetime import timedelta
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
+
+import shutil
 
 import yaml
 from django.conf import settings
@@ -14,8 +17,8 @@ from rest_framework.test import APIClient
 
 from apps.achievements.models import Badge
 from apps.quests.models import Quest, QuestDefinition, QuestRewardItem
-from apps.rpg.content.loader import ContentPackError
-from apps.rpg.models import CharacterProfile, ContentPackEntry, DropTable, ItemDefinition, UserInventory
+from apps.rpg.content.loader import ContentPack, ContentPackError
+from apps.rpg.models import CharacterProfile, ContentPackEntry, DropTable, ItemDefinition, RPGContentRetirement, UserInventory
 from apps.rpg.progression.catalog import snapshot_catalog
 from apps.rpg.progression.engine import Trial
 from apps.rpg.services import ConsumableService, DropService
@@ -437,3 +440,72 @@ class BundledProgressionContentTests(TestCase):
         with patch("apps.rpg.services.random.random", return_value=0):
             self.assertEqual(DropService.process_drops(child, "clock_out"), [])
         self.assertEqual(ExpeditionService._roll_loot(child, "long")["items"], [])
+
+
+class BundledPreflightDiagnosticsTests(TestCase):
+    def copied_bundles(self, root):
+        from apps.rpg.management.commands.loadrpgcontent import BUNDLED_PACKS
+        selections = []
+        for relative, namespace in BUNDLED_PACKS:
+            destination = root / relative
+            shutil.copytree(Path(settings.BASE_DIR) / relative, destination)
+            selections.append((str(destination), namespace))
+        return tuple(selections)
+
+    def assert_catalog_unchanged(self):
+        for model in (ItemDefinition, Badge, QuestDefinition, ContentPackEntry, RPGContentRetirement):
+            self.assertFalse(model.objects.exists(), model._meta.label)
+
+    def test_invalid_later_default_preflight_names_source_and_rolls_back(self):
+        with TemporaryDirectory() as temporary:
+            selections = self.copied_bundles(Path(temporary))
+            failed_pack = Path(selections[1][0])
+            quest_file = failed_pack / "quests.yaml"
+            parsed = yaml.safe_load(quest_file.read_text())
+            parsed["quests"][0]["target_value"] = "three"
+            quest_file.write_text(yaml.safe_dump(parsed, allow_unicode=True, sort_keys=False))
+            for dry_run in (False, True):
+                with self.subTest(dry_run=dry_run):
+                    out = StringIO()
+                    with patch("apps.rpg.management.commands.loadrpgcontent.BUNDLED_PACKS", selections):
+                        with self.assertRaises(CommandError) as raised:
+                            call_command("loadrpgcontent", dry_run=dry_run, stdout=out)
+                    self.assert_catalog_unchanged()
+                    self.assertNotIn("Loading pack:", out.getvalue(),
+                        "Preflight failures must not move the successful per-pack output headers.")
+                    self.assertIn("target_value must be a finite number", str(raised.exception))
+                    self.assertIn(str(failed_pack), str(raised.exception),
+                        "A later-pack preflight failure must identify its exact source directory.")
+
+    def test_later_default_parse_error_keeps_exact_file_details(self):
+        with TemporaryDirectory() as temporary:
+            selections = self.copied_bundles(Path(temporary))
+            quest_file = Path(selections[1][0]) / "quests.yaml"
+            quest_file.write_text("quests: [\n")
+            out = StringIO()
+            with patch("apps.rpg.management.commands.loadrpgcontent.BUNDLED_PACKS", selections):
+                with self.assertRaises(CommandError) as raised:
+                    call_command("loadrpgcontent", stdout=out)
+            self.assert_catalog_unchanged()
+            self.assertNotIn("Loading pack:", out.getvalue())
+            self.assertIn(str(quest_file), str(raised.exception))
+            self.assertIn("invalid YAML", str(raised.exception))
+
+    def test_explicit_and_direct_invalid_loads_keep_manual_validation(self):
+        with TemporaryDirectory() as temporary:
+            selections = self.copied_bundles(Path(temporary))
+            pack = Path(selections[1][0])
+            quest_file = pack / "quests.yaml"
+            parsed = yaml.safe_load(quest_file.read_text())
+            parsed["quests"][0]["target_value"] = "three"
+            quest_file.write_text(yaml.safe_dump(parsed, allow_unicode=True, sort_keys=False))
+            out = StringIO()
+            with patch.object(ContentPack, "prepare_startup_dependencies") as preflight:
+                with self.assertRaisesMessage(CommandError, "target_value must be a finite number"):
+                    call_command("loadrpgcontent", pack=str(pack), namespace="manual-", stdout=out)
+                with self.assertRaisesMessage(ContentPackError, "target_value must be a finite number"):
+                    ContentPack(pack, namespace="manual-").load(stdout=StringIO())
+                preflight.assert_not_called()
+            headers = [line for line in out.getvalue().splitlines() if line.startswith("Loading pack:")]
+            self.assertEqual(headers, [f"Loading pack: {pack} (namespace='manual-')"])
+            self.assert_catalog_unchanged()

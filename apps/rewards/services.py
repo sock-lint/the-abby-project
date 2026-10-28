@@ -41,7 +41,12 @@ def _lock_decision(instance):
 def _lock_exchange_decision(exchange):
     """Retain the current wallet before the exchange, matching MCP member locks."""
     user_id = ExchangeRequest.objects.values_list("user_id", flat=True).get(pk=exchange.pk)
-    user = User.objects.select_for_update(no_key=True).get(pk=user_id)
+    try:
+        user = User.objects.select_for_update(no_key=True).get(pk=user_id)
+    except User.DoesNotExist as error:
+        # A completed owner cascade also removed the saved request. Preserve
+        # the native decision view's existing mid-flight not-found response.
+        raise ExchangeRequest.DoesNotExist("This request no longer exists.") from error
     _lock_decision(exchange)
     if exchange.user_id != user.pk:
         raise PermissionDenied("This exchange changed. Refresh it before deciding.")
