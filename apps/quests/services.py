@@ -387,8 +387,8 @@ class QuestService:
         if trigger_filter.get("on_time") and not context.get("on_time"):
             return None
 
-        # Check savings-goal filter. When set, only the named goal's completion
-        # counts — lets Hoard Builder be assigned against a specific goal.
+        # Optional savings-goal filter for private definitions: only the
+        # selected goal's completion counts.
         if trigger_filter.get("savings_goal_id") and (
             context.get("savings_goal_id") != trigger_filter["savings_goal_id"]
         ):
