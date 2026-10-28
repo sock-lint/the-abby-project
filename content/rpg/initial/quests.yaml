@@ -1024,7 +1024,7 @@ quests:
   # is a single event (the goal being marked complete).
 
   - name: Hoard Builder
-    description: "Finish one savings goal during this challenge window. Any completed savings goal counts unless a parent adds a specific goal filter."
+    description: "Complete one qualifying savings milestone during this challenge window. For new goals, only savings Abby has not already counted can add progress. A new goal already funded when created does not count. A parent may limit this challenge to a specific goal."
     icon: "🏦"
     sprite_key: quest-hoard-builder
     quest_type: collection
