@@ -202,11 +202,6 @@ def create_quest_definition(
             raise MCPValidationError(
                 f"required_badge_id {params.required_badge_id} not found.",
             )
-    try:
-        validate_trigger_filter(params.trigger_filter)
-    except DjangoValidationError as exc:
-        raise MCPValidationError("; ".join(exc.messages))
-
     child = None
     if params.assigned_to_id is not None:
         child = resolve_target_user(parent, params.assigned_to_id)
@@ -214,6 +209,12 @@ def create_quest_definition(
             raise MCPValidationError(f"assigned_to_id {params.assigned_to_id} does not match any child.")
 
     def create(actor, target):
+        # New rules must match typed source evidence. Exact saved UUID replay
+        # precedes this guard, preserving previously accepted definitions.
+        try:
+            validate_trigger_filter(params.trigger_filter)
+        except DjangoValidationError as exc:
+            raise MCPValidationError("; ".join(exc.messages)) from exc
         # Only new authoring needs a reachable activity. A saved UUID replay
         # returns its original promise before entering this callback.
         from apps.quests.progress_sources import require_progress_source
