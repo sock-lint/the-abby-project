@@ -65,6 +65,9 @@ class StartupDeferrals:
     conflict_skills: set[tuple[str, str]] = field(default_factory=set)
     badges: set[str] = field(default_factory=set)
     conflict_quests: set[str] = field(default_factory=set)
+    source_packs: list[dict] = field(default_factory=list)
+    planned_badges: dict[str, bool] = field(default_factory=dict)
+    planned_quests: dict[str, bool] = field(default_factory=dict)
 
     def clear(self):
         self.skills.clear()
@@ -73,6 +76,9 @@ class StartupDeferrals:
         self.conflict_skills.clear()
         self.badges.clear()
         self.conflict_quests.clear()
+        self.source_packs.clear()
+        self.planned_badges.clear()
+        self.planned_quests.clear()
 
 
 @dataclass
@@ -172,6 +178,7 @@ class ContentPack:
             else:
                 freeze_legacy_quest_promises()
             self._load_skill_tree(parsed.get("skill_tree"), write)
+            self._expand_startup_dependencies()
             self._load_badges(parsed.get("badges"), write)
             self._load_potion_types(parsed.get("potion_types"), write)
             self._load_pet_species(parsed.get("pet_species"), write)
@@ -335,6 +342,243 @@ class ContentPack:
         # category exists; no household rows or Python casefolding are needed.
         return SkillCategory.objects.annotate(_source_category_selector=Value(name)).filter(matches).exists()
 
+    @staticmethod
+    def prepare_startup_dependencies(loaders):
+        """Read the selected source graph under the ordinary catalog fence.
+
+        This preflight performs no upserts, sequence allocations or source-name
+        adoption. Only the actual unkeyed default batch supplies these sources.
+        Future category conflicts must be known before an earlier pack's badges
+        are written; actual taxonomy admission still determines row writes.
+        """
+        from apps.achievements.models import SkillCategory
+        from .authoring import preserved_authoring_entry, validate_source_identity
+        from .publication import _catalog_lock
+        from .validation import validate_content
+
+        _catalog_lock()
+        for loader in loaders:
+            parsed = loader._parse_all()
+            validate_content(parsed, strict=False)
+            loader.parsed_content = parsed
+            loader._startup_deferrals.source_packs.append(parsed)
+            for entry in (parsed.get("skill_tree") or {}).get("categories", []):
+                name = entry["name"]
+                if (preserved_authoring_entry("achievements.skillcategory", {"name": name})
+                        or SkillCategory.objects.filter(name=name).exists()):
+                    continue
+                try:
+                    validate_source_identity(SkillCategory(name=name))
+                except ContentPackError:
+                    loader._startup_deferrals.categories.add(name)
+        if loaders:
+            parent_flags = {}
+            for loader in loaders:
+                loader._seed_retired_startup_skills(parent_flags)
+            loaders[0]._expand_startup_dependencies()
+
+    def _preserves_startup_prerequisites(self, entry):
+        from apps.achievements.models import Skill, SkillCategory
+        from .authoring import preserves_skill_prerequisites
+
+        categories = self._source_reference_matches(SkillCategory, name=entry["category"])
+        if len(categories) != 1:
+            return False
+        matches = self._source_reference_matches(Skill, category=categories[0], name=entry["name"])
+        return len(matches) == 1 and preserves_skill_prerequisites(matches[0])
+
+    def _seed_retired_startup_skills(self, parent_flags):
+        """Project each new parent link; retained IDs remain accepted promises.
+
+        The catalog fence already protects these exact source resolutions. Read
+        the same availability predicate as admission against detached parents,
+        applying preceding selected source flags without changing database rows.
+        A restored category cannot restore its independently retired subjects.
+        Unknown/new parents keep the real loader's strict/bootstrap resolution.
+        """
+        from copy import copy
+        from apps.achievements.models import Skill, SkillCategory, Subject
+        from apps.achievements.taxonomy import available_for_new_choices
+        from .authoring import preserved_authoring_entry
+
+        tree = (self.parsed_content or {}).get("skill_tree") or {}
+        categories = tree.get("categories", [])
+        subjects = tree.get("subjects", [])
+        if not (any(parent_flags.values())
+                or any(source.get("is_retired") is True for source in [*categories, *subjects])
+                or SkillCategory.objects.filter(is_retired=True).exists()
+                or Subject.objects.filter(is_retired=True).exists()):
+            return
+
+        def projected(parent):
+            candidate = copy(parent)
+            candidate.is_retired = parent_flags.get((parent._meta.label_lower, parent.pk), parent.is_retired)
+            if isinstance(parent, Subject):
+                candidate.category = projected(parent.category)
+            return candidate
+
+        for source in categories:
+            if "is_retired" not in source or preserved_authoring_entry("achievements.skillcategory", {"name": source["name"]}):
+                continue
+            matches = self._source_reference_matches(SkillCategory, name=source["name"])
+            if len(matches) == 1:
+                parent_flags[SkillCategory._meta.label_lower, matches[0].pk] = source["is_retired"]
+        for source in subjects:
+            parents = self._source_reference_matches(SkillCategory, name=source["category"])
+            if len(parents) != 1 or "is_retired" not in source:
+                continue
+            lookup = {"name": source["name"], "category": parents[0]}
+            matches = self._source_reference_matches(Subject, **lookup)
+            if len(matches) == 1 and not preserved_authoring_entry("achievements.subject", lookup):
+                parent_flags[Subject._meta.label_lower, matches[0].pk] = source["is_retired"]
+        for entry in tree.get("skills", []):
+            category_name = entry["category"]
+            if category_name in self._startup_deferrals.categories:
+                continue
+            parents = self._source_reference_matches(SkillCategory, name=category_name)
+            if len(parents) != 1 or self._preserves_startup_prerequisites(entry):
+                continue
+            category = parents[0]
+            previous = self._source_reference_matches(Skill, category=category, name=entry["name"])
+            if len(previous) > 1:
+                continue  # Ordinary loading still reports ambiguous references.
+            previous = previous[0] if previous else None
+            links = [(category, previous.category_id if previous else None)]
+            if entry.get("subject"):
+                matches = self._source_reference_matches(Subject, name=entry["subject"], category=category)
+                if len(matches) == 1:
+                    links.append((matches[0], previous.subject_id if previous else None))
+            # New parents absent from the DB are not inferred here. The actual
+            # load admits only parents created within that same atomic pack.
+            if any(parent.pk != retained and not available_for_new_choices(projected(parent))
+                   for parent, retained in links):
+                self._startup_deferrals.skills.add((category_name, entry["name"]))
+
+    def _expand_startup_dependencies(self):
+        """Close only known withheld source edges, retaining safe alternatives."""
+        state = self._startup_deferrals
+        if not self.defer_retired_references or not state.source_packs:
+            return
+        if not (state.categories or state.skills or state.quests):
+            return
+        from apps.quests.models import QuestDefinition
+        from .authoring import preserved_authoring_entry
+        from .workbench import preserved_loader_entry
+
+        skills, badges, quests = [], [], []
+        for parsed in state.source_packs:
+            skills.extend((parsed.get("skill_tree") or {}).get("skills", []))
+            badges.extend((parsed.get("badges") or {}).get("badges", []))
+            quests.extend((parsed.get("quests") or {}).get("quests", []))
+        badges = [entry for entry in badges if not preserved_authoring_entry(
+            "achievements.badge", {"name": entry["name"]})]
+        quests = [entry for entry in quests if not preserved_loader_entry(
+            "quests.questdefinition", {"name": entry["name"]})]
+        by_name = {}
+        for entry in quests:
+            by_name.setdefault(entry["name"], []).append(entry)
+
+        def blocked_skill(reference, category=None):
+            for parent, name in state.conflict_skills:
+                if (f"{parent}::{name}" == reference if "::" in reference else
+                        name == reference and (category is None or parent == category)):
+                    return True
+            return False
+
+        def missing_retired_skill(reference):
+            from apps.achievements.models import Skill
+            if not self._deferred_skill_reference(reference):
+                return False
+            matches = (self._qualified_skill_matches(reference) if "::" in reference else
+                       self._source_reference_matches(Skill, name=reference))
+            return not matches
+
+        def blocked_badge(entry):
+            rule = entry.get("criteria_value") or {}
+            if self._badge_uses_conflicted_category(entry["criteria_type"], rule):
+                return True
+            if entry["criteria_type"] != "quest_completed":
+                return None
+            names = rule.get("quest_names")
+            if names is None:
+                names = [rule["quest_name"]] if rule.get("quest_name") else []
+            affected = set(names) & state.planned_quests.keys()
+            count = rule.get("count")
+            if not affected or (count is not None and int(count) <= 0):
+                return None
+            remaining = set(names) - affected
+            if remaining:
+                if count is None:
+                    return None  # Native no-count lists mean ANY, not ALL.
+                for name in remaining:
+                    candidates = by_name.get(name, [])
+                    if len(candidates) == 1:
+                        if candidates[0].get("is_repeatable", False):
+                            return None
+                    else:
+                        existing = list(QuestDefinition.objects.filter(name=name, is_system=True,
+                            created_by__isnull=True, superseded_by__isnull=True)[:2])
+                        if len(existing) != 1 or existing[0].is_repeatable:
+                            return None  # Unknown/ambiguous references stay strict/auditable.
+                if len(remaining) >= int(count):
+                    return None
+            return any(state.planned_quests[name] for name in affected)
+
+        state.planned_quests.update({name: name in state.conflict_quests for name in state.quests})
+        state.planned_badges.update({name: True for name in state.badges})
+        changed = True
+        while changed:
+            before = (len(state.conflict_skills), len(state.planned_badges), len(state.planned_quests))
+            for entry in skills:
+                key = (entry["category"], entry["name"])
+                if entry["category"] in state.categories or (any(blocked_skill(
+                    ref["skill"] if isinstance(ref, dict) else ref, entry["category"])
+                    for ref in entry.get("prereqs", []) or []) and not self._preserves_startup_prerequisites(entry)):
+                    state.conflict_skills.add(key)
+            for entry in quests:
+                name = entry["name"]
+                if name in state.planned_quests:
+                    continue
+                references = [tag if isinstance(tag, str) else tag["skill"] for tag in entry.get("skill_tags", []) or []]
+                if entry.get("required_skill"):
+                    references.append(entry["required_skill"])
+                parents = [state.planned_quests[entry["prerequisite_quest"]]] if entry.get("prerequisite_quest") in state.planned_quests else []
+                if entry.get("required_badge") in state.planned_badges:
+                    parents.append(state.planned_badges[entry["required_badge"]])
+                if any(blocked_skill(ref) for ref in references):
+                    parents.append(True)
+                elif any(missing_retired_skill(ref) for ref in references):
+                    parents.append(False)
+                if parents:
+                    state.planned_quests[name] = any(parents)
+            for entry in badges:
+                blocked = blocked_badge(entry)
+                if blocked is not None:
+                    state.planned_badges[entry["name"]] = blocked
+            changed = before != (len(state.conflict_skills), len(state.planned_badges), len(state.planned_quests))
+
+    def _check_planned_dependency(self, kind, name):
+        planned = (self._startup_deferrals.planned_badges if kind == "badge"
+                   else self._startup_deferrals.planned_quests)
+        if name in planned:
+            error = CategorySourceConflict if planned[name] else RetiredContentReference
+            raise error("A named source dependency was withheld in this bundled load; retained catalog history is unchanged.")
+
+    def _category_conflict_message(self, name, error):
+        from apps.achievements.models import SkillCategory
+        from apps.rpg.models import RPGContentOverride
+
+        current = SkillCategory.objects.filter(name__iexact=name).values("pk")
+        sources = RPGContentOverride.objects.filter(model_label="achievements.skillcategory",
+            source_lookup__name__iexact=name, values___authoring={"version": 1, "source": "mcp"},
+            object_id__in=SkillCategory.objects.values("pk")).exclude(object_id__in=current)
+        ids = [row.object_id for row in sources if isinstance(row.source_lookup, dict)
+               and set(row.source_lookup) == {"name"} and isinstance(row.source_lookup["name"], str)]
+        retainers = list(SkillCategory.objects.filter(pk__in=ids).order_by("pk").values_list("name", "pk")[:2])
+        retained = ", ".join(f"{label!r} (ID {pk})" for label, pk in retainers)
+        return (f"Pack {self.path.name!r}, category {name!r}: {error}"
+                + (f" Retained by {retained}; reconcile this source identity before loading it." if retained else ""))
+
     def _protect_active_quest(self, quest, defaults, entry):
         active, changed = self._active_quest_changes(quest, defaults, entry)
         if changed:
@@ -439,7 +683,7 @@ class ContentPack:
                 try:
                     validate_source_identity(model(**lookup, **defaults))
                 except ContentPackError as error:
-                    raise CategorySourceConflict(str(error)) from error
+                    raise CategorySourceConflict(self._category_conflict_message(lookup["name"], error)) from error
             if model._meta.label_lower == "achievements.badge" and self.defer_retired_references:
                 kind, rule = defaults.get("criteria_type"), defaults.get("criteria_value") or {}
                 if self._badge_uses_conflicted_category(kind, rule):
@@ -900,6 +1144,7 @@ class ContentPack:
                 "award_coins": bool(entry.get("award_coins", True)),
             }
             with self._source_row("badge", entry["name"]) as source:
+                self._check_planned_dependency("badge", entry["name"])
                 _, created = self._upsert(Badge, entry=entry,
                     name=entry["name"], defaults=defaults,
                 )
@@ -1244,6 +1489,7 @@ class ContentPack:
                 if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
                     self.stats.bump("skipped", "database_authored_quest")
                     continue
+                self._check_planned_dependency("quest", entry["name"])
                 defaults = {
                     "description": entry.get("description", ""),
                     "icon": entry.get("icon", "⚔️"),

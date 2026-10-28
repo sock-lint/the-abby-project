@@ -142,6 +142,9 @@ def validate_source_identity(obj):
         _validate_category_alias_reuse(obj)
     lookup = natural_lookup(obj)
     sources = RPGContentOverride.objects.filter(model_label=label).exclude(object_id=obj.pk)
+    if label == "achievements.skillcategory":
+        # Orphaned provenance remains in history without reserving a live name.
+        sources = sources.filter(object_id__in=SkillCategory.objects.values("pk"))
     if label == "quests.questdefinition":
         # Retired aliases and private templates do not participate in the
         # loader's global source-name resolution.
@@ -228,6 +231,8 @@ def record_direct_override(actor, obj, before_lookup):
         # A renamed source keeps its original identity. Reusing that identity
         # for a second row would make a later bundled reload ambiguous.
         candidates = RPGContentOverride.objects.filter(model_label=obj._meta.label_lower).exclude(object_id=obj.pk)
+        if obj._meta.label_lower == "achievements.skillcategory":
+            candidates = candidates.filter(object_id__in=SkillCategory.objects.values("pk"))
         for key, value in before_lookup.items():
             candidates = candidates.filter(**{f"source_lookup__{key}": value})
         if any(row.source_lookup == before_lookup and row.values.get("_authoring") == {"version": 1, "source": "mcp"} for row in candidates):
@@ -261,6 +266,9 @@ def preserved_authoring_entry(model_label, lookup, *, pack_key=None, entry=None)
         return None
     model = apps.get_model(model_label)
     overrides = RPGContentOverride.objects.filter(model_label=model_label)
+    if model_label == "achievements.skillcategory":
+        # Count only actual retained identities, before checking exact ties.
+        overrides = overrides.filter(object_id__in=model.objects.values("pk"))
     if pack_key:
         claim = ContentPackEntry.objects.filter(
             pack=pack_key, model_label=model_label, kind=model._meta.model_name,

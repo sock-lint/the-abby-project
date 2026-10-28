@@ -620,6 +620,22 @@ Project badge selectors follow the database's case-insensitive matching;
 mastery and skill-source references keep their exact matching. Deferred rows
 keep their complete saved fields and relationships, including in later bundled
 packs; startup never adopts another category by folding its name.
+Category provenance whose target no longer exists does not reserve its name.
+Reloading or creating that category can restore a live identity while retaining
+the orphaned metadata; live retained identities and keyed ownership claims
+still require their existing reconciliation paths.
+The default command reads its selected source graph under the catalog lock
+before writing badges. Named quest-completion badges and badge-gated quests
+follow a withheld category dependency across pack boundaries, including forward
+references and successive badge/quest gates. Existing rows stay unchanged.
+Saved skill prerequisite overrides remain authoritative over stale YAML edges.
+The preflight also checks known future retired-parent rejections while retaining
+existing parent links and respecting restorations in earlier selected packs.
+An any-of badge retains a safe alternative, a repeatable alternative can satisfy
+a positive completion count, and empty-list or nonpositive legacy-count rules
+keep their native meaning. This is source-dependency withholding, not a new
+household achievement evaluator. Explicit category-conflict errors identify the
+requested YAML spelling, retaining catalog entry and pack for reconciliation.
 Later bundled packs recognize those deferred skill and quest identities within
 the same atomic startup batch. The temporary markers clear on success, failure
 and dry runs, including when a command instance is reused. A dependent skill's

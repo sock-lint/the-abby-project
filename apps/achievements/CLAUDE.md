@@ -52,6 +52,13 @@ ownership or catalog changes. Query-growth and account-isolation regressions
 live in `tests/test_badge_availability_queries.py` and
 `tests/test_named_goal_availability_queries.py`.
 
+MCP catalog, audit and workbench pages share a separate availability context
+for their selected rows, including quest prerequisite badges. Lab snapshots
+prime only modeled badges after applying their 512-row limit. Both reuse the
+same literal selector batches without reading player state; each later page
+or snapshot resolves fresh inputs. Coverage is in MCP's
+`test_named_goal_catalog_queries` and RPG's `test_progression_named_goal_queries`.
+
 ## Models
 - `SkillCategory → Subject → Skill → Badge` — full hierarchy.
 - `SkillPrerequisite` — allows cross-category and cross-subject requirements.

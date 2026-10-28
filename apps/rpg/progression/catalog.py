@@ -7,7 +7,7 @@ import hashlib
 import json
 from types import MappingProxyType
 
-from apps.achievements.availability import badge_goal_is_available
+from apps.achievements.availability import BadgeGoalAvailability
 from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
@@ -216,8 +216,11 @@ def snapshot_catalog():
         if entry.item_id in items and random_item_is_available(entry.item):
             pools.setdefault(entry.trigger_type, []).append(entry)
     badges, excluded = [], Counter()
-    for badge in _bounded(Badge.objects.order_by("rarity", "name"), 512, "badge"):
-        if badge.criteria_type in MODELED_BADGE_TYPES and badge_goal_is_available(badge):
+    badge_rows = _bounded(Badge.objects.order_by("rarity", "name"), 512, "badge")
+    availability = BadgeGoalAvailability()
+    availability.prepare_named_categories(badge for badge in badge_rows if badge.criteria_type in MODELED_BADGE_TYPES)
+    for badge in badge_rows:
+        if badge.criteria_type in MODELED_BADGE_TYPES and availability.is_available(badge):
             badges.append(badge)
         else:
             excluded[badge.criteria_type] += 1

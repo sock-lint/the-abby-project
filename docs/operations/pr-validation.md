@@ -165,6 +165,20 @@ The real producer/React pair consumes `badges-retained-category-tie.json`.
 through MCP, REST and reviewed pack preview/publication, preserving current-name
 unions, case-only renames, first-source identity and legacy repair rules.
 
+`apps.rpg.tests.test_loader_category_source_conflicts` checks manual rollback
+and selective startup deferral. `test_startup_quest_badge_closure` under that
+same package covers forward cross-pack dependencies, saved prerequisite
+overrides, safe alternative goals and retained history.
+`test_stale_category_source_identity` checks category recovery when only
+orphaned provenance remains, while live identities and keyed claims stay
+protected. MCP's `test_category_retained_repair_admission` checks departures
+that would otherwise strand the supported rename-back repair.
+`apps.achievements.tests.test_named_goal_availability_queries`, MCP's
+`test_named_goal_catalog_queries` and RPG's
+`test_progression_named_goal_queries` bound selector queries in REST reads,
+MCP pages and detached Lab snapshots, including pagination, source limits,
+fresh reads and the 512-badge Lab limit.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,

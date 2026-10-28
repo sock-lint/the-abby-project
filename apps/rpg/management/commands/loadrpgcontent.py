@@ -65,6 +65,7 @@ class Command(BaseCommand):
         # Later bundled packs may reference an earlier retired source row. The
         # marker lifetime is this command, never a process-wide/default cache.
         startup_deferrals = StartupDeferrals() if not options["pack"] and not namespace else None
+        loaders = []
         try:
             with transaction.atomic():
                 if not options["pack"] and not namespace:
@@ -92,10 +93,20 @@ class Command(BaseCommand):
                                       (" [dry-run]" if dry_run else ""))
                     # Keep preceding packs visible while checking dependencies.
                     # One outer rollback covers every pack in a dry run/failure.
-                    ContentPack(pack_path, namespace=pack_namespace,
+                    loader = ContentPack(pack_path, namespace=pack_namespace,
                         defer_retired_references=not options["pack"] and not namespace,
                         startup_deferrals=startup_deferrals,
-                    ).load(stdout=self.stdout, dry_run=False)
+                    )
+                    if startup_deferrals is not None:
+                        # Read all selected sources before any badge can depend
+                        # on a category conflict discovered in a later bundle.
+                        loaders.append(loader)
+                    else:
+                        loader.load(stdout=self.stdout, dry_run=False)
+                if startup_deferrals is not None:
+                    ContentPack.prepare_startup_dependencies(loaders)
+                    for loader in loaders:
+                        loader.load(stdout=self.stdout, dry_run=False)
                 if not dry_run and not namespace:
                     self._grant_starter_covers()
                 if dry_run:
