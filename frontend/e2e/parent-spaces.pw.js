@@ -13,7 +13,7 @@ const FAMILY_NAV = ['Today', 'Tasks', 'Children', 'Rewards'];
 
 test.beforeAll(async () => {
   const names = ['parent-personal-dashboard', 'parent-family-overview', 'family-child-overview',
-    'auth-me-ordinary-parent', 'auth-me-child', 'dashboard-earned-identity'];
+    'auth-me-ordinary-parent', 'auth-me-child', 'dashboard-earned-identity', 'parent-personal-project-rate-default'];
   fixtures = Object.fromEntries(await Promise.all(names.map(async (name) => [name,
     JSON.parse(await readFile(new URL(`../../contracts/api/fixtures/${name}.json`, import.meta.url), 'utf8')),
   ])));
@@ -45,13 +45,17 @@ test.afterAll(async () => {
   }
 });
 
-async function mockApp(page, { child = false } = {}) {
+async function mockApp(page, { child = false, notifications = [] } = {}) {
   const reads = [];
   const writes = [];
   const errors = [];
   const unexpected = [];
   const identity = fixtures[child ? 'auth-me-child' : 'auth-me-ordinary-parent'];
   const personal = fixtures['parent-personal-dashboard'];
+  const ownProject = { ...fixtures['parent-personal-project-rate-default'], assigned_to: identity, created_by: identity };
+  const ownChore = { id: 711, title: 'My personal chore', assigned_to: identity.id, is_active: true,
+    is_available: true, recurrence: 'daily', reward_amount: '0.00', coin_reward: 5, skill_tags: [],
+    today_status: null, is_done: false };
   let createdHabit = null;
   const ownHabit = { id: 901, user: identity.id, name: 'Read after breakfast', icon: '', habit_type: 'positive',
     max_taps_per_day: 1, strength: 0, taps_today: 0, xp_reward: 5, skill_tags: [], is_active: true, pending_parent_review: false };
@@ -88,12 +92,15 @@ async function mockApp(page, { child = false } = {}) {
     if (url.pathname === '/api/habits/') return route.fulfill({
       json: url.searchParams.has('pending') ? [] : [ownHabit, ...(createdHabit ? [createdHabit] : [])],
     });
+    if (url.pathname === '/api/chores/') return route.fulfill({
+      json: url.searchParams.has('pending') ? [] : [ownChore],
+    });
     const payloads = {
       '/api/auth/me/': identity,
       '/api/children/': [{ id: 7, username: 'synthetic-abby', display_name: 'Abby', role: 'child', is_active: true },
         { id: 8, username: 'synthetic-ben', display_name: 'Ben', role: 'child', is_active: true }],
       '/api/children/7/overview/': fixtures['family-child-overview'],
-      '/api/pulse/': { unread_count: 0, notifications: [], recent_drops: [], challenge_receipts: [],
+      '/api/pulse/': { unread_count: 0, notifications, recent_drops: [], challenge_receipts: [],
         companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
         header: { active_timer: null, coin_balance: 35, streak_days: 0, identity: personal.rpg.identity } },
       '/api/sprites/catalog/': { sprites: {}, etag: 'synthetic-empty' },
@@ -107,6 +114,7 @@ async function mockApp(page, { child = false } = {}) {
       '/api/pets/stable/': { pets: [], mounts: [], expeditions: [] },
       '/api/challenges/': { results: [], pin: null, daily_bonus: null, locked_catalog: [], recent_receipts: [] },
       '/api/achievements/summary/': { total_xp: 0, skills_count: 0, badges_count: 0 },
+      '/api/projects/917/': ownProject,
     };
     return route.fulfill({ json: payloads[url.pathname] ?? [] });
   });
@@ -200,6 +208,41 @@ for (const width of [320, 390, 1280]) {
 }
 
 for (const width of [390, 1280]) {
+  test(`parent project, milestone and chore receipts open saved personal content at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const receipts = [
+      { id: 801, notification_type: 'project_approved', title: 'Project completed: Personal shelf',
+        link: '/projects/917?space=personal', is_read: true },
+      { id: 802, notification_type: 'milestone_completed', title: 'Milestone completed: Assemble shelf',
+        link: '/projects/917?space=personal', is_read: true },
+      { id: 803, notification_type: 'chore_approved', title: 'Chore completed: My personal chore',
+        link: '/chores?space=personal', is_read: true },
+    ];
+    const { reads, errors, unexpected } = await mockApp(page, { notifications: receipts });
+    await page.goto(`${origin}/`);
+    const family = page.locator('button[aria-pressed]').filter({ hasText: /^Family/ });
+    const personal = page.getByRole('button', { name: 'My space', exact: true });
+    for (const receipt of receipts) {
+      await expect(family).toHaveAttribute('aria-pressed', 'true');
+      await page.getByRole('button', { name: 'Notifications', exact: true }).click();
+      await page.getByRole('button', { name: receipt.title, exact: true }).click();
+      const project = receipt.notification_type !== 'chore_approved';
+      const canonical = project ? '/quests/ventures/917' : '/quests?tab=duties';
+      const ownTitle = project ? fixtures['parent-personal-project-rate-default'].title : 'My personal chore';
+      await expect(personal).toHaveAttribute('aria-pressed', 'true');
+      await expect(page).toHaveURL(`${origin}${canonical}`);
+      await expect(page.getByText(ownTitle, { exact: true }).first()).toBeVisible();
+      await expect.poll(() => reads.some(read => read.path === (project ? '/api/projects/917/' : '/api/chores/')
+        && read.space === 'personal')).toBe(true);
+      await page.reload();
+      await expect(personal).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.getByText(ownTitle, { exact: true }).first()).toBeVisible();
+      await family.click();
+    }
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+  });
+
   for (const launchSpace of ['personal', 'family']) {
     test(`parent keeps the chosen space after Back and reload from a ${launchSpace} link at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });

@@ -34,6 +34,7 @@ function Probe() {
     <input aria-label="Protected work" value={draft} onChange={(event) => setDraft(event.target.value)} />
     <button onClick={() => navigate('/quests?tab=rituals&child=7')}>Open family habits</button>
     <button onClick={() => navigate('/bestiary?tab=mounts')}>Personal pets</button>
+    <button onClick={() => navigate('/chronicle?tab=journal&space=personal')}>Open hinted journal</button>
     <button onClick={() => void login('another-parent', 'synthetic-password')}>Sign in another parent</button>
   </>;
 }
@@ -100,6 +101,21 @@ describe('Space boundaries with real account and review providers', () => {
     await waitFor(() => expect(screen.getByTestId('identity')).toHaveTextContent('personal:90:parent:90'));
     expect(screen.getByTestId('route')).toHaveTextContent('/quests?tab=reading');
     expect(screen.getByRole('button', { name: 'My space' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps a real dirty form mounted when a later same-space hint arrives, then cleans the hint after closing it', async () => {
+    sessionStorage.setItem(preferencesKey, JSON.stringify({ space: 'personal' }));
+    const { user } = renderSpaces('/chronicle?tab=journal');
+    await waitFor(() => expect(screen.getByTestId('identity')).toHaveTextContent('personal:90:parent:90'));
+    await user.type(screen.getByLabelText('Protected work'), 'Unfinished personal note');
+    expect(screen.getByRole('button', { name: /^Family/ })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Open hinted journal' }));
+    expect(screen.getByLabelText('Protected work')).toHaveValue('Unfinished personal note');
+    expect(screen.getByRole('button', { name: /^Family/ })).toBeDisabled();
+    expect(screen.getByTestId('identity')).toHaveTextContent('personal:90:parent:90');
+    await user.clear(screen.getByLabelText('Protected work'));
+    await waitFor(() => expect(screen.getByTestId('route')).toHaveTextContent(/^\/chronicle\?tab=journal$/));
+    expect(screen.getByTestId('identity')).toHaveTextContent('personal:90:parent:90');
   });
 
   it('discards the previous parent’s personal scope when the actual credential changes', async () => {

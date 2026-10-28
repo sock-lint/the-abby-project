@@ -1,5 +1,5 @@
-import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { startTransition, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useApi';
 import { getToken } from '../api/client';
 import { setRequestSpace } from '../api/space';
@@ -51,6 +51,7 @@ function AccountSpaces({ user, token, children }) {
   const { updateBlocked } = usePwaStatus();
   const isParentAccount = user?.role === 'parent';
   const storageKey = `abby:spaces:${user?.family?.id}:${user?.id}`;
+  const [launchLocation] = useState(location);
   const [initialPreferences] = useState(() => readPreferences(storageKey));
   const preferences = useRef(initialPreferences);
   const [space, setSpace] = useState(() => isParentAccount
@@ -82,15 +83,6 @@ function AccountSpaces({ user, token, children }) {
     }
   }, [location, space, isParentAccount, storageKey]);
 
-  useEffect(() => {
-    if (!isParentAccount || (space === 'personal' && isFamilyOnlyPath(location.pathname))) return;
-    const path = `${location.pathname}${location.search}${location.hash}`;
-    const consumed = consumeSpaceHint(path);
-    // Router history listeners are installed in layout effects. Replace only
-    // after they are ready, so both the URL and router location lose the hint.
-    if (consumed !== path) navigate(consumed, { replace: true });
-  }, [isParentAccount, location, navigate, space]);
-
   const switchSpace = useCallback((next, destination) => {
     if (!isParentAccount || !['family', 'personal'].includes(next) || updateBlocked) return false;
     const selectedPath = typeof destination === 'string' ? destination : destination?.to;
@@ -108,13 +100,22 @@ function AccountSpaces({ user, token, children }) {
     return true;
   }, [isParentAccount, updateBlocked, storageKey, navigate]);
 
+  const path = `${location.pathname}${location.search}${location.hash}`;
+  const consumed = isParentAccount && !(space === 'personal' && isFamilyOnlyPath(location.pathname))
+    ? consumeSpaceHint(path) : path;
+  // Finish this redirect before mounting page-level legacy redirects. They
+  // must not compete with a parent effect using the old hinted location.
+  // At launch no form is mounted; later hints wait for unfinished work to close.
+  const consumeBeforeContent = consumed !== path && (!updateBlocked || location === launchLocation);
+
   return (
     <SpaceContext.Provider value={{
       space, isParentAccount, isPersonalSpace: space === 'personal',
       isFamilySpace: isParentAccount && space === 'family',
       switchSpace, switchBlocked: updateBlocked,
     }}>
-      <div key={`${space}:${revision}`} className="contents">{children}</div>
+      {consumeBeforeContent ? <Navigate to={consumed} replace />
+        : <div key={`${space}:${revision}`} className="contents">{children}</div>}
     </SpaceContext.Provider>
   );
 }
