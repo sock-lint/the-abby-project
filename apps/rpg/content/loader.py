@@ -390,6 +390,63 @@ class ContentPack:
         return reference
 
     @staticmethod
+    def _startup_badge_reference_index(names):
+        """Index projected current spellings without changing source identities."""
+        from apps.achievements.models import Badge
+
+        field = Badge._meta.get_field("name")
+        index = {}
+        for name in names:
+            index.setdefault(field.to_python(name), []).append(name)
+        return index
+
+    def _startup_badge_references(self, reference, index, cache):
+        """Bridge native current-name coercion only across equivalent lookups.
+
+        Retained JSON source aliases keep their original types. The cache is
+        local to one expansion or native quest stage, never across badge writes.
+        """
+        raw = self._startup_hashable_reference(reference)
+        if reference is None:
+            return (raw,)
+        try:
+            hash(reference)
+            identity = type(reference), reference
+        except TypeError:
+            identity = type(reference), id(reference)
+        key = "references", identity
+        if key in cache:
+            return cache[key]
+        from apps.achievements.models import Badge
+
+        names = index.get(Badge._meta.get_field("name").to_python(reference), ())
+        cross_type = [name for name in names if type(name) is not type(reference) or name != reference]
+        result = [raw] if any(type(name) is type(reference) and name == reference for name in names) else []
+        if cross_type:
+            def matches(value):
+                try:
+                    hash(value)
+                    lookup = type(value), value
+                except TypeError:
+                    lookup = type(value), id(value)
+                lookup = "matches", lookup
+                if lookup not in cache:
+                    cache[lookup] = tuple(row.pk for row in self._source_reference_matches(Badge, name=value))
+                return cache[lookup]
+
+            try:
+                original = matches(reference)
+                if len(original) < 2:
+                    for name in cross_type:
+                        if matches(name) == original and name not in result:
+                            result.append(name)
+            except (TypeError, ValueError, OverflowError):
+                # Unsupported legacy JSON lookups keep their native diagnostic.
+                result = [raw] if any(type(name) is type(reference) and name == reference for name in names) else []
+        cache[key] = tuple(result)
+        return cache[key]
+
+    @staticmethod
     def _startup_node_sort_key(node):
         """Order legacy scalar names without changing their source identities."""
         kind, name = node
@@ -552,6 +609,13 @@ class ContentPack:
         by_name = {}
         for entry in quests:
             by_name.setdefault(entry["name"], []).append(entry)
+        badge_index = self._startup_badge_reference_index([
+            *(entry["name"] for entry in badges), *state.badges, *state.withheld_badges,
+            *(name for (kind, name) in state.cycle_pins if kind == "badge")])
+        badge_reference_cache = {}
+
+        def badge_references(reference):
+            return self._startup_badge_references(reference, badge_index, badge_reference_cache)
 
         def blocked_skill(reference, category=None):
             return any(f"{parent}::{name}" == reference if "::" in reference else
@@ -711,9 +775,9 @@ class ContentPack:
             for entry in quests:
                 child = "quest", entry["name"]
                 prerequisite = entry.get("prerequisite_quest")
-                badge = self._startup_hashable_reference(entry.get("required_badge"))
                 edge(("quest", prerequisite), child, lambda row: admission_input("quest", prerequisite, row))
-                edge(("badge", badge), child, lambda row: admission_input("badge", badge, row))
+                for badge in badge_references(entry.get("required_badge")):
+                    edge(("badge", badge), child, lambda row, badge=badge: admission_input("badge", badge, row))
             for entry in badges:
                 parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
                 if entry["criteria_type"] != "quest_completed" or parsed is None:
@@ -787,7 +851,8 @@ class ContentPack:
         for entry in quests:
             child = "quest", entry["name"]
             link(("quest", entry.get("prerequisite_quest")), child)
-            link(("badge", self._startup_hashable_reference(entry.get("required_badge"))), child)
+            for badge in badge_references(entry.get("required_badge")):
+                link(("badge", badge), child)
         capacity_badges = set()
         for entry in badges:
             parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
@@ -801,6 +866,70 @@ class ContentPack:
                 capacity_badges.add(child)
             for name in names:
                 link(("quest", name), child)
+        # A safe alternative can make a structural backedge constant even
+        # when another parent is conflict-reachable. Prove only an absent planner
+        # refusal in this expansion, under every remaining input, never from
+        # saved rows. Native validation/upserts still run; actual deferrals cause
+        # these guarantees to be rebuilt on the next expansion.
+        forced = set(seeds) | set(state.cycle_pins)
+        source_entries = {node: [] for node in nodes}
+        for entry in quests:
+            source_entries["quest", entry["name"]].append(entry)
+        for entry in badges:
+            source_entries["badge", entry["name"]].append(entry)
+        guaranteed = set()
+
+        def admitted_reference(node):
+            return node in guaranteed or (node not in nodes and node not in forced)
+
+        def guaranteed_source(node):
+            kind, _name = node
+            for entry in source_entries[node]:
+                if kind == "quest":
+                    parents = [("quest", entry.get("prerequisite_quest")),
+                        *(("badge", badge) for badge in badge_references(entry.get("required_badge")))]
+                    if not all(admitted_reference(parent) for parent in parents):
+                        return False
+                    continue
+                parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
+                if entry["criteria_type"] != "quest_completed" or parsed is None:
+                    continue  # These rules cannot derive a speculative refusal.
+                names, count = parsed
+                names = set(names)
+                available = {name for name in names if admitted_reference(("quest", name))}
+                if available == names or (count is not None and count <= 0):
+                    continue
+                if count is None:
+                    if available:
+                        continue  # Native no-count lists mean ANY.
+                    return False
+                capacity = 0
+                for name in available:
+                    candidates = by_name.get(name, [])
+                    if len(candidates) != 1:
+                        continue
+                    repeatable = candidates[0].get("is_repeatable", False)
+                    if type(repeatable) is bool:
+                        capacity += float("inf") if repeatable else 1
+                if capacity < count:
+                    return False
+            return True  # Every duplicate has a constant absent planner refusal.
+
+        pending = sorted(nodes - forced, key=self._startup_node_sort_key)
+        queued = set(pending)
+        while pending:
+            node = pending.pop()
+            queued.remove(node)
+            if node in guaranteed or not guaranteed_source(node):
+                continue
+            guaranteed.add(node)
+            for child in graph[node]:
+                if child not in forced and child not in guaranteed and child not in queued:
+                    pending.append(child)
+                    queued.add(child)
+        for node in guaranteed:
+            graph[node].clear()
+
         conflict_reachable = {node for node, conflict in seeds.items() if conflict}
         pending = list(conflict_reachable)
         while pending:
@@ -900,9 +1029,9 @@ class ContentPack:
                     prerequisite = entry.get("prerequisite_quest")
                     if unavailable_quest(prerequisite):
                         parents.append((planned["quest", prerequisite], causes["quest", prerequisite]))
-                    badge = self._startup_hashable_reference(entry.get("required_badge"))
-                    if unavailable_badge(badge):
-                        parents.append((planned["badge", badge], causes["badge", badge]))
+                    for badge in badge_references(entry.get("required_badge")):
+                        if unavailable_badge(badge):
+                            parents.append((planned["badge", badge], causes["badge", badge]))
                     if parents:
                         conflict = any(flag for flag, _reason in parents)
                         plan(following, following_causes, "quest", entry["name"], conflict,
@@ -1969,6 +2098,8 @@ class ContentPack:
                 raise ContentPackError("Challenge prerequisites cannot form a cycle.")
             ordered.extend(ready)
             pending = [entry for entry in pending if entry not in ready]
+        strict_badge_index = self._startup_badge_reference_index(self._startup_deferrals.badges)
+        strict_badge_cache = {}
         for entry in ordered:
             with self._source_row("quest", entry["name"]) as source:
                 from .workbench import preserved_loader_entry
@@ -2007,7 +2138,8 @@ class ContentPack:
                 if "required_badge" in entry:
                     defaults["required_badge"] = None
                 if entry.get("required_badge") is not None:
-                    if self._startup_hashable_reference(entry["required_badge"]) in self._startup_deferrals.badges:
+                    if any(badge in self._startup_deferrals.badges for badge in self._startup_badge_references(
+                            entry["required_badge"], strict_badge_index, strict_badge_cache)):
                         raise CategorySourceConflict(f"Badge source {entry['required_badge']!r} was deferred for a retained category identity conflict.")
                     matches = self._source_reference_matches(Badge, name=entry["required_badge"])
                     if len(matches) != 1:
