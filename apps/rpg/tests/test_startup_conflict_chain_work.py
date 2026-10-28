@@ -45,14 +45,29 @@ def conflict_chain(size):
         "quests": {"quests": quests}, "badges": {"badges": badges}}
 
 
+def prerequisite_backedge_chain(size):
+    quests, badges = [], []
+    for index in range(size):
+        quests += [quest(f"M{index}", target_value=2, **(
+            {"required_badge": f"Bc{index - 1}"} if index else {"skill_tags": ["Arch::Fresh"]})),
+            quest(f"C{index}", target_value=2, required_badge=f"Bc{index}", is_repeatable=False,
+                **({"prerequisite_quest": "D"} if index == 0 else {}))]
+        badges.append(badge(f"Bc{index}", [f"M{index}", f"C{index}"], 2))
+    quests += [quest("K", target_value=2, skill_tags=["Robotics::Servo"]),
+        quest("Q2", target_value=2, required_badge="Bk"), quest("D", target_value=2, required_badge="Bs")]
+    badges += [badge("Bk", ["K"]), badge("Bs", [f"C{size - 1}", "Q2"], 1)]
+    return {"skill_tree": conflict_chain(1)["skill_tree"],
+        "quests": {"quests": quests}, "badges": {"badges": badges}}
+
+
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class StartupConflictChainWorkTests(TestCase):
     def setUp(self):
         self.actor = make_family("Conflict chain work", parents=[{
             "username": "conflict-chain-work", "is_staff": True}]).parents[0]
 
-    def exercise_chain(self, size):
-        source = conflict_chain(size)
+    def exercise_chain(self, size, *, prerequisite_backedge=False):
+        source = prerequisite_backedge_chain(size) if prerequisite_backedge else conflict_chain(size)
         SkillCategory.objects.create(name="Arch", is_retired=True)
         retained = SkillCategory.objects.create(name="Mechatronics")
         RPGContentOverride.objects.create(
@@ -60,8 +75,10 @@ class StartupConflictChainWorkTests(TestCase):
             family=self.actor.family, source_lookup={"name": "robotics"},
             values={"_authoring": {"version": 1, "source": "mcp"}})
         QuestDefinition.objects.bulk_create([
-            QuestDefinition(name=f"C{index}", quest_type="collection", target_value=3,
+            QuestDefinition(name=f"C{index}", quest_type="collection", target_value=2 if prerequisite_backedge else 3,
                 is_system=True, is_repeatable=True) for index in range(size)])
+        if prerequisite_backedge:
+            Badge.objects.create(name="Bs", criteria_type="quest_completed", criteria_value={"quest_names": ["E"]})
         saved = list(QuestDefinition.objects.order_by("name").values())
         counts = {"blocked_badge": 0, "following_plans": 0}
 
@@ -81,23 +98,32 @@ class StartupConflictChainWorkTests(TestCase):
             finally:
                 sys.setprofile(previous)
             plan = {"badges": state.planned_badges.copy(), "quests": state.planned_quests.copy()}
-            self.assertEqual(plan["badges"], {f"B{index}": False for index in range(size)})
-            expected = {"K": True, **{f"C{index}": False for index in range(size)},
-                **{f"X{index}": False for index in range(size)},
-                **{f"Y{index}": False for index in range(size - 1)}}
+            if prerequisite_backedge:
+                expected_badges = {"Bk": True, **{f"Bc{index}": False for index in range(size)}}
+                expected = {"K": True, "Q2": True, **{f"C{index}": False for index in range(size)},
+                    **{f"M{index}": False for index in range(size)}}
+            else:
+                expected_badges = {f"B{index}": False for index in range(size)}
+                expected = {"K": True, **{f"C{index}": False for index in range(size)},
+                    **{f"X{index}": False for index in range(size)},
+                    **{f"Y{index}": False for index in range(size - 1)}}
+            self.assertEqual(plan["badges"], expected_badges)
             self.assertEqual(plan["quests"], expected)
             self.assertIn("Robotics::Servo", state.dependency_reasons["quest", "K"])
             # Exercise the actual upserts as well as planning. G/H remain
             # reachable through saved capacity; every rejected C edit preserves
             # its complete saved record, including repeatability and its gates.
             loader.load(stdout=StringIO())
-            self.assertEqual(list(Badge.objects.values_list("name", flat=True)), ["G"])
+            gate, holder_name = ("Bs", "D") if prerequisite_backedge else ("G", "H")
+            self.assertEqual(list(Badge.objects.values_list("name", flat=True)), [gate])
             self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)),
-                {"H", *(f"C{index}" for index in range(size))})
+                {holder_name, *(f"C{index}" for index in range(size))})
             self.assertEqual(list(QuestDefinition.objects.filter(name__startswith="C").order_by("name").values()), saved)
-            holder = QuestDefinition.objects.get(name="H")
-            self.assertEqual(holder.required_badge.name, "G")
-            self.assertEqual(holder.required_badge.criteria_value, {"quest_names": ["K", f"C{size - 1}"]})
+            holder = QuestDefinition.objects.get(name=holder_name)
+            self.assertEqual(holder.required_badge.name, gate)
+            rule = ({"quest_names": [f"C{size - 1}", "Q2"], "count": 1} if prerequisite_backedge
+                else {"quest_names": ["K", f"C{size - 1}"]})
+            self.assertEqual(holder.required_badge.criteria_value, rule)
             self.assertFalse(holder.is_repeatable)
             self.assertIsNone(holder.prerequisite_quest_id)
         # Keep every persistent catalog field in the observation. Timestamps are
@@ -121,6 +147,21 @@ class StartupConflictChainWorkTests(TestCase):
                     # The causal oscillation still needs a linear number of
                     # rounds. Replaying that entire chain for each futile
                     # conditional alternative adds another factor of size.
+                    self.assertLessEqual(counts["blocked_badge"], 12 * size * size)
+                    self.assertLessEqual(counts["following_plans"], 12 * size + 16)
+                finally:
+                    transaction.savepoint_rollback(sid)
+                    cache.clear()
+
+    def test_prerequisite_backedges_keep_necessary_capacity_trials_bounded(self):
+        for size in (10, 20):
+            with self.subTest(cycles=size):
+                sid = transaction.savepoint()
+                cache.clear()
+                try:
+                    counts, _plan, _catalog = self.exercise_chain(size, prerequisite_backedge=True)
+                    self.assertGreater(counts["blocked_badge"], 0)
+                    self.assertGreater(counts["following_plans"], 0)
                     self.assertLessEqual(counts["blocked_badge"], 12 * size * size)
                     self.assertLessEqual(counts["following_plans"], 12 * size + 16)
                 finally:

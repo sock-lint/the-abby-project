@@ -299,3 +299,36 @@ class StartupPolicyCycleTests(TestCase):
                         if previous is not None:
                             self.assertEqual(after, previous)
                         previous = deepcopy(after)
+
+    def test_equal_conflict_sets_prefer_fewer_refused_source_edits(self):
+        for layout in ("forward", "reverse", "split"):
+            with self.subTest(layout=layout), self.isolated_case():
+                saved = {name: QuestDefinition.objects.create(name=name, description="Saved repeatable",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                    for name in ("C0", "C1")}
+                before = QuestDefinition.objects.filter(pk=saved["C0"].pk).values().get()
+                sources = self.sources([
+                    self.quest("R0", skill_tags=["Archive::Fresh"]),
+                    self.quest("C0", required_badge="B0", is_repeatable=False),
+                    self.quest("C1", required_badge="B1", is_repeatable=False),
+                    self.quest("G0", required_badge="B0")], [
+                    self.badge("B0", ["R0", "C1"], 2), self.badge("B1", ["R0", "C0"], 2)], layout)
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                previous = None
+                for _reload in range(2):
+                    output = self.load(sources)
+                    self.assertEqual(set(Badge.objects.values_list("name", flat=True)), {"B1"})
+                    self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)), {"C0", "C1"})
+                    edited = QuestDefinition.objects.get(pk=saved["C1"].pk)
+                    self.assertEqual(edited.description, "Source edit")
+                    self.assertFalse(edited.is_repeatable)
+                    self.assertEqual(edited.required_badge.name, "B1")
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved["C0"].pk).values().get(), before)
+                    self.assertNotIn("Left badge 'B1' unchanged", output)
+                    self.assertNotIn("Left quest 'C1' unchanged", output)
+                    after = self.snapshot()
+                    if previous is not None:
+                        self.assertEqual(after, previous)
+                    previous = deepcopy(after)
