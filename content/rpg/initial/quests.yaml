@@ -1019,12 +1019,11 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   # ─── Savings-goal quest (2026-04-22) ────────────────────────────────────
-  # Uses the ``savings_goal_id`` filter, wired into QuestService.record_progress
-  # in the same commit. Parent-assignable; target_value 1 because completion
-  # is a single event (the goal being marked complete).
+  # Automatic savings-goal challenge. One qualifying completion fills the
+  # target; eligibility comes from the server-owned savings reward policy.
 
   - name: Hoard Builder
-    description: "Finish one savings goal during this challenge window. Any completed savings goal counts unless a parent adds a specific goal filter."
+    description: "Complete one qualifying savings goal during this challenge window. Saving partway earns no progress. For new goals, at least some savings must be new: money already held when you create or change the target, already counted, or reserved for an older goal cannot qualify. If one savings update completes several new goals, only one can count."
     icon: "🏦"
     sprite_key: quest-hoard-builder
     quest_type: collection

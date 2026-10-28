@@ -209,4 +209,3 @@ class NamedGoalCatalogQueryTests(TestCase):
             self.assertEqual(result["available_for_new_user"], not competing)
             self.assertFalse([query for query in sql if f'"{Badge._meta.db_table}"' in query])
             self.assertEqual(badge_goal_is_available(row), not competing)
-
