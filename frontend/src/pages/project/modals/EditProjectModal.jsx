@@ -132,6 +132,11 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
           />
         </div>
         <TextAreaField label={personal ? 'Notes' : 'Parent Notes'} value={form.parent_notes} onChange={onField('parent_notes')} rows={2} placeholder="Private notes" />
+        {personal && <p className="font-body text-body text-ink-secondary">
+          Saving in My space sets hourly pay and the project cash bonus to zero.
+          {' '}Previous payments stay in history.
+          {' '}Close this form and edit in Family to keep its pay settings.
+        </p>}
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel

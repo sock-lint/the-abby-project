@@ -123,15 +123,23 @@ describe('EditProjectModal', () => {
     expect(update.calls[0].body).not.toHaveProperty('hourly_rate_is_personal_default');
   });
 
-  it('edits a parent’s own project without fetching children or sending family assignment and pay fields', async () => {
+  it('explains the pay reset before saving a paid Family project in My space', async () => {
     useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: true });
     const user = userEvent.setup();
     const children = spyHandler('get', '*/api/children/', [{ id: 7, display_name: 'Child' }]);
     const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
     const onSaved = vi.fn();
     server.use(children.handler, update.handler);
-    render(<EditProjectModal project={buildProject({ id: 1, assigned_to: { id: 99, role: 'parent' } })} onClose={vi.fn()} onSaved={onSaved} />);
-    for (const label of ['Assign To', 'Payment Kind', 'Bonus ($)', 'Rate Override ($)']) {
+    render(<EditProjectModal project={buildProject({
+      id: 1, assigned_to: { id: 99, role: 'parent' }, payment_kind: 'bounty',
+      bonus_amount: '40.00', hourly_rate_override: '12.00', hourly_rate_is_personal_default: false,
+    })} onClose={vi.fn()} onSaved={onSaved} />);
+    const notice = screen.getByText(/Saving in My space sets hourly pay and the project cash bonus to zero/);
+    expect(notice).toBeVisible();
+    expect(notice).toHaveTextContent('Previous payments stay in history.');
+    expect(notice).toHaveTextContent('Close this form and edit in Family to keep its pay settings.');
+    expect(update.calls).toHaveLength(0);
+    for (const label of ['Assign To', 'Payment Kind', 'Bonus ($)', 'Cash reward ($)', 'Rate Override ($)']) {
       expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     }
     await user.clear(screen.getByLabelText('Title'));
@@ -140,18 +148,41 @@ describe('EditProjectModal', () => {
     await waitFor(() => expect(update.calls).toHaveLength(1));
     expect(update.calls[0]).toMatchObject({ method: 'PATCH', body: { title: 'My feeder', materials_budget: '0' } });
     expect(update.calls[0].url).toMatch(/\/api\/projects\/1\/$/);
-    for (const field of ['assigned_to_id', 'payment_kind', 'bonus_amount', 'hourly_rate_override']) {
+    for (const field of ['assigned_to_id', 'payment_kind', 'bonus_amount', 'hourly_rate_override', 'hourly_rate_is_personal_default']) {
       expect(update.calls[0].body).not.toHaveProperty(field);
     }
     expect(children.calls).toHaveLength(0);
     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
   });
 
-  it('keeps family assignment and pay controls and submits their values', async () => {
+  it.each([null, '0.00'])('also explains the personal pay policy for rate %s and lets the parent close without saving', async (rate) => {
+    useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: true });
+    const user = userEvent.setup();
+    const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
+    const onClose = vi.fn();
+    const onSaved = vi.fn();
+    server.use(update.handler);
+    render(<EditProjectModal project={buildProject({
+      assigned_to: { id: 99, role: 'parent' }, bonus_amount: '0.00',
+      hourly_rate_override: rate, hourly_rate_is_personal_default: rate === '0.00',
+    })} onClose={onClose} onSaved={onSaved} />);
+    expect(screen.getByText(/Saving in My space sets hourly pay and the project cash bonus to zero/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(update.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ['Family parent', true, false],
+    ['child', false, true],
+  ])('keeps %s assignment and pay controls without the personal parent notice', async (_account, isParentAccount, isPersonalSpace) => {
+    useSpace.mockReturnValue({ isParentAccount, isPersonalSpace });
     const user = userEvent.setup();
     const update = spyHandler('patch', '*/api/projects/1/', { id: 1 });
     server.use(http.get('*/api/children/', () => HttpResponse.json([{ id: 7, display_name: 'Child' }])), update.handler);
     render(<EditProjectModal project={buildProject({ assigned_to: { id: 7 } })} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.queryByText(/Saving in My space sets hourly pay/)).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Assign To')).toHaveTextContent('Child'));
     await selectDropdown(user, screen.getByLabelText('Assign To'), '7');
     await user.clear(screen.getByLabelText('Bonus ($)'));

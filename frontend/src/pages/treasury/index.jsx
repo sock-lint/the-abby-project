@@ -19,7 +19,8 @@ export default function TreasuryHub() {
   return (
     <ChapterHub
       title="Rewards"
-      kicker={personalParent ? 'Spend your coins and manage your collection' : 'Track earnings, spend coins, and set savings goals'}
+      kicker={isFamilySpace ? 'Manage family payments, timecards, rewards, and 3D prints'
+        : personalParent ? 'Spend your coins and manage your collection' : 'Track earnings, spend coins, and set savings goals'}
       glyph="wax-seal"
       defaultTabId={personalParent ? 'bazaar' : 'coffers'}
       tabs={[

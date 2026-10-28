@@ -234,6 +234,14 @@ for (const width of [390, 1280]) {
       await expect(page.getByText(ownTitle, { exact: true }).first()).toBeVisible();
       await expect.poll(() => reads.some(read => read.path === (project ? '/api/projects/917/' : '/api/chores/')
         && read.space === 'personal')).toBe(true);
+      if (receipt.notification_type === 'project_approved') {
+        await page.getByRole('button', { name: 'Edit', exact: true }).click();
+        const edit = page.getByRole('dialog', { name: 'Edit Project', exact: true });
+        await expect(edit.getByText('Saving in My space sets hourly pay and the project cash bonus to zero.', { exact: false })).toBeVisible();
+        await assertFits(page);
+        await edit.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(edit).toHaveCount(0);
+      }
       await page.reload();
       await expect(personal).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByText(ownTitle, { exact: true }).first()).toBeVisible();
