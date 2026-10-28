@@ -11,12 +11,13 @@ def sources_for_request(request):
     if hasattr(request, "_rpg_acquisition_sources"):
         return request._rpg_acquisition_sources
     from apps.achievements.models import UserBadge
-    from apps.quests.goals import ACTION_PATHS, FACT_TRIGGERS, TRIGGER_LABELS
+    from apps.quests.goals import ACTION_PATHS, TRIGGER_LABELS
     from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestRewardItem
     from apps.quests.queries import active_system_definitions
     from apps.quests.availability import definition_is_available
     from apps.quests.reference_locks import definitions_with_available_taxonomy
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
+    from apps.quests.progress_sources import has_progress_source
     from apps.rewards.models import Reward
     from .models import CharacterProfile, DropTable, ItemDefinition
     from .catalog_support import random_item_is_available
@@ -102,8 +103,7 @@ def sources_for_request(request):
                 milestone_cache[definition.pk] = milestone_eligibility(user, definition)["unlocked"]
             if not milestone_cache[definition.pk]:
                 continue
-        allowed = (definition.trigger_filter or {}).get("allowed_triggers")
-        if allowed and not FACT_TRIGGERS.intersection(allowed):
+        if not has_progress_source(definition.quest_type, definition.trigger_filter):
             continue
         result[reward.item_id].append({"kind": "challenge", "name": definition.name, "path": "/quests?tab=trials"})
     offers = Reward.objects.filter(

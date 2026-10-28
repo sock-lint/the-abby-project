@@ -6,6 +6,7 @@ import pending from '../../../contracts/api/fixtures/redemption-frozen-promise-p
 import fulfilled from '../../../contracts/api/fixtures/redemption-frozen-promise-fulfilled.json';
 import coopCompleted from '../../../contracts/api/fixtures/habit-coop-completed.json';
 import nonrepeatableRestart from '../../../contracts/api/fixtures/quest-nonrepeatable-restart.json';
+import unreachableStart from '../../../contracts/api/fixtures/quest-unreachable-start.json';
 import { renderWithProviders, screen } from '../test/render';
 import { server } from '../test/server';
 import SigilFrontispiece from '../pages/character/SigilFrontispiece';
@@ -59,7 +60,7 @@ describe('server-confirmed RPG progression and purchased promises', () => {
     ]);
   });
 
-  it('retains the finishing child’s confirmed co-op reward receipt after a saved habit', async () => {
+  it('retains the category-matched habit’s confirmed co-op reward receipt', async () => {
     const requests = [];
     server.use(http.post('*/api/habits/9/log/', async ({ request }) => {
       requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
@@ -91,6 +92,21 @@ describe('server-confirmed RPG progression and purchased promises', () => {
     });
     expect(requests).toEqual([{
       method: 'POST', path: '/api/quests/start/', body: { definition_id: 701, scroll_item_id: null },
+    }]);
+  });
+
+  it('preserves the server’s rejection of a campaign without a saved-work progress source', async () => {
+    const requests = [];
+    server.use(http.post('*/api/quests/start/', async ({ request }) => {
+      requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+      return HttpResponse.json(unreachableStart, { status: 400 });
+    }));
+
+    await expect(startQuest(702, null)).rejects.toMatchObject({
+      status: 400, message: unreachableStart.error, response: unreachableStart,
+    });
+    expect(requests).toEqual([{
+      method: 'POST', path: '/api/quests/start/', body: { definition_id: 702, scroll_item_id: null },
     }]);
   });
 });

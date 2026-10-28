@@ -316,6 +316,61 @@ class HatcheryDiscoveryTests(TestCase):
         self.assertEqual([row["definition_id"] for row in self.paths()], [good.pk])
         self.assertEqual(self.paths(species="meshtint-bee", potion="base"), [])
 
+    def test_zero_damage_boss_is_not_an_available_new_reward_offer(self):
+        from apps.quests.services import QuestService
+
+        definition = self.definition()
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        with self.assertRaisesRegex(ValueError, "Choose a saved-work activity"):
+            QuestService.start_quest(self.child, definition.pk)
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertIsNone(row["attempt"])
+        self.assertFalse(ChallengeGoal.objects.exists())
+
+    def test_creation_collection_and_mixed_boss_keep_new_reward_offers(self):
+        for quest_type, triggers in (
+            ("collection", ["creation_logged"]),
+            ("boss", ["creation_logged", "habit_log"]),
+        ):
+            definition = self.definition(name=f"Reachable {quest_type}")
+            QuestDefinition.objects.filter(pk=definition.pk).update(
+                quest_type=quest_type, trigger_filter={"allowed_triggers": triggers},
+            )
+        rows = self.paths()
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(row["offer_available"] for row in rows))
+        self.assertFalse(ChallengeGoal.objects.exists())
+
+    def test_new_admission_change_keeps_a_saved_goal_attempt(self):
+        definition = self.definition()
+        occurrence = self.accepted(definition)
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertEqual(row["attempt"]["id"], f"goal:{occurrence.pk}")
+        self.assertEqual(row["attempt"]["progress"], "3")
+        self.assertEqual(row["attempt"]["target"], "8")
+
+    def test_new_admission_change_keeps_a_saved_legacy_attempt(self):
+        from apps.quests.services import QuestService
+
+        definition = self.definition()
+        quest = QuestService.start_quest(self.child, definition.pk)
+        Quest.objects.filter(pk=quest.pk).update(current_progress=3)
+        QuestDefinition.objects.filter(pk=definition.pk).update(
+            quest_type="boss", trigger_filter={"allowed_triggers": ["creation_logged"]},
+        )
+        row = self.paths()[0]
+        self.assertFalse(row["offer_available"])
+        self.assertEqual(row["attempt"]["id"], f"legacy:{quest.pk}")
+        self.assertEqual(row["attempt"]["progress"], "3")
+        self.assertEqual(row["attempt"]["target"], "10")
+
     def test_progress_and_names_are_self_scoped_even_with_targeting_query_parameters(self):
         definition = self.definition()
         mine = self.accepted(definition, progress=2)
