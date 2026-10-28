@@ -472,6 +472,79 @@
     "catalog_available": true
   },
   {
+    "id": 110,
+    "name": "Ember Sprout",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-potted-plant-fire-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 5,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 220,
+        "item": 80,
+        "item_name": "Seed Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "potted-plant-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-potted-plant"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 221,
+        "item": 51,
+        "item_name": "Fire Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-fire-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "fire"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
     "id": 98,
     "name": "Ember Summit",
     "description": "",
@@ -582,6 +655,79 @@
       },
       {
         "id": 187,
+        "item": 51,
+        "item_name": "Fire Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-fire-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "fire"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
+    "id": 108,
+    "name": "Ember Wisp",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-ghost-fire-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 20,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 216,
+        "item": 79,
+        "item_name": "Ghost Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "ghost-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-ghost"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 217,
         "item": 51,
         "item_name": "Fire Potion",
         "item_icon": "P",
@@ -1056,6 +1202,79 @@
     "catalog_available": true
   },
   {
+    "id": 111,
+    "name": "Frost Sprout",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-potted-plant-ice-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 5,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 222,
+        "item": 80,
+        "item_name": "Seed Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "potted-plant-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-potted-plant"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 223,
+        "item": 52,
+        "item_name": "Ice Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-ice-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "ice"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
     "id": 99,
     "name": "Frost Summit",
     "description": "",
@@ -1166,6 +1385,79 @@
       },
       {
         "id": 189,
+        "item": 52,
+        "item_name": "Ice Potion",
+        "item_icon": "P",
+        "item_sprite_key": "",
+        "item_catalog_icon": "item-ice-potion",
+        "quantity": 1,
+        "item_rarity": "uncommon",
+        "item_type": "potion",
+        "item_description": "",
+        "item_metadata": {
+          "variant": "ice"
+        },
+        "item_effect_summary": "Combine with a compatible egg in Hatching.",
+        "item_catalog_available": true
+      }
+    ],
+    "skill_tags": [],
+    "required_badge": null,
+    "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": false,
+    "created_at": "2026-10-10T12:00:00-07:00",
+    "catalog_available": true
+  },
+  {
+    "id": 109,
+    "name": "Frost Wisp",
+    "description": "",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": "review-ghost-ice-acquisition-icon",
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 20,
+    "duration_days": 180,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 0,
+    "xp_reward": 0,
+    "reward_items": [
+      {
+        "id": 218,
+        "item": 79,
+        "item_name": "Ghost Egg",
+        "item_icon": "E",
+        "item_sprite_key": "",
+        "item_catalog_icon": "ghost-egg-portrait",
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {
+          "species": "meshtint-ghost"
+        },
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": true
+      },
+      {
+        "id": 219,
         "item": 52,
         "item_name": "Ice Potion",
         "item_icon": "P",

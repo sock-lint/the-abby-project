@@ -75,11 +75,11 @@ class ProgressionCatalogParityTests(TestCase):
             ) if item_is_available(item)
         }
         self.assertEqual(set(catalog.items), expected)
-        self.assertEqual(len(catalog.pairs), 31)
+        self.assertEqual(len(catalog.pairs), 35)
         self.assertEqual({(species.slug, potion.slug) for species, potion in catalog.pairs.values()
                           if potion.slug != "base"}, {
             (species, potion) for species in ("chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
-                                             "meshtint-snake", "meshtint-hermit-crab")
+                                             "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant")
             for potion in ("fire", "ice")
         })
         self.assertFalse(any(item.item_type == "cosmetic_pet_accessory" for item in catalog.items.values()))
