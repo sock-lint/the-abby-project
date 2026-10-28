@@ -503,7 +503,7 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   - name: The Summer Before High School
-    description: A 90-day quest to build rock-solid habits before freshman year. Every habit tap, chore, and assignment chips away at the boss.
+    description: A 90-day quest to build rock-solid habits before freshman year. Positive habit taps, approved chores, and approved homework chip away at the boss.
     icon: "⚔️"
     sprite_key: quest-summer-before-hs
     quest_type: boss
