@@ -378,6 +378,18 @@ class ContentPack:
         return names, count
 
     @staticmethod
+    def _startup_hashable_reference(reference):
+        """Keep unhashable legacy values out of dependency bookkeeping.
+
+        Actual name lookups retain their original input and native coercion.
+        """
+        try:
+            hash(reference)
+        except TypeError:
+            return None
+        return reference
+
+    @staticmethod
     def prepare_startup_dependencies(loaders):
         """Read the selected source graph under the ordinary catalog fence.
 
@@ -584,8 +596,16 @@ class ContentPack:
             plan(seeds, seed_causes, "quest", name, name in state.conflict_quests, source_reason("quest", name))
         for name in state.withheld_badges | state.badges:
             plan(seeds, seed_causes, "badge", name, name in state.badges, source_reason("badge", name))
-        for entry in quests:
+        def quest_tag_references(entry):
             references = [tag if isinstance(tag, str) else tag["skill"] for tag in entry.get("skill_tags", []) or []]
+            # Match the native resolver before speculative retirement lookups.
+            # Invalid names cannot be queried, hashed or treated as source IDs.
+            if any(not isinstance(reference, str) for reference in references):
+                raise ContentPackError("Quest skill references must be nonempty names.")
+            return references
+
+        for entry in quests:
+            references = self._startup_source_call(entry, quest_tag_references, entry)
             if entry.get("required_skill"):
                 references.append(entry["required_skill"])
             conflicted = next((ref for ref in references if blocked_skill(ref)), None)
@@ -612,7 +632,9 @@ class ContentPack:
                 matches = quest_matches(name)
             else:
                 if name in state.applied_badges:
-                    return False  # This batch applied its rules; no saved rejected edit survives.
+                    # A version created or updated in this batch is not pre-batch
+                    # history, even if a later duplicate source edit is refused.
+                    return False
                 if name not in existing_badges:
                     existing_badges[name] = self._source_reference_matches(Badge, name=name)
                 matches = existing_badges[name]
@@ -674,7 +696,7 @@ class ContentPack:
             for entry in quests:
                 child = "quest", entry["name"]
                 prerequisite = entry.get("prerequisite_quest")
-                badge = entry.get("required_badge")
+                badge = self._startup_hashable_reference(entry.get("required_badge"))
                 edge(("quest", prerequisite), child, lambda row: admission_input("quest", prerequisite, row))
                 edge(("badge", badge), child, lambda row: admission_input("badge", badge, row))
             for entry in badges:
@@ -750,7 +772,7 @@ class ContentPack:
         for entry in quests:
             child = "quest", entry["name"]
             link(("quest", entry.get("prerequisite_quest")), child)
-            link(("badge", entry.get("required_badge")), child)
+            link(("badge", self._startup_hashable_reference(entry.get("required_badge"))), child)
         capacity_badges = set()
         for entry in badges:
             parsed = self._startup_quest_completion_rule(entry.get("criteria_value"))
@@ -861,7 +883,7 @@ class ContentPack:
                     prerequisite = entry.get("prerequisite_quest")
                     if unavailable_quest(prerequisite):
                         parents.append((planned["quest", prerequisite], causes["quest", prerequisite]))
-                    badge = entry.get("required_badge")
+                    badge = self._startup_hashable_reference(entry.get("required_badge"))
                     if unavailable_badge(badge):
                         parents.append((planned["badge", badge], causes["badge", badge]))
                     if parents:
@@ -1940,7 +1962,7 @@ class ContentPack:
                 if "required_badge" in entry:
                     defaults["required_badge"] = None
                 if entry.get("required_badge") is not None:
-                    if entry["required_badge"] in self._startup_deferrals.badges:
+                    if self._startup_hashable_reference(entry["required_badge"]) in self._startup_deferrals.badges:
                         raise CategorySourceConflict(f"Badge source {entry['required_badge']!r} was deferred for a retained category identity conflict.")
                     matches = self._source_reference_matches(Badge, name=entry["required_badge"])
                     if len(matches) != 1:

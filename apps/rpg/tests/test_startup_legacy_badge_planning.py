@@ -89,3 +89,12 @@ class StartupLegacyBadgePlanningTests(TestCase):
 
     def test_native_any_of_completion_still_uses_surviving_alternative(self):
         self.assert_legacy_load({"quest_names": ["Tagged", "Other"]})
+
+    def test_noniterable_completion_names_preserve_legacy_startup(self):
+        self.assert_legacy_load({"quest_names": 7, "count": 1})
+
+    def test_unhashable_completion_names_preserve_legacy_startup(self):
+        self.assert_legacy_load({"quest_names": ["Tagged", ["Other"]], "count": 2})
+
+    def test_unhashable_singular_completion_name_preserves_legacy_startup(self):
+        self.assert_legacy_load({"quest_name": ["Tagged"]})
