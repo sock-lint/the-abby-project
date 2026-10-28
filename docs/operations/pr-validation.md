@@ -9,6 +9,22 @@ available for source recovery, without active build or release requirements.
 request and manual dispatch. No path filters leave required checks pending.
 Forks run on hosted infrastructure without production credentials.
 
+The separate `.github/workflows/pwa-release-test.yml` gate installs both
+Chromium and WebKit and runs the existing licensed-art loader and complete
+PWA release/offline suite. Its hosted Ubuntu setup replaces only the
+`azure.archive.ubuntu.com/ubuntu` endpoint with the HTTPS Ubuntu archive in
+APT source and runner mirror-list files; suites, components and signing
+configuration stay intact. On October 26, 2026, the Azure endpoint spent over
+22 minutes downloading packages for [PR 339's canceled attempt](https://github.com/sock-lint/the-abby-project/actions/runs/40419391353/job/121918708403),
+before either verification step ran.
+
+Frontend installation, browser system dependencies and browser binaries have
+separate steps. APT uses two retries and 30-second connection/data timeouts;
+each browser setup step has a ten-minute limit. A timeout or cancellation
+still leaves browser validation incomplete. Both browser engines and all
+existing verification commands remain required, and later application heads
+need their own fresh successful hosted run.
+
 | Required check | Validation | Runner |
 | --- | --- | --- |
 | `Frontend validation` | Lint, full coverage gate, web build and native staging build | GitHub-hosted Ubuntu, Node 22 |
