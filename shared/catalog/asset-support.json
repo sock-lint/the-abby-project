@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-elemental-snake-hermit-crab-2026-10-24",
+  "policy_id": "owned-r3f-elemental-ghost-potted-plant-2026-10-27",
   "pets": [
     {
       "species_slug": "chick",
@@ -53,9 +53,12 @@
       "species_slug": "meshtint-ghost",
       "sprite_key": "meshtint-ghost",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-ghost-potted-plant", "ice": "abby-elemental-ghost-potted-plant"}
     },
     {
       "species_slug": "meshtint-mushroom",
@@ -72,9 +75,12 @@
       "species_slug": "meshtint-potted-plant",
       "sprite_key": "meshtint-potted-plant",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-ghost-potted-plant", "ice": "abby-elemental-ghost-potted-plant"}
     },
     {
       "species_slug": "meshtint-spider",
@@ -249,6 +255,16 @@
         "fire",
         "ice"
       ]
+    },
+    {
+      "id": "abby-elemental-ghost-potted-plant",
+      "publisher": "Meshtint Studio",
+      "pack": "Fire and Ice Ghost / Spook / Phantom and Seed / Sprout / Flower Pot Monster derivatives",
+      "release_version": "1.0.0",
+      "manifest_sha256": "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9",
+      "appearance_bindings_version": 1,
+      "prepared_species": ["meshtint-ghost", "meshtint-potted-plant"],
+      "prepared_potion_variants": ["fire", "ice"]
     }
   ],
   "provenance_document": "content/rpg/react-three-fiber-assets.md",

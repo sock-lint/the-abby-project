@@ -58,11 +58,13 @@ Fire/Ice potion bundles (5/20 qualifying actions, once, within 180 days).
 Ember/Frost Grove promises Mushroom bundles after 10 accomplishments within
 180 days; Ember/Frost Summit promises Dragon bundles after 50 within 365 days.
 Hive guarantees Bee bundles after 5, Cave guarantees Bat bundles after 10,
-and the new Coil/Shore guarantees promise Snake/Hermit Crab bundles after 10,
-each within 180 days. All sixteen offers pay once with a natural species egg
-and matching global potion, with zero authored Coins/XP. Authored compatibility
-alone cannot enable another pair: the positive policy admits 31 exact pairs
-after all four owner-accepted batches' canonical publication/readback.
+and Coil/Shore guarantee Snake/Hermit Crab bundles after 10, each within
+180 days. Wisp guarantees Ghost bundles after 20 and Sprout guarantees Potted
+Plant bundles after 5, also within 180 days. All twenty offers pay once with a
+natural species egg and matching global potion, with zero authored Coins/XP.
+Authored compatibility alone cannot enable another pair: the positive policy
+admits 35 exact pairs, and each new batch requires owner acceptance and
+canonical publication/readback before activation.
 Application merge/deployment uses the ordinary MAIN gates.
 New-offer acquisition hints use the same whole-offer
 availability check; accepted snapshots remain fulfillable. Reading counts its
@@ -184,3 +186,18 @@ These tools write directly to the `abby-sprites` Ceph bucket and the `SpriteAsse
 The **legacy local-dev path** still exists for contributors who prefer committing sprites to git: edit `scripts/sprite_manifest.yaml`, slice with `scripts/slice_rpg_sprites.py`, then call the `register_sprite_assets` MCP tool (writes to the source tree, not the DB). Both pipelines coexist; the legacy one will be removed in a future Phase 3 cleanup.
 
 See `docs/superpowers/specs/2026-04-20-chat-to-prod-sprite-authoring-design.md` for the full architecture, bucket configuration, and content-hash filename scheme.
+
+## Ghost and Potted Plant activation
+
+The owner-approved Wisp/Sprout guarantees and Base/Fire/Ice compatibility load
+from `initial/`; `prepared/elemental-ghost-potted-plant` stays deliberately
+unregistered to avoid duplicate offers. Wisp requires 20 qualifying actions and
+Sprout five, once within 180 days, for the unchanged natural egg plus matching
+global Fire/Ice potion; authored Coins/XP are zero. Ghost retains Rare rarity
+and Potted Plant Common. Default loading follows 35 approved pairs and twenty
+elemental guarantees. Tests explicitly withdraw the new pairs to verify atomic
+unsupported-compatibility failure; synthetic policy overrides are not rollout
+authority. The separate evaluation pin retains the historical private review and
+does not affect ordinary delivery or eligibility. Preserve all fourteen prior
+runtime pins, saved ownership and accepted reward/incubation/expedition promises.
+See [canonical receiving, validation and rollback](../../docs/operations/elemental-ghost-potted-plant.md).

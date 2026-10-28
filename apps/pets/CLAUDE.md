@@ -7,11 +7,12 @@ Collectible pets + timed incubation + growth/evolution + offline expeditions. Ev
 New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 through `apps/rpg/catalog_support.py`. The checked-in policy supports
 exact `chick` / `cute-chick`, `meshtint-wolf`, `meshtint-dragon`,
-`meshtint-mushroom`, `meshtint-bee`, `meshtint-bat`, `meshtint-snake` and
-`meshtint-hermit-crab` with global `base`, `fire` and `ice` potions. The other
-seven prepared families retain only `base` (31 exact pairs). The exact
-Snake/Hermit Crab canonical release has passed application readback; rollout
-still requires the ordinary MAIN gates. Registered eggs require exact slug, typed FK and canonical metadata
+`meshtint-mushroom`, `meshtint-bee`, `meshtint-bat`, `meshtint-snake`,
+`meshtint-hermit-crab`, `meshtint-ghost` and `meshtint-potted-plant` with global
+`base`, `fire` and `ice` potions. The other five prepared families retain only
+`base` (35 exact pairs). The exact owner-approved Ghost/Potted Plant runtime
+has passed canonical application readback; ordinary MAIN rollout gates remain.
+Registered eggs require exact slug, typed FK and canonical metadata
 agreement. See [prepared roster adoption](../../docs/operations/companion-lifecycle.md#prepared-roster-adoption).
 The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
 
@@ -44,6 +45,16 @@ to available items. Before a listed mount is removed, retirement settles its
 ACTIVE unclaimed expedition from saved Coins and surviving supported item slots
 once, without rerolling, current boosts or completion rewards.
 
+The owner accepted all twelve Ghost/Potted Plant Fire/Ice app appearances and
+authorized their four pairs and guaranteed Wisp/Sprout challenges. Ghost → Spook
+→ Phantom remains Rare; Seed → Sprout → Flower Pot Monster remains Common.
+The natural egg identities stay `meshtint-ghost-egg` and
+`meshtint-potted-plant-egg`; potion presentation begins during incubation.
+Base/Fire/Ice share the existing account/species expedition allowance, including
+pending/unclaimed trips, plus the two-starts-per-child family-local-day cap.
+No care, reward or expedition service rule changes are introduced. See
+[the activation and rollback runbook](../../docs/operations/elemental-ghost-potted-plant.md).
+
 ## Breeding retirement
 
 Breeding was removed at the owner's request to keep companions focused on
@@ -58,10 +69,11 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 ## Models
 
 The Fire/Ice policy enables exact Chick/Wolf/Dragon/Mushroom/Bee/Bat/Snake/Hermit
-Crab compatibility and sixteen guaranteed challenges; the other seven prepared
-families remain Base only. Snake/Hermit Crab activation uses the ordinary MAIN
-gates after canonical publication/readback. Expedition starts share one allowance per
-account/species across potion appearances, including any unclaimed trip.
+Crab/Ghost/Potted Plant compatibility and twenty guaranteed challenges; the other
+five prepared families remain Base only. The exact runtime has passed canonical
+application readback; ordinary MAIN rollout gates remain. Expedition starts
+share one allowance per account/species across potion appearances, including
+any unclaimed trip.
 Accepted trips retain their frozen rewards. See
 [Fire/Ice delivery state](../../docs/operations/fire-ice-companions.md).
 
@@ -69,7 +81,7 @@ Accepted trips retain their frozen rewards. See
 - `PetSpecies.rarity` is its acquisition tier, shared with the canonical egg.
   Owned pet/mount responses expose the higher of species rarity and a saved
   potion rarity, preserving legacy variants. Growth stages never change rarity.
-- `PetSpecies` (15 prepared families with 31 approved species/potion pairs: Base for every family plus Fire/Ice for Chick, Wolf, Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab), `PotionType` (Base, Fire and Ice), `PetSpecies.available_potions` M2M declares compatible combinations.
+- `PetSpecies` (15 prepared families with 35 approved species/potion pairs: Base for every family plus Fire/Ice for Chick, Wolf, Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant), `PotionType` (Base, Fire and Ice), `PetSpecies.available_potions` M2M declares compatible combinations.
 - `UserPet` (growth 0-100, `last_fed_at`, `evolved_to_mount`, `consumable_growth_today` + `consumable_growth_date`), `UserMount` (`last_bred_at`).
 - `MountExpedition` (offline adventure rows; `status`, `tier`, `started_at`, `ready_at`, `loot` JSON).
 

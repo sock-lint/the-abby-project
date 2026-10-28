@@ -193,6 +193,54 @@
       ]
     },
     {
+      "id": 69,
+      "slug": "meshtint-ghost",
+      "name": "Ghost",
+      "icon": "S",
+      "sprite_key": "meshtint-ghost",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "ghost-baby-portrait",
+      "grown_catalog_icon": "ghost-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
       "id": 64,
       "slug": "meshtint-mushroom",
       "name": "Mushroom",
@@ -233,6 +281,54 @@
       "catalog_available": true,
       "catalog_icon": "mushroom-baby-portrait",
       "grown_catalog_icon": "mushroom-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 70,
+      "slug": "meshtint-potted-plant",
+      "name": "Seed",
+      "icon": "S",
+      "sprite_key": "meshtint-potted-plant",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "potted-plant-baby-portrait",
+      "grown_catalog_icon": "potted-plant-grown-portrait",
       "lifecycle_stages": [
         "egg",
         "baby",
@@ -418,9 +514,9 @@
     }
   ],
   "totals": {
-    "species": 8,
+    "species": 10,
     "discovered_species": 0,
-    "mounts_possible": 24,
+    "mounts_possible": 30,
     "mounts_owned": 0
   }
 }

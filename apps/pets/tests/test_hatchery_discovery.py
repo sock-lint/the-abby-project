@@ -100,11 +100,11 @@ class HatcheryDiscoveryTests(TestCase):
         with CaptureQueriesContext(connection) as queries:
             body = self.catalog()
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 31)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 35)
         for species in body["species"]:
             expected = {"base", "fire", "ice"} if species["slug"] in {
                 "chick", "meshtint-wolf", "meshtint-mushroom", "meshtint-dragon", "meshtint-bee", "meshtint-bat",
-                "meshtint-snake", "meshtint-hermit-crab",
+                "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant",
             } else {"base"}
             self.assertEqual({row["slug"] for row in species["available_potions"]}, expected)
             for potion in species["available_potions"]:
@@ -626,7 +626,7 @@ class HatcheryDiscoveryProductionTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Actual discovery catalog", children=[{"username": "actual-discovery"}]).children[0]
 
-    def test_all_sixteen_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
+    def test_all_twenty_shipped_elemental_challenges_join_the_exact_supported_pairs(self):
         from apps.rpg.catalog_icons import challenge_catalog_icon
 
         client = APIClient()
@@ -636,11 +636,12 @@ class HatcheryDiscoveryProductionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.data
         self.assertEqual(len(body["species"]), 15)
-        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 31)
+        self.assertEqual(sum(len(row["available_potions"]) for row in body["species"]), 35)
         expected = {"chick": ("Nest", 5, 180), "meshtint-wolf": ("Trail", 20, 180),
                     "meshtint-mushroom": ("Grove", 10, 180), "meshtint-dragon": ("Summit", 50, 365),
                     "meshtint-bee": ("Hive", 5, 180), "meshtint-bat": ("Cave", 10, 180),
-                    "meshtint-snake": ("Coil", 10, 180), "meshtint-hermit-crab": ("Shore", 10, 180)}
+                    "meshtint-snake": ("Coil", 10, 180), "meshtint-hermit-crab": ("Shore", 10, 180),
+                    "meshtint-ghost": ("Wisp", 20, 180), "meshtint-potted-plant": ("Sprout", 5, 180)}
         checked = set()
         for species in body["species"]:
             for potion in species["available_potions"]:
@@ -655,10 +656,11 @@ class HatcheryDiscoveryProductionTests(TestCase):
                     self.assertTrue(path["offer_available"])
                     self.assertIsNone(path["attempt"])
                     self.assertEqual((path["target"], path["duration_days"]), (str(target), days))
-                    icon = (f"review-{species['slug'].removeprefix('meshtint-')}-{potion['slug']}-acquisition-icon"
-                            if suffix in {"Hive", "Cave", "Coil", "Shore"} else f"challenge-{prefix.lower()}-{suffix.lower()}")
+                    icon_species = species["slug"].removeprefix("meshtint-")
+                    icon = (f"review-{icon_species}-{potion['slug']}-acquisition-icon"
+                            if suffix in {"Hive", "Cave", "Coil", "Shore", "Wisp", "Sprout"} else f"challenge-{prefix.lower()}-{suffix.lower()}")
                     self.assertEqual(challenge_catalog_icon(QuestDefinition.objects.get(pk=path["definition_id"])), icon)
                     checked.add((species["slug"], potion["slug"]))
-        self.assertEqual(len(checked), 16)
+        self.assertEqual(len(checked), 20)
         self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in queries))
         self.assertFalse(ChallengeGoal.objects.exists())

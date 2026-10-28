@@ -22,6 +22,15 @@ deletion's table/row lock order. Missing IDs roll back the definition and any MC
 receipt; identical UUID replay retains its original response. Regression coverage
 is in `tests/test_category_reference_safety.py`.
 
+Owner-approved Ghost/Potted Plant Wisp/Sprout guarantees load from ordinary
+initial content: 20/5 qualifying actions, 180 days, once, natural egg + matching
+global Fire/Ice potion, zero authored Coins/XP. The positive policy and authored
+compatibility activate the four exact pairs together, bringing the elemental
+catalog to twenty guarantees. The historical preparation pack stays unregistered
+to avoid duplicate offers; synthetic positive-policy overrides grant no
+application acquisition authority. See
+[the receiving and activation boundary](../../docs/operations/elemental-ghost-potted-plant.md).
+
 New manual solo/co-op starts, private authoring, rerolls and automatic offers
 share `progress_sources.has_progress_source`: at least one actual saved-work
 trigger must satisfy every active filter, and bosses need positive damage from
@@ -85,13 +94,13 @@ System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
 legacy starts. The art policy enables Ember/Frost Nest, Trail, Grove, Summit,
-Hive, Cave, Coil and Shore for exact Chick/Wolf/Mushroom/Dragon/Bee/Bat/Snake/
-Hermit Crab Fire/Ice pairs. Previously adopted canonical releases remain
-verified; the owner-accepted Snake/Hermit Crab runtime has also passed canonical
-publication/readback, with ordinary MAIN rollout gates still required.
-All sixteen are one-time with zero authored Coins/XP: Nest and
-Hive target 5 actions, Trail 20, Grove, Cave, Coil and Shore 10 within 180 days; Summit
-targets 50 within 365 days.
+Hive, Cave, Coil, Shore, Wisp and Sprout for exact Chick/Wolf/Mushroom/Dragon/
+Bee/Bat/Snake/Hermit Crab/Ghost/Potted Plant Fire/Ice pairs. Previously adopted
+canonical releases remain intact; the new owner-approved runtime has passed
+canonical application readback, with ordinary MAIN rollout gates still required.
+All twenty are one-time with zero authored Coins/XP: Nest, Hive and Sprout
+target 5 actions, Trail and Wisp 20, Grove, Cave, Coil and Shore 10 within
+180 days; Summit targets 50 within 365 days.
 Approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
 Saved elemental promises survive retirement. Bundle egg salvage checks every
