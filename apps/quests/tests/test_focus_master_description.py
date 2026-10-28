@@ -54,6 +54,7 @@ class FocusMasterDescriptionTests(TestCase):
     def assert_damage_description(self, description):
         self.assertIn("200 damage", description)
         self.assertIn("tracked project work", description)
+        self.assertIn("10 damage per tracked hour", description)
         self.assertIn("rounded down for each completed session", description)
         self.assertNotIn("20 hours", description)
 
