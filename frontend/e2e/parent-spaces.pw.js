@@ -412,7 +412,7 @@ for (const width of [390, 1280]) {
   }
 }
 
-for (const width of [320, 390, 768]) {
+for (const width of [320, 390, 820]) {
   for (const enlarged of [false, true]) {
     test(`parent header controls stay reachable at ${width}px with ${enlarged ? '200%' : 'normal'} text`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 844 });
