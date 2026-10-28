@@ -164,6 +164,18 @@ for (const width of [320, 390, 1280]) {
     await assertNavigation(page, width, PERSONAL_NAV);
     await expect(page.getByText('Read after breakfast', { exact: true }).first()).toBeVisible();
     await expect.poll(() => reads.some((read) => read.path === '/api/dashboard/' && read.space === 'personal')).toBe(true);
+    await personal.focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(family).toBeFocused();
+    const outline = await family.evaluate(button => {
+      const style = getComputedStyle(button);
+      return { visible: button.matches(':focus-visible'), width: parseFloat(style.outlineWidth),
+        offset: parseFloat(style.outlineOffset) };
+    });
+    expect(outline.visible).toBe(true);
+    expect(outline.width).toBeGreaterThan(0);
+    const [familyBox, personalBox] = await Promise.all([family.boundingBox(), personal.boundingBox()]);
+    expect(personalBox.x - familyBox.x - familyBox.width).toBeGreaterThanOrEqual(outline.width + outline.offset - 0.1);
     await assertFits(page);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('parent');
     await page.screenshot({ path: testInfo.outputPath(`my-space-${width}.png`), fullPage: true });

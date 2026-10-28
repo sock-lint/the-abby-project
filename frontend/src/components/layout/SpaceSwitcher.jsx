@@ -9,7 +9,7 @@ export default function SpaceSwitcher() {
   const attention = !ready ? 'Checking family reviews' : incomplete
     ? 'Some family review queues are unavailable' : `${total} family items needing attention`;
   return <div className="px-4 lg:px-6 pb-2 lg:pb-3 space-y-1">
-    <div role="group" aria-label="Choose your space" className="flex max-w-64 lg:max-w-md rounded-xl lg:rounded-2xl bg-sheikah-teal/10 p-0.5 lg:p-1 gap-0.5 lg:gap-1">
+    <div role="group" aria-label="Choose your space" className="flex max-w-64 lg:max-w-md rounded-xl lg:rounded-2xl bg-sheikah-teal/10 p-0.5 lg:p-1 gap-1">
       {[['family', 'Family'], ['personal', 'My space']].map(([id, label]) => <button
         key={id} type="button" aria-pressed={space === id}
         disabled={switchBlocked && space !== id}
