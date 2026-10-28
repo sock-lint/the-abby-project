@@ -98,9 +98,25 @@ class ProgressionCatalogReadGuardTests(SimpleTestCase):
                 with self.subTest(sql=sql, opening=opening), self.assertRaises(AssertionError):
                     _assert_global_catalog_read(self, opening + sql + closing)
 
-    def test_real_player_model_queries_and_legacy_aliases_are_rejected(self):
+    def test_select_bearing_and_data_modifying_cte_writes_are_rejected(self):
+        for sql in (
+            'UPDATE "achievements_badge" SET "name" = %s WHERE "id" IN (SELECT "id" FROM "achievements_badge")',
+            'INSERT INTO "achievements_badge" ("name") SELECT "name" FROM "achievements_badge"',
+            'WITH changed AS (DELETE FROM "achievements_badge" RETURNING "id") SELECT "id" FROM changed',
+        ):
+            for opening, closing in (("", ""), ("(", ")"), (" \n ( ( \t", ") )")):
+                with self.subTest(sql=sql, opening=opening), self.assertRaises(AssertionError):
+                    _assert_global_catalog_read(self, opening + sql + closing)
+
+    def test_real_player_models_and_independent_private_tables_are_rejected(self):
         statements = [str(apps.get_model(label).objects.values("pk").query) for label in PRIVATE_CATALOG_MODELS]
+        # Independent of the guard's model list: dropping a protected model
+        # must not simultaneously remove the matching negative control.
         statements += [f'SELECT "id" FROM "{table}"' for table in (
+            "projects_user", "rpg_characterprofile", "rpg_userinventory",
+            "pets_userpet", "pets_usermount", "achievements_skillprogress",
+            "achievements_userbadge", "rewards_coinledger", "activity_activityevent",
+            "quests_challengeactivity", "quests_challengeoccurrence",
             "accounts_user", "projects_skillprogress", "projects_userbadge",
         )]
         for sql in statements:

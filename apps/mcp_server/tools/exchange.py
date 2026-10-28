@@ -22,6 +22,7 @@ from ..schemas import (
     ListExchangeRequestsIn,
     RequestExchangeIn,
 )
+from ..legacy_household import household_operation, locked_member_ids
 from ..server import tool
 from ..shapes import exchange_request_to_dict, many
 
@@ -66,36 +67,40 @@ def request_exchange(params: RequestExchangeIn) -> dict[str, Any]:
     return exchange_request_to_dict(exchange)
 
 
+def _exchange_for_decision(exchange_id: int, parent) -> ExchangeRequest:
+    """Admit only subjects retained by the current household member locks."""
+    try:
+        return ExchangeRequest.objects.select_related("user").select_for_update(of=("self",)).get(
+            pk=exchange_id,
+            user__family_id=parent.family_id,
+            user_id__in=locked_member_ids(),
+        )
+    except ExchangeRequest.DoesNotExist:
+        raise MCPNotFoundError(f"ExchangeRequest {exchange_id} not found.") from None
+
+
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def approve_exchange(params: DecideExchangeIn) -> dict[str, Any]:
-    """Approve a pending exchange (parent-only).
+    """Approve a pending exchange in the parent's current family.
 
     Re-checks the child's payment balance; raises
     ``InsufficientFundsError`` (surfaced as MCPValidationError) if the
     balance has dropped below the requested dollar amount since filing.
     """
     parent = require_parent()
-    try:
-        exchange = ExchangeRequest.objects.select_related("user").get(
-            pk=params.exchange_id,
-        )
-    except ExchangeRequest.DoesNotExist:
-        raise MCPNotFoundError(f"ExchangeRequest {params.exchange_id} not found.")
+    exchange = _exchange_for_decision(params.exchange_id, parent)
     updated = ExchangeService.approve(exchange, parent, notes=params.notes)
     return exchange_request_to_dict(updated)
 
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def reject_exchange(params: DecideExchangeIn) -> dict[str, Any]:
-    """Deny a pending exchange (parent-only). No ledger side-effects."""
+    """Deny a pending exchange in the parent's family. No ledger side-effects."""
     parent = require_parent()
-    try:
-        exchange = ExchangeRequest.objects.select_related("user").get(
-            pk=params.exchange_id,
-        )
-    except ExchangeRequest.DoesNotExist:
-        raise MCPNotFoundError(f"ExchangeRequest {params.exchange_id} not found.")
+    exchange = _exchange_for_decision(params.exchange_id, parent)
     updated = ExchangeService.reject(exchange, parent, notes=params.notes)
     return exchange_request_to_dict(updated)

@@ -66,6 +66,7 @@ class Command(BaseCommand):
         # marker lifetime is this command, never a process-wide/default cache.
         startup_deferrals = StartupDeferrals() if not options["pack"] and not namespace else None
         loaders = []
+        loader_headers = []
         try:
             with transaction.atomic():
                 if not options["pack"] and not namespace:
@@ -88,9 +89,11 @@ class Command(BaseCommand):
                         pack_path = Path(settings.BASE_DIR) / pack_path
                     if not pack_path.is_dir():
                         raise CommandError(f"Pack directory not found: {pack_path}")
-                    self.stdout.write(f"Loading pack: {pack_path}" +
-                                      (f" (namespace={pack_namespace!r})" if pack_namespace else "") +
-                                      (" [dry-run]" if dry_run else ""))
+                    header = (f"Loading pack: {pack_path}" +
+                              (f" (namespace={pack_namespace!r})" if pack_namespace else "") +
+                              (" [dry-run]" if dry_run else ""))
+                    if startup_deferrals is None:
+                        self.stdout.write(header)
                     # Keep preceding packs visible while checking dependencies.
                     # One outer rollback covers every pack in a dry run/failure.
                     loader = ContentPack(pack_path, namespace=pack_namespace,
@@ -101,11 +104,13 @@ class Command(BaseCommand):
                         # Read all selected sources before any badge can depend
                         # on a category conflict discovered in a later bundle.
                         loaders.append(loader)
+                        loader_headers.append(header)
                     else:
                         loader.load(stdout=self.stdout, dry_run=False)
                 if startup_deferrals is not None:
                     ContentPack.prepare_startup_dependencies(loaders)
-                    for loader in loaders:
+                    for loader, header in zip(loaders, loader_headers):
+                        self.stdout.write(header)
                         loader.load(stdout=self.stdout, dry_run=False)
                 if not dry_run and not namespace:
                     self._grant_starter_covers()

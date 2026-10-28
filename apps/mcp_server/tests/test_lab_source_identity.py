@@ -61,7 +61,8 @@ class LabSourceIdentityTests(TestCase):
         ), patch("random.random", side_effect=AssertionError("Global RNG in forecast")):
             report = self.wire("simulate_progression_scenario", {"config": READING_CONFIG})
         for row in queries:
-            self.assertTrue(row["sql"].lstrip().upper().startswith("SELECT"), row["sql"])
+            normalized = row["sql"].lstrip(" \t\r\n\f\v(").upper()
+            self.assertRegex(normalized, r"^SELECT\b", row["sql"])
             for table in private_tables:
                 self.assertNotIn(connection.ops.quote_name(table), row["sql"])
         return report
@@ -88,6 +89,22 @@ class LabSourceIdentityTests(TestCase):
         self.assertEqual(self.actual_reading(), xp)
         rows = list(SkillProgress.objects.filter(user=self.child, xp_points__gt=0).values_list("skill_id", "xp_points"))
         self.assertEqual(rows, [(self.reading.pk, xp)] if xp else [])
+
+    def test_mixed_named_category_goals_keep_forecast_pure_and_reading_native(self):
+        Skill.objects.create(category=self.other, name="Unrelated mixed-catalog practice")
+        for category in (self.language, self.other):
+            for kind in ("category_projects", "category_mastery"):
+                Badge.objects.create(name=f"Mixed {kind} {category.pk}", criteria_type=kind,
+                    criteria_value={"category": category.name,
+                        **({"count": 1} if kind == "category_projects" else {"min_level": 1})},
+                    xp_bonus=0, award_coins=False)
+        with CaptureQueriesContext(connection) as queries:
+            report = self.report()
+        self.assertTrue(any("UNION ALL" in row["sql"].upper() for row in queries),
+            "Two distinct modeled mastery selectors must exercise a real compound catalog read.")
+        self.assertEqual(report["catalog"]["modeled_badges"], 2)
+        self.assertEqual(report["catalog"]["excluded_badge_criteria"], {"category_projects": 2})
+        self.assert_reading_matches_native()
 
     def test_source_less_canonical_reading_matches_native(self):
         self.assertFalse(RPGContentOverride.objects.exists())

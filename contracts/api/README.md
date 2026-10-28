@@ -22,6 +22,7 @@ omitted, and a valid level-6 goal stays available. Assertions before fixture
 comparison preserve the original award, XP and Coin state. The existing
 `config.tests.test_catalog_api_contract_fixtures` producer and
 `frontend/src/api/catalogContractFixtures.test.js` consumer check the response.
+
 `parent-personal-dashboard.json` is a real parent-authenticated dashboard with
 `X-Abby-Space: personal`: its role remains `parent`, its Coins and habits belong
 to that parent, and household review/overview fields are absent. The header

@@ -186,6 +186,21 @@ one unfinished slot, inactive-day readiness, next-active-visit claims, recorded
 policy/fingerprint changes and missing historical policy. These tests remain
 in memory or use disposable synthetic data; they never exercise household care.
 
+Exchange decisions additionally run
+`apps.mcp_server.tests.test_exchange_family_boundaries` and
+`test_exchange_family_boundaries_concurrency` with disposable PostgreSQL.
+They check foreign and missing request refusals, current actor and member
+admission, native decision parity, notes, once-only settlement, owner changes
+and native-versus-MCP lock contention. Both workers close their physical
+connections before test-database teardown. Native reward decision and wallet
+concurrency checks remain required.
+
+`apps.rpg.tests.test_workbench_named_goal_queries` bounds the native REST
+content editor's named badge and quest-prerequisite lookups, preserving
+availability, editability, shop uses, catalog limits and fresh reads.
+The bundled-content command tests retain complete batch planning, ordered
+loading, explicit-pack behavior and rollback after an actual later failure.
+
 OAuth client management shares `contracts/api/fixtures/oauth-applications.json` between
 `config.tests.test_oauth_api_contract_fixtures` and `src/pages/Manage.oauth.test.jsx`.
 The producer authenticates a staff parent and keeps another family's active token

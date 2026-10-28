@@ -372,10 +372,10 @@ for source ownership, stale-plan checks, retained history and repeat cadence.
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
-| `approve_exchange` | `mcp:write` | No | Required | Approve a pending exchange (parent-only). |
+| `approve_exchange` | `mcp:write` | No | Required | Approve a pending exchange in the parent's current family. |
 | `get_exchange_rate` | `mcp:read` | Yes | — | Return the current ``COINS_PER_DOLLAR`` rate. |
 | `list_exchange_requests` | `mcp:read` | Yes | — | List exchange requests. Children see their own; parents see any child. |
-| `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange (parent-only). No ledger side-effects. |
+| `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange in the parent's family. No ledger side-effects. |
 | `request_exchange` | `mcp:write` | No | Required | Request a money → coins exchange (child self-scoped). |
 
 

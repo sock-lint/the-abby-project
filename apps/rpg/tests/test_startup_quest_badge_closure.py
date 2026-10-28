@@ -221,6 +221,164 @@ class StartupQuestBadgeClosureTests(TestCase):
                 self.assertEqual(QuestDefinition.objects.filter(name=root).exists(), not blocked)
                 self.assertEqual(QuestDefinition.objects.filter(name=gate).exists(), not blocked)
 
+    def test_retirement_deferrals_preserve_dependencies_on_saved_quests(self):
+        for layout in ("later-retired-skill", "same-pack", "forward-pack"):
+            with self.subTest(layout=layout):
+                practice, archive = f"{layout} practice", f"{layout} archive"
+                root, after, missing = (f"{layout} {name}" for name in ("Root", "After", "Missing"))
+                done, new_done, missing_done = (f"{layout} {name}" for name in ("Done", "New done", "Missing done"))
+
+                def sources(release=False):
+                    root_entry = self.quest(root, description="Updated root" if release else "Saved root",
+                        skill_tags=[f"{practice}::Old"] + ([f"{practice}::New" if layout == "later-retired-skill"
+                            else f"{archive}::Fresh"] if release else []), is_repeatable=release)
+                    first = {"skill_tree": {"categories": [{"name": practice}, {"name": archive}],
+                        "skills": [{"name": "Old", "category": practice}, {"name": "New", "category": practice},
+                            {"name": "Kept", "category": archive}] + ([{"name": "Fresh", "category": archive}] if release else [])},
+                        "quests": {"quests": [root_entry] + ([self.quest(missing, skill_tags=[f"{archive}::Fresh"])] if release else [])}}
+                    second = {"badges": {"badges": [dict(self.badge(done, quest_name=root),
+                            description="Updated badge" if release else "Saved badge")] + ([
+                            self.badge(new_done, quest_name=root), self.badge(missing_done, quest_name=missing),
+                            self.badge(f"{layout} Any saved", quest_names=[root, missing]),
+                            self.badge(f"{layout} One completion", quest_names=[root, missing], count=1),
+                            self.badge(f"{layout} Two completions", quest_names=[root, missing], count=2)] if release else [])},
+                        "quests": {"quests": [self.quest(after, prerequisite_quest=root,
+                            trigger_filter={"allowed_triggers": ["reading_logged"]},
+                            description="Updated dependent" if release else "Saved dependent")] + ([
+                            self.quest(f"{layout} New after", prerequisite_quest=root,
+                                trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                            self.quest(f"{layout} Gate", required_badge=new_done),
+                            self.quest(f"{layout} Missing gate", required_badge=missing_done)] if release else [])}}
+                    if release and layout == "same-pack":
+                        first["badges"] = second["badges"]
+                        first["quests"]["quests"].extend(second["quests"]["quests"])
+                        return [first]
+                    return [second, first] if release and layout == "forward-pack" else [first, second]
+
+                self.run_sources(sources())
+                saved = QuestDefinition.objects.get(name=root)
+                saved_fields = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                saved_tags = list(saved.skill_tags.order_by("pk").values())
+                award = UserBadge.objects.create(user=self.actor, badge=Badge.objects.get(name=done))
+                completed = Quest.objects.create(definition=saved, status="completed", reward_items_snapshot=[],
+                    end_date=timezone.now() + timedelta(days=1))
+                participant = QuestParticipant.objects.create(quest=completed, user=self.actor)
+                history = [(type(row), row.pk, type(row).objects.filter(pk=row.pk).values().get())
+                           for row in (award, completed, participant)]
+                SkillCategory.objects.filter(name=archive).update(is_retired=True)
+                if layout == "later-retired-skill":
+                    Skill.objects.filter(category__name=practice, name="New").update(is_retired=True)
+
+                self.run_sources(sources(True))
+
+                self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), saved_fields)
+                self.assertEqual(list(saved.skill_tags.order_by("pk").values()), saved_tags)
+                self.assertEqual(QuestDefinition.objects.get(name=after).description, "Updated dependent")
+                self.assertEqual(Badge.objects.get(name=done).description, "Updated badge")
+                self.assertEqual(QuestDefinition.objects.get(name=f"{layout} New after").prerequisite_quest_id, saved.pk)
+                self.assertEqual(QuestDefinition.objects.get(name=f"{layout} Gate").required_badge_id,
+                    Badge.objects.get(name=new_done).pk)
+                self.assertTrue(Badge.objects.filter(name=f"{layout} Any saved").exists())
+                self.assertTrue(Badge.objects.filter(name=f"{layout} One completion").exists())
+                self.assertFalse(Badge.objects.filter(name__in=[missing_done, f"{layout} Two completions"]).exists())
+                self.assertFalse(QuestDefinition.objects.filter(name__in=[missing, f"{layout} Missing gate"]).exists())
+                for model, pk, fields in history:
+                    self.assertEqual(model.objects.filter(pk=pk).values().get(), fields)
+                snapshot = self.catalog_snapshot()
+                self.run_sources(sources(True))
+                self.assertEqual(self.catalog_snapshot(), snapshot)
+
+    def test_later_conflict_upgrades_retirement_plans_independent_of_source_order(self):
+        for layout, conflict in (("after-first", True), ("after-last", True), ("retirement-only", False)):
+            with self.subTest(layout=layout):
+                retired, category = f"{layout} retired", f"{layout} category"
+                root, after, blocked = (f"{layout} {name}" for name in ("Root", "After", "Blocked"))
+                badge = f"{layout} Gate badge"
+                SkillCategory.objects.create(name=retired, is_retired=True)
+                saved = QuestDefinition.objects.create(name=root, description="Saved root",
+                    quest_type="collection", target_value=2, is_system=True)
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                if conflict:
+                    row = SkillCategory.objects.create(name=f"{category} renamed")
+                    RPGContentOverride.objects.create(model_label="achievements.skillcategory", object_id=row.pk,
+                        family=self.actor.family, source_lookup={"name": category.upper()},
+                        values={"_authoring": {"version": 1, "source": "mcp"}})
+                entries = {
+                    "after": self.quest(after, prerequisite_quest=root,
+                        trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                    "root": self.quest(root, description="Rejected edit", required_badge=badge,
+                        skill_tags=[f"{retired}::R"]),
+                    "blocked": self.quest(blocked, skill_tags=[f"{category}::C"]),
+                }
+                order = ("blocked", "root", "after") if layout == "after-last" else ("after", "root", "blocked")
+                self.run_sources([{"skill_tree": {
+                    "categories": [{"name": retired}, {"name": category}],
+                    "skills": [{"name": "R", "category": retired}, {"name": "C", "category": category}]},
+                    "badges": {"badges": [self.badge(badge, quest_name=blocked)]},
+                    "quests": {"quests": [entries[name] for name in order]}}])
+                self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                self.assertEqual(QuestDefinition.objects.filter(name=after).exists(), not conflict)
+                self.assertEqual(Badge.objects.filter(name=badge).exists(), not conflict)
+
+    def test_conflict_flag_upgrades_finish_before_completion_badges_are_written(self):
+        self.retained()
+        SkillCategory.objects.create(name="Archived upgrade", is_retired=True)
+        for name in ("Upgrade root", "Upgrade middle"):
+            QuestDefinition.objects.create(name=name, quest_type="collection", target_value=2, is_system=True)
+        output = self.run_sources([{"skill_tree": {
+            "categories": [{"name": "Archived upgrade"}, {"name": "Robotics"}],
+            "skills": [{"name": "R", "category": "Archived upgrade"}, {"name": "Servo", "category": "Robotics"}]},
+            "badges": {"badges": [
+                self.badge("Upgrade mixed gate", quest_names=["Upgrade middle", "Upgrade missing"], count=2),
+                self.badge("Upgrade conflict gate", quest_name="Upgrade conflict"),
+                self.badge("Upgrade after complete", quest_name="Upgrade after")]},
+            "quests": {"quests": [
+                self.quest("Upgrade after", prerequisite_quest="Upgrade root",
+                    trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                self.quest("Upgrade root", required_badge="Upgrade mixed gate", skill_tags=["Archived upgrade::R"]),
+                self.quest("Upgrade middle", required_badge="Upgrade conflict gate", skill_tags=["Archived upgrade::R"]),
+                self.quest("Upgrade conflict", skill_tags=["Robotics::Servo"]),
+                self.quest("Upgrade missing", skill_tags=["Archived upgrade::R"])]}}])
+        self.assertFalse(QuestDefinition.objects.filter(name="Upgrade after").exists())
+        self.assertFalse(Badge.objects.filter(name="Upgrade after complete").exists())
+        warning = next(line for line in output.splitlines() if "'Upgrade after complete' unchanged:" in line)
+        self.assertIn("Skill source 'Robotics::Servo'", warning)
+
+    def test_planned_warnings_retain_the_original_named_source_cause(self):
+        for name in ("Alpha", "Beta"):
+            row = SkillCategory.objects.create(name=f"Renamed {name}")
+            RPGContentOverride.objects.create(model_label="achievements.skillcategory", object_id=row.pk,
+                family=self.actor.family, source_lookup={"name": name.lower()},
+                values={"_authoring": {"version": 1, "source": "mcp"}})
+        SkillCategory.objects.create(name="Retired route", is_retired=True)
+        output = self.run_sources([{"skill_tree": {
+            "categories": [{"name": name} for name in ("Alpha", "Beta", "Retired route")],
+            "skills": [{"name": "A1", "category": "Alpha"}, {"name": "B1", "category": "Beta"},
+                {"name": "Fresh", "category": "Retired route"}]},
+            "badges": {"badges": [
+                {"name": "Alpha mastery", "criteria_type": "category_mastery",
+                    "criteria_value": {"category": "Alpha", "min_level": 1}},
+                self.badge("Beta complete", quest_name="Beta root"),
+                self.badge("Retired complete", quest_name="Retired root")]},
+            "quests": {"quests": [self.quest("Alpha root", skill_tags=["Alpha::A1"]),
+                self.quest("Beta root", skill_tags=["Beta::B1"]),
+                self.quest("After Alpha", prerequisite_quest="Alpha root",
+                    trigger_filter={"allowed_triggers": ["reading_logged"]}),
+                self.quest("Retired root", skill_tags=["Retired route::Fresh"]),
+                self.quest("Retired gate", required_badge="Retired complete")]}}])
+        warnings = [line for line in output.splitlines() if "warning:" in line]
+        for name, cause in {
+            "Alpha mastery": "Category source 'Alpha'",
+            "Alpha root": "Skill source 'Alpha::A1'",
+            "After Alpha": "Skill source 'Alpha::A1'",
+            "Beta complete": "Skill source 'Beta::B1'",
+            "Retired root": "Skill source 'Retired route::Fresh'",
+            "Retired gate": "Skill source 'Retired route::Fresh'",
+        }.items():
+            with self.subTest(name=name):
+                warning = next(line for line in warnings if f" {name!r} unchanged:" in line)
+                self.assertIn(cause, warning)
+
     def test_planned_graph_clears_after_success_dry_run_and_failure(self):
         self.retained()
         for mode in ("dry", "failure", "success"):
@@ -236,6 +394,7 @@ class StartupQuestBadgeClosureTests(TestCase):
                     self.run_sources(sources, dry_run=mode == "dry")
             self.assertEqual(getattr(state, "source_packs", []), [])
             self.assertEqual((getattr(state, "planned_badges", {}), getattr(state, "planned_quests", {})), ({}, {}))
+            self.assertEqual(getattr(state, "dependency_reasons", {}), {})
             self.assertEqual((state.skills, state.conflict_skills, state.categories), (set(), set(), set()))
 
     def test_clean_sources_load_and_reload_all_rows(self):

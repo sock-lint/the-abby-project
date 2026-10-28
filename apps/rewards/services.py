@@ -38,6 +38,16 @@ def _lock_decision(instance):
     instance.refresh_from_db()
 
 
+def _lock_exchange_decision(exchange):
+    """Retain the current wallet before the exchange, matching MCP member locks."""
+    user_id = ExchangeRequest.objects.values_list("user_id", flat=True).get(pk=exchange.pk)
+    user = User.objects.select_for_update(no_key=True).get(pk=user_id)
+    _lock_decision(exchange)
+    if exchange.user_id != user.pk:
+        raise PermissionDenied("This exchange changed. Refresh it before deciding.")
+    return user
+
+
 class CoinService(BaseLedgerService):
     ledger_model = CoinLedger
     category_field = "reason"
@@ -471,21 +481,20 @@ class ExchangeService:
         if getattr(parent, "role", None) != User.Role.PARENT:
             raise PermissionDenied("Only a parent can approve an exchange.")
 
-        _lock_decision(exchange)
+        # Read the saved owner rather than trusting the caller's stale object.
+        # All decision paths retain User -> Exchange through settlement.
+        user = _lock_exchange_decision(exchange)
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 
         from apps.payments.models import PaymentLedger
         from apps.payments.services import PaymentService
 
-        user = exchange.user
         dollar_amount = exchange.dollar_amount
         coin_amount = exchange.coin_amount
 
-        # Different pending requests can spend the same wallet. Serialize
-        # their balance check and debit on the stable user row, including
-        # when there are no prior ledger rows to lock.
-        User.objects.select_for_update(no_key=True).get(pk=user.pk)
+        # The stable user lock also serializes distinct requests spending
+        # this wallet when there are no prior ledger rows to retain.
         balance = PaymentService.get_balance(user)
         if balance < dollar_amount:
             raise InsufficientFundsError(
@@ -563,7 +572,7 @@ class ExchangeService:
         Persisted status stays ``DENIED`` for backward compatibility; only
         the method/route name is normalized to match chores/homework.
         """
-        _lock_decision(exchange)
+        _lock_exchange_decision(exchange)
         if exchange.status != ExchangeRequest.Status.PENDING:
             return exchange
 

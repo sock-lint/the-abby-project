@@ -181,36 +181,110 @@ class BundledProgressionContentTests(TestCase):
                 self.assertFalse(Path(pack).is_relative_to(target), f"{pack} is hidden by the {target} bind mount")
 
     def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
-        calls = []
+        calls, loaders, planned, events = [], [], [], []
         class Pack:
             def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
-                calls.append((Path(path).name, namespace, defer_retired_references))
+                self.name = Path(path).name
+                self.startup_deferrals = startup_deferrals
+                calls.append((self.name, namespace, defer_retired_references))
+                loaders.append(self)
+            @staticmethod
+            def prepare_startup_dependencies(selected):
+                planned.append(tuple(selected))
+                events.append(("plan", tuple(loader.name for loader in selected)))
             def load(self, **kwargs):
-                pass
+                events.append(("load", self.name, kwargs["dry_run"]))
         with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
             call_command("loadrpgcontent", stdout=StringIO())
         self.assertEqual(calls, [("initial", "", True), ("reading-adventures", "reading-adventures-", True),
                                  ("collector-reading-2026", "collector-reading-2026-", True)])
+        self.assertEqual(planned, [tuple(loaders)])
+        self.assertIsNotNone(loaders[0].startup_deferrals)
+        self.assertTrue(all(loader.startup_deferrals is loaders[0].startup_deferrals for loader in loaders))
+        self.assertEqual(events, [
+            ("plan", ("initial", "reading-adventures", "collector-reading-2026")),
+            ("load", "initial", False), ("load", "reading-adventures", False),
+            ("load", "collector-reading-2026", False),
+        ])
+
+    def test_default_pack_headers_group_their_own_stats_warnings_and_failures(self):
+        packs = [
+            ("initial", ""), ("reading-adventures", "reading-adventures-"),
+            ("collector-reading-2026", "collector-reading-2026-"),
+        ]
+        for fail_second in (False, True):
+            with self.subTest(fail_second=fail_second):
+                class Pack:
+                    __slots__ = ("name",)
+
+                    def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
+                        self.name = Path(path).name
+
+                    @staticmethod
+                    def prepare_startup_dependencies(loaders):
+                        pass
+
+                    def load(self, *, stdout, dry_run):
+                        stdout.write(f"  created fixture: {self.name}")
+                        stdout.write(f"  warning retained fixture: {self.name}")
+                        if fail_second and self.name == "reading-adventures":
+                            raise ContentPackError("invalid retained quest reference")
+
+                out = StringIO()
+                with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(
+                    Path, "is_dir", return_value=True,
+                ), patch("apps.rpg.management.commands.loadrpgcontent.retire_unused_catalog_once", return_value=None):
+                    if fail_second:
+                        with self.assertRaisesMessage(CommandError, "invalid retained quest reference"):
+                            call_command("loadrpgcontent", stdout=out)
+                    else:
+                        call_command("loadrpgcontent", stdout=out)
+                observed = [line for line in out.getvalue().splitlines() if line.startswith((
+                    "Loading pack:", "  created fixture:", "  warning retained fixture:",
+                ))]
+                expected = []
+                for name, namespace in packs[:2] if fail_second else packs:
+                    relative = "content/rpg/initial" if name == "initial" else f"content/rpg/bundled/{name}"
+                    expected.extend([
+                        f"Loading pack: {Path(settings.BASE_DIR) / relative}" +
+                        (f" (namespace={namespace!r})" if namespace else ""),
+                        f"  created fixture: {name}", f"  warning retained fixture: {name}",
+                    ])
+                self.assertEqual(observed, expected)
 
     def test_explicit_pack_remains_single_and_does_not_inject_default_extras(self):
-        calls = []
-        class Pack:
-            def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
-                calls.append((Path(path).name, namespace, defer_retired_references))
-            def load(self, **kwargs):
-                pass
-        with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
-            call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
-        self.assertEqual(calls, [("initial", "", False)])
-
-    def test_later_pack_failure_rolls_back_the_entire_default_batch(self):
-        calls = []
+        calls, planning_calls, events = [], [], []
         class Pack:
             def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
                 self.name = Path(path).name
                 calls.append((self.name, namespace, defer_retired_references))
+                events.append(("context", startup_deferrals))
+            @staticmethod
+            def prepare_startup_dependencies(selected):
+                planning_calls.append(tuple(selected))
             def load(self, **kwargs):
+                events.append(("load", self.name, kwargs["dry_run"]))
+        with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
+            call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
+        self.assertEqual(calls, [("initial", "", False)])
+        self.assertEqual(planning_calls, [])
+        self.assertEqual(events, [("context", None), ("load", "initial", False)])
+
+    def test_later_pack_failure_rolls_back_the_entire_default_batch(self):
+        calls, loaders, planned, events, written_before_failure = [], [], [], [], []
+        class Pack:
+            def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
+                self.name = Path(path).name
+                calls.append((self.name, namespace, defer_retired_references))
+                loaders.append(self)
+            @staticmethod
+            def prepare_startup_dependencies(selected):
+                planned.append(tuple(selected))
+                events.append(("plan", tuple(loader.name for loader in selected)))
+            def load(self, **kwargs):
+                events.append(("load", self.name, kwargs["dry_run"]))
                 if self.name == "collector-reading-2026":
+                    written_before_failure.extend(ItemDefinition.objects.order_by("pk").values_list("slug", flat=True))
                     raise ContentPackError("invalid final pack")
                 ItemDefinition.objects.create(slug=self.name, name=self.name, item_type="food")
         with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
@@ -218,6 +292,13 @@ class BundledProgressionContentTests(TestCase):
                 call_command("loadrpgcontent", stdout=StringIO())
         self.assertEqual(calls, [("initial", "", True), ("reading-adventures", "reading-adventures-", True),
                                  ("collector-reading-2026", "collector-reading-2026-", True)])
+        self.assertEqual(planned, [tuple(loaders)])
+        self.assertEqual(events, [
+            ("plan", ("initial", "reading-adventures", "collector-reading-2026")),
+            ("load", "initial", False), ("load", "reading-adventures", False),
+            ("load", "collector-reading-2026", False),
+        ])
+        self.assertEqual(written_before_failure, ["initial", "reading-adventures"])
         self.assertFalse(ItemDefinition.objects.exists())
 
     def test_real_default_reload_installs_paths_once_with_their_cross_pack_gates(self):
