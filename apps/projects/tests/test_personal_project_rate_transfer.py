@@ -1,6 +1,7 @@
 """Transferring personal work to a child restores the child's normal hourly pay."""
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from asgiref.sync import async_to_sync
 from django.utils import timezone
@@ -32,6 +33,8 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
         self.assertEqual(response.status_code, 201, response.content)
         project = Project.objects.get(pk=response.data["id"])
         self.assertEqual((project.assigned_to_id, project.hourly_rate_override), (self.parent.pk, 0))
+        self.assertTrue(response.data["hourly_rate_is_personal_default"])
+        self.assertTrue(project.hourly_rate_is_personal_default)
         return project
 
     def family_edit(self, project, **values):
@@ -76,6 +79,108 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
         self.assertIsNone(project.hourly_rate_override)
         self.assertFalse(PaymentLedger.objects.filter(user=self.parent).exists())
 
+    def family_zero_project(self, **values):
+        created = self.client.post("/api/projects/", {
+            "title": "Volunteer cleanup", "assigned_to_id": self.parent.pk, "hourly_rate_override": "0.00",
+            **values,
+        }, format="json")
+        self.assertEqual(created.status_code, 201, created.content)
+        project = Project.objects.get(pk=created.data["id"])
+        self.assertFalse(created.data["hourly_rate_is_personal_default"])
+        self.assertFalse(project.hourly_rate_is_personal_default)
+        return project
+
+    def test_deliberate_family_zero_survives_later_rest_child_assignment(self):
+        project = self.family_zero_project()
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_deliberate_family_zero_survives_later_mcp_child_assignment(self):
+        project = self.family_zero_project()
+        self.mcp_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_family_zero_authored_after_personal_creation_stays_explicit_on_rest_transfer(self):
+        project = self.personal_project()
+        self.family_edit(project, hourly_rate_override="0.00")
+        self.family_edit(project, description="Deliberately unpaid family work")
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_mcp_zero_authored_after_personal_creation_stays_explicit_on_later_transfer(self):
+        project = self.personal_project()
+        self.mcp_edit(project, hourly_rate_override="0.00")
+        self.mcp_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_personal_metadata_keeps_deliberate_family_zero_authoritative_on_child_transfer(self):
+        project = self.family_zero_project()
+        response = self.client.patch(f"/api/projects/{project.pk}/", {"description": "Still volunteer work"},
+                                     format="json", HTTP_X_ABBY_SPACE="personal")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+        self.assertFalse(project.hourly_rate_is_personal_default)
+
+    def test_personal_approval_keeps_later_family_authored_zero_authoritative_on_child_transfer(self):
+        project = self.personal_project()
+        stale = Project.objects.get(pk=project.pk)
+        self.family_edit(project, hourly_rate_override="0.00")
+        with patch("apps.projects.views.ProjectViewSet.get_object", return_value=stale):
+            approved = self.client.post(f"/api/projects/{project.pk}/approve/", {},
+                                        format="json", HTTP_X_ABBY_SPACE="personal")
+        self.assertEqual(approved.status_code, 200, approved.content)
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+        self.assertFalse(project.hourly_rate_is_personal_default)
+
+    def test_family_creation_cannot_forge_personal_default_provenance(self):
+        project = self.family_zero_project(hourly_rate_is_personal_default=True)
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_client_cannot_clear_personal_provenance_or_keep_it_after_explicit_family_rate(self):
+        project = self.personal_project()
+        self.family_edit(project, description="Metadata only", hourly_rate_is_personal_default=False)
+        self.assertTrue(project.hourly_rate_is_personal_default)
+        self.family_edit(project, hourly_rate_override="0.00", hourly_rate_is_personal_default=True)
+        self.assertFalse(project.hourly_rate_is_personal_default)
+        self.assertFalse(self.client.get(f"/api/projects/{project.pk}/").data["hourly_rate_is_personal_default"])
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_rest_transfer_uses_current_rate_provenance_after_a_family_rate_edit(self):
+        project = self.personal_project()
+        stale = Project.objects.get(pk=project.pk)
+        self.family_edit(project, hourly_rate_override="0.00")
+        with patch("apps.projects.views.ProjectViewSet.get_object", return_value=stale):
+            self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assertFalse(project.hourly_rate_is_personal_default)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
+    def test_personal_edit_forces_positive_parent_rate_to_personal_default_without_paying_parent(self):
+        project = self.family_zero_project()
+        self.family_edit(project, hourly_rate_override="12.00")
+        response = self.client.patch(f"/api/projects/{project.pk}/", {"description": "My own project now"},
+                                     format="json", HTTP_X_ABBY_SPACE="personal")
+        self.assertEqual(response.status_code, 200, response.content)
+        project.refresh_from_db()
+        self.assertTrue(project.hourly_rate_is_personal_default)
+        self.assert_hourly_pay(self.two_hour_card(project, self.parent), self.parent, "0.00")
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "17.00")
+
+    def test_personal_metadata_uses_current_family_zero_provenance_under_the_source_lock(self):
+        project = self.personal_project()
+        stale = Project.objects.get(pk=project.pk)
+        self.family_edit(project, hourly_rate_override="0.00")
+        with patch("apps.projects.views.ProjectViewSet.get_object", return_value=stale):
+            response = self.client.patch(f"/api/projects/{project.pk}/", {"description": "Keep my explicit zero"},
+                                         format="json", HTTP_X_ABBY_SPACE="personal")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.family_edit(project, assigned_to_id=self.child.pk)
+        self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "0.00")
+
     def test_personal_import_assignment_without_rate_restores_child_default_pay(self):
         job = ProjectIngestionJob.objects.create(
             created_by=self.parent, source_type="url", status="ready", result_json={"title": "Imported work"},
@@ -85,6 +190,7 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
         self.assertEqual(response.status_code, 201, response.content)
         project = Project.objects.get(pk=response.data["id"])
         self.assertEqual(project.hourly_rate_override, 0)
+        self.assertTrue(project.hourly_rate_is_personal_default)
         self.family_edit(project, assigned_to_id=self.child.pk)
         self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "17.00")
 
@@ -126,6 +232,7 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
     def test_mcp_positive_override_survives_child_transfer(self):
         project = self.personal_project()
         self.mcp_edit(project, hourly_rate_override="12.00")
+        self.assertFalse(project.hourly_rate_is_personal_default)
         self.mcp_edit(project, assigned_to_id=self.child.pk)
         self.assertEqual(project.hourly_rate_override, Decimal("12.00"))
         self.assert_hourly_pay(self.two_hour_card(project, self.child), self.child, "24.00")
@@ -136,6 +243,7 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
         self.mcp_edit(project, description="Updated notes")
         self.mcp_edit(project, assigned_to_id=self.parent.pk)
         self.assertEqual(project.hourly_rate_override, 0)
+        self.assertTrue(project.hourly_rate_is_personal_default)
         self.assert_hourly_pay(self.two_hour_card(project, self.parent), self.parent, "0.00")
 
     def test_family_edit_form_null_rate_payload_uses_child_default_pay(self):
@@ -175,6 +283,7 @@ class PersonalProjectRateTransferTests(BaseFamilyAPITestCase):
         self.assertEqual(approved.status_code, 200, approved.content)
         project.refresh_from_db()
         self.assertEqual((project.assigned_to_id, project.bonus_amount, project.hourly_rate_override), (self.parent.pk, 0, 0))
+        self.assertTrue(project.hourly_rate_is_personal_default)
         # Test the native service too: public generation callers select children,
         # but the service itself must not fall back to this parent's $55 rate.
         self.assert_hourly_pay(self.two_hour_card(project, self.parent), self.parent, "0.00")

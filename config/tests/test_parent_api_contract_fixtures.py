@@ -27,6 +27,58 @@ FIXED_NOW = datetime(2026, 10, 19, 2, tzinfo=timezone.utc)
 class ParentApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
 
+    def test_personal_project_rate_default_fixture(self):
+        self._assert_project_rate_fixture(personal=True)
+
+    def test_family_project_explicit_zero_fixture(self):
+        self._assert_project_rate_fixture(personal=False)
+
+    def _assert_project_rate_fixture(self, *, personal):
+        from apps.payments.models import PaymentLedger
+        from apps.rewards.models import CoinLedger
+
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW):
+            household = make_family(
+                "Project Rate Fixture", family_id=71,
+                parents=[{"id": 6, "username": "rate-fixture-parent", "display_name": "Alex"},
+                         {"id": 8, "username": "rate-fixture-coparent"}],
+                children=[{"id": 7, "username": "rate-fixture-child", "display_name": "Abby"}],
+            )
+            parent, coparent = household.parents
+            child = household.children[0]
+            outsider = make_family("Other Project Rate Fixture", family_id=72,
+                                  parents=[{"id": 99, "username": "rate-fixture-outsider"}]).parents[0]
+            self.client.force_authenticate(parent)
+            cases = ((
+                "parent-personal-project-rate-default.json" if personal else "parent-family-project-explicit-zero.json",
+                917 if personal else 918, personal,
+            ),)
+            for filename, wire_id, personal in cases:
+                headers = {"HTTP_X_ABBY_SPACE": "personal"} if personal else {}
+                created = self.client.post("/api/projects/", {
+                    "title": "Personal shelf" if personal else "Unpaid family project",
+                    "assigned_to_id": parent.pk, "hourly_rate_override": "0.00",
+                    # Clients cannot forge the server-owned default source.
+                    "hourly_rate_is_personal_default": not personal,
+                }, format="json", **headers)
+                self.assertEqual(created.status_code, 201, created.data)
+                self.assertEqual(created.data["hourly_rate_is_personal_default"], personal)
+                Project.objects.filter(pk=created.data["id"]).update(id=wire_id)
+                body = self.assert_response_fixture(self.client.get(f"/api/projects/{wire_id}/", **headers), filename)
+                self.assertEqual(body["hourly_rate_override"], "0.00")
+                self.assertEqual(body["hourly_rate_is_personal_default"], personal)
+                self.assertEqual(body["assigned_to"]["id"], parent.pk)
+                self.assertEqual(body["status"], "draft")
+                self.client.force_authenticate(coparent)
+                self.assertEqual(self.client.get(f"/api/projects/{wire_id}/").status_code, 200)
+                self.assertEqual(self.client.get(f"/api/projects/{wire_id}/", HTTP_X_ABBY_SPACE="personal").status_code, 404)
+                for actor in (child, outsider):
+                    self.client.force_authenticate(actor)
+                    self.assertEqual(self.client.get(f"/api/projects/{wire_id}/").status_code, 404)
+                self.client.force_authenticate(parent)
+            self.assertFalse(PaymentLedger.objects.exists())
+            self.assertFalse(CoinLedger.objects.exists())
+
     def test_personal_project_completion_notification_keeps_own_destination_without_repaying_on_read(self):
         from apps.notifications.models import Notification
         from apps.payments.models import PaymentLedger
@@ -254,6 +306,7 @@ class ParentApiResponseFixtureTests(APITestCase):
         from apps.habits.models import Habit
         from apps.rewards.models import CoinLedger
         from apps.rewards.services import CoinService
+        from apps.timecards.services import TimecardService
         with patch("django.utils.timezone.now", return_value=FIXED_NOW):
             family = make_family(
                 "Parent Personal Fixture", family_id=63,
@@ -265,6 +318,14 @@ class ParentApiResponseFixtureTests(APITestCase):
             Habit.objects.create(id=902, user=child, created_by=parent, name="Child-only habit")
             CoinService.award_coins(parent, 35, CoinLedger.Reason.ADJUSTMENT)
             CoinService.award_coins(child, 700, CoinLedger.Reason.ADJUSTMENT)
+            project = Project.objects.create(
+                id=903, title="Personal sewing practice", assigned_to=parent, created_by=parent,
+                status="in_progress", hourly_rate_override="0.00",
+            )
+            TimeEntry.objects.create(
+                id=904, user=parent, project=project, status="completed",
+                clock_in=FIXED_NOW - timedelta(hours=2), clock_out=FIXED_NOW,
+            )
             self.client.force_authenticate(parent)
             body = self.assert_response_fixture(
                 self.client.get("/api/dashboard/", HTTP_X_ABBY_SPACE="personal"),
@@ -272,8 +333,13 @@ class ParentApiResponseFixtureTests(APITestCase):
             )
             self.assertEqual(body["role"], "parent")
             self.assertEqual(body["coin_balance"], 35)
+            self.assertEqual(body["this_week"], {"hours_worked": 2.0, "earnings": 0.0, "projects_worked_on": 1})
+            self.assertEqual(body["current_balance"], 0.0)
             self.assertNotIn("family_overview", body)
             self.assertEqual([row["title"] for row in body["next_actions"]], ["Read after breakfast"])
+            timecard = TimecardService.generate_weekly_timecard(parent, date(2026, 10, 12))
+            self.assertEqual(timecard.total_hours, 2)
+            self.assertEqual(timecard.hourly_earnings, 0)
 
     def test_child_overview_is_read_only_and_contains_saved_progress(self):
         from apps.achievements.models import Skill, SkillCategory, SkillProgress

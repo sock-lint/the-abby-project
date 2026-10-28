@@ -473,7 +473,8 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         from config.participation import is_personal_space
         extras = {"created_by": self.request.user}
         if is_personal_space(self.request):
-            extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0)
+            extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0,
+                          hourly_rate_is_personal_default=True)
         serializer.save(**extras)
 
     def perform_update(self, serializer):
@@ -481,15 +482,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
         extras = {}
         if is_personal_space(self.request):
-            extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0)
-        elif "assigned_to" in serializer.validated_data:
-            from .assignment import reassignment_rate_defaults
-
-            next_owner = serializer.validated_data.get("assigned_to")
-            extras.update(reassignment_rate_defaults(
-                serializer.instance, next_owner.pk if next_owner else None,
-                rate_supplied="hourly_rate_override" in serializer.validated_data,
-            ))
+            extras.update(assigned_to=self.request.user, bonus_amount=0)
         serializer.save(**extras)
 
     def get_permissions(self):
@@ -593,17 +586,27 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    @transaction.atomic
     def approve(self, request, pk=None):
         from config.participation import is_personal_space
 
         project = self.get_object()
+        personal = is_personal_space(request)
+        if personal:
+            from apps.achievements.services import _lock_award_user
+
+            _lock_award_user(request.user)
+            project = get_object_or_404(self.get_queryset().select_for_update(of=("self",)), pk=project.pk)
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         previous_status = project.status
         project.status = "completed"
-        if is_personal_space(request):
+        if personal:
+            from .assignment import personal_rate_defaults
+
             project.bonus_amount = 0
-            project.hourly_rate_override = 0
+            for field, value in personal_rate_defaults(project).items():
+                setattr(project, field, value)
         project.save()
         if previous_status != "completed":
             record_action(

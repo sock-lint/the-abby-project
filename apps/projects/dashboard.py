@@ -27,9 +27,9 @@ def build_dashboard(user, *, request=None) -> dict[str, Any]:
     # Read the previous visit stamp BEFORE refreshing it — the
     # since-last-visit block summarizes what happened in the gap.
     last_seen = user.last_seen_at
-    payload = _common_dashboard(user, today)
     from config.participation import is_personal_space
     personal = is_personal_space(request)
+    payload = _common_dashboard(user, today, personal=personal)
     if user.role == "child" or personal:
         payload.update(_child_extras(user, today, personal=personal))
         payload["since_last_visit"] = _since_last_visit(user, last_seen)
@@ -48,7 +48,7 @@ def build_dashboard(user, *, request=None) -> dict[str, Any]:
 # Shared between child + parent dashboards
 # ---------------------------------------------------------------------------
 
-def _common_dashboard(user, today) -> dict[str, Any]:
+def _common_dashboard(user, today, *, personal=False) -> dict[str, Any]:
     from apps.lorebook.services import newly_unlocked_entries
     from apps.payments.services import PaymentService
     from apps.projects.models import Project, SavingsGoal
@@ -80,6 +80,10 @@ def _common_dashboard(user, today) -> dict[str, Any]:
     )
     week_minutes = week_aggregate["minutes"] or 0
     week_hours = round(week_minutes / 60, 1)
+    earnings = (
+        _personal_hourly_earnings(user, week_entries) if personal
+        else week_hours * float(user.hourly_rate)
+    )
 
     active_projects = ProjectListSerializer(
         Project.objects.work_projects().filter(
@@ -95,7 +99,7 @@ def _common_dashboard(user, today) -> dict[str, Any]:
         "coin_balance": CoinService.get_balance(user),
         "this_week": {
             "hours_worked": week_hours,
-            "earnings": float(week_hours * float(user.hourly_rate)),
+            "earnings": float(earnings),
             "projects_worked_on": week_aggregate["projects"] or 0,
         },
         "active_projects": active_projects,
@@ -109,6 +113,21 @@ def _common_dashboard(user, today) -> dict[str, Any]:
             newly_unlocked_entries(user) if user.role == "child" else []
         ),
     }
+
+
+def _personal_hourly_earnings(user, entries):
+    """Project hourly pay using the native timecard's per-entry rounding."""
+    from decimal import Decimal, ROUND_HALF_UP
+
+    cents = Decimal("0.01")
+    total = Decimal("0.00")
+    for entry in entries.select_related("project"):
+        rate = entry.project.hourly_rate_override
+        if rate is None:
+            rate = user.hourly_rate
+        hours = (Decimal(entry.duration_minutes) / 60).quantize(cents, rounding=ROUND_HALF_UP)
+        total += (hours * rate).quantize(cents, rounding=ROUND_HALF_UP)
+    return total
 
 
 def _recent_badges(user) -> list[dict[str, Any]]:
@@ -262,17 +281,22 @@ def _since_last_visit(user, last_seen) -> dict[str, Any] | None:
         ).aggregate(total=Sum("amount"))["total"]
         or 0
     )
+    approvals = Notification.objects.filter(
+        user=user, created_at__gt=last_seen, notification_type__in=approval_types,
+    )
+    if user.role == "parent":
+        # The service gives self-confirmed personal chores an explicit own-
+        # space receipt. Keep its compatible type without calling it approval.
+        approvals = approvals.exclude(
+            notification_type=NotificationType.CHORE_APPROVED, link="/chores?space=personal",
+        )
     return {
         "last_seen_at": last_seen.isoformat(),
         "badges_earned": UserBadge.objects.filter(
             user=user, earned_at__gt=last_seen,
         ).count(),
         "coins_earned": coins_earned,
-        "approvals": Notification.objects.filter(
-            user=user,
-            created_at__gt=last_seen,
-            notification_type__in=approval_types,
-        ).count(),
+        "approvals": approvals.count(),
     }
 
 

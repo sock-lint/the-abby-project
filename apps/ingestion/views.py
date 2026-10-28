@@ -197,7 +197,8 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             extras = {"created_by": request.user}
             if is_personal_space(request):
-                extras.update(assigned_to=request.user, bonus_amount=0, hourly_rate_override=0)
+                extras.update(assigned_to=request.user, bonus_amount=0, hourly_rate_override=0,
+                              hourly_rate_is_personal_default=True)
             project = serializer.save(**extras)
 
             # Milestones: ingestors no longer populate these by default

@@ -28,8 +28,19 @@ import personalSavingsNotification from '../../../contracts/api/fixtures/parent-
 import familySavingsNotification from '../../../contracts/api/fixtures/parent-family-savings-notification.json';
 import personalChoreNotification from '../../../contracts/api/fixtures/parent-personal-chore-notification.json';
 import personalProjectNotification from '../../../contracts/api/fixtures/parent-personal-project-notification.json';
+import personalRateDefault from '../../../contracts/api/fixtures/parent-personal-project-rate-default.json';
+import familyExplicitZero from '../../../contracts/api/fixtures/parent-family-project-explicit-zero.json';
 
 describe('parent dashboard response through the real React API client', () => {
+  it.each([[personalRateDefault, true], [familyExplicitZero, false]])('preserves the server-owned rate source for project $0.id', async (fixture, inherited) => {
+    server.use(http.get(`*/api/projects/${fixture.id}/`, () => HttpResponse.json(fixture)));
+    const project = await api.get(`/projects/${fixture.id}/`);
+    expect(project).toEqual(fixture);
+    expect(project.hourly_rate_override).toBe('0.00');
+    expect(project.hourly_rate_is_personal_default).toBe(inherited);
+    expect(project.assigned_to.role).toBe('parent');
+  });
+
   it.each([
     ['child shared journal', familyJournalNotification, 'family', '/chronicle?tab=journal&child=7&space=family', 'journal_reply'],
     ['own journal', personalJournalNotification, 'personal', '/chronicle?tab=journal&space=personal', 'journal_reply'],
@@ -70,6 +81,7 @@ describe('parent dashboard response through the real React API client', () => {
       expect(hint).toBe('personal');
       expect(data.role).toBe('parent');
       expect(data.coin_balance).toBe(35);
+      expect(data.this_week).toMatchObject({ hours_worked: 2, earnings: 0, projects_worked_on: 1 });
       expect(data.next_actions.map(row => row.title)).toEqual(['Read after breakfast']);
       expect(data).not.toHaveProperty('family_overview');
     } finally { setRequestSpace('family', getToken()); }

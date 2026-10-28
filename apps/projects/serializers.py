@@ -354,14 +354,14 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
             "id", "title", "description", "cover_photo", "instructables_url",
             "difficulty", "category", "category_id", "status",
             "assigned_to", "assigned_to_id", "created_by", "maker_signature",
-            "bonus_amount", "payment_kind", "hourly_rate_override", "materials_budget",
+            "bonus_amount", "payment_kind", "hourly_rate_override", "hourly_rate_is_personal_default", "materials_budget",
             "due_date", "started_at", "completed_at", "xp_reward",
             "parent_notes", "created_at", "updated_at",
             "milestones", "materials", "steps", "resources",
             "steps_create", "resources_create", "plan_create",
             "is_homework_plan", "homework_assignment_id",
         ]
-        read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward"]
+        read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward", "hourly_rate_is_personal_default"]
 
     def get_maker_signature(self, obj):
         from apps.rpg.identity import earned_identity
@@ -403,6 +403,18 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         category = validated_data.get("category")
         admit_references(SkillCategory, [category.pk] if category else [],
                          retained_ids=[instance.category_id], error_type=serializers.ValidationError)
+        from config.participation import is_personal_space
+        if is_personal_space(self.context.get("request")):
+            from .assignment import personal_rate_defaults
+            validated_data.update(personal_rate_defaults(instance))
+        else:
+            from .assignment import reassignment_rate_defaults
+            next_owner = validated_data.get("assigned_to")
+            validated_data.update(reassignment_rate_defaults(
+                instance, next_owner.pk if next_owner else None,
+                rate_supplied="hourly_rate_override" in validated_data,
+                assignment_supplied="assigned_to" in validated_data,
+            ))
         return super().update(instance, validated_data)
 
     @transaction.atomic

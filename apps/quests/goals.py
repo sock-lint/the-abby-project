@@ -448,6 +448,13 @@ def _amount(snapshot, activity):
 
 
 def _award(occurrence, user):
+    from apps.activity.services import personal_challenge_scope
+
+    with personal_challenge_scope(user, occurrence):
+        return _award_in_scope(occurrence, user)
+
+
+def _award_in_scope(occurrence, user):
     if occurrence.awarded_at:
         return occurrence.reward_receipt
     from .controls import close_unpaid_attempts, lifetime_context, lifetime_paid

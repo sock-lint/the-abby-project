@@ -55,6 +55,8 @@ completion still follows its schedule and saved completion history.
 If you later assign a personal project
 to a child in Family, its hourly rate starts with that child's usual rate unless
 you choose a specific project rate.
+An unpaid rate you explicitly choose in Family stays unpaid when you reassign
+the project, including after editing or completing it in My space.
 School homework and grades remain in the child experience and Family tools.
 Family cooperative challenge assignments continue to select children.
 
@@ -78,10 +80,13 @@ Parent journals are private by default. Sharing a parent journal means sharing
 with co-parents in the same family; it does not give children access. Your
 personal bookshelf and reading notes stay with your own account. A child's
 private journal remains private, including in the Children overview.
-Your manually added personal memories and challenge details are private to you.
-Notifications about a child's pet open that child's Family overview; your own
-pet notifications open your Pets.
-Older pet and reply notifications that do not identify an owner open Family.
+Your manually added personal memories, personal challenge progress, and new
+personal challenge completion activity are private to you. Shared challenge
+catalogs stay available to the family. Earlier household activity remains in
+the family history.
+Notifications about a child's pet open that child's Family overview. Pet
+receipts that identify you as their owner open your Pets. Household copies and
+older replies that do not identify an owner open Family.
 Replies to a child's shared journal or grades open that child's Family view.
 Replies to your shared journal, your savings receipts, and your own chore or
 project completion receipts open My space. A child's savings notification opens

@@ -22,6 +22,16 @@ own chore or project completion. Child replies retain the child and Family
 destination; parent receipts select their own My space view. A child's savings
 notification opens their Family overview. Detail reads award nothing, and another family member
 cannot fetch the recipient's notification.
+`parent-personal-project-rate-default.json` and
+`parent-family-project-explicit-zero.json` are raw project detail responses
+after actual personal and Family creation. Both rates are `0.00`; the
+read-only `hourly_rate_is_personal_default` distinguishes an inherited personal
+default from a deliberately unpaid Family rate. Clients cannot set that flag.
+Untouched inherited rates are omitted on edits so locked REST/MCP rules resolve
+assignment defaults; explicit rates remain authoritative. Existing project
+detail fixtures include this additive read-only field. The personal dashboard
+fixture also contains two actual clocked hours whose native timecard and API
+earnings both remain zero.
 
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment

@@ -188,7 +188,7 @@
       "freshness": "current",
       "binding": {
         "engine_version": "2026-10-23.1",
-        "rules_fingerprint": "ccf77162d52a0a47049bfa8450c7935229eee5eccc697f3161380576ccc66ca4",
+        "rules_fingerprint": "ec1406ac0ce0816b0d376a5e1b64bc5b2d0445e93b3ccd1aa907119729e3c7be",
         "feedback_fingerprint": "6e569e9c0cdac9fc5c586430baafe2657d0cc974c8c3d55988ed5b3cf21f5229",
         "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
         "source_commit": "unavailable"

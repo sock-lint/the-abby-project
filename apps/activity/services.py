@@ -22,7 +22,7 @@ one is active:
 from __future__ import annotations
 
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from decimal import Decimal
 from typing import Any, Iterable, Literal, TypedDict
@@ -47,10 +47,31 @@ class BreakdownStep(TypedDict, total=False):
 
 
 _scope: ContextVar[dict | None] = ContextVar("activity_scope", default=None)
+PRIVATE_CHALLENGE_DOMAINS = ("quests.challengeoccurrence", "quests.quest")
+
+
+def _private_challenge_identity(user, source):
+    """Identify a server-owned parent challenge without interpreting its title."""
+    if user is None or user.role != "parent" or source is None:
+        return None
+    domain = source._meta.label_lower
+    if domain not in PRIVATE_CHALLENGE_DOMAINS:
+        return None
+    return {"domain": domain, "owner_id": user.pk, "source_id": source.pk}
+
+
+def personal_challenge_scope(user, source):
+    """Retain a parent's challenge identity through nested generic awards.
+
+    Children keep their existing event contexts and correlation behavior.
+    This scope is internal; no request field can set event visibility.
+    """
+    identity = _private_challenge_identity(user, source)
+    return activity_scope(private_challenge=identity) if identity else nullcontext()
 
 
 @contextmanager
-def activity_scope(*, suppress_inner_ledger: bool = False):
+def activity_scope(*, suppress_inner_ledger: bool = False, private_challenge: dict | None = None):
     """Open a correlation scope. All nested ``record()`` calls share the UUID.
 
     ``suppress_inner_ledger=True`` signals that the caller (typically
@@ -64,6 +85,7 @@ def activity_scope(*, suppress_inner_ledger: bool = False):
         "correlation_id": correlation_id,
         "suppress_inner_ledger": suppress_inner_ledger
             or (parent or {}).get("suppress_inner_ledger", False),
+        "private_challenge": private_challenge or (parent or {}).get("private_challenge"),
     })
     try:
         yield correlation_id
@@ -143,6 +165,12 @@ class ActivityLogService:
             "breakdown": _normalize_breakdown(breakdown),
             "extras": dict(extras) if extras else {},
         }
+        private_challenge = (_scope.get() or {}).get("private_challenge")
+        # Legacy progress, expiry and rage rows already identify their Quest
+        # target. Preserve that exact identity even outside an award scope.
+        private_challenge = private_challenge or _private_challenge_identity(subject, target)
+        if private_challenge:
+            context["private_challenge"] = dict(private_challenge)
 
         return ActivityEvent.objects.create(
             actor=actor,

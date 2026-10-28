@@ -37,9 +37,10 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
     const value = e.target.value;
     if (k === 'hourly_rate_override') rateEdited.current = true;
     const patch = { [k]: value };
-    // My space uses zero to prevent parent wages. Giving that project to a
-    // child should use their normal rate unless the parent chooses an override.
+    // Only an inherited personal default follows the new assignee's rate.
+    // A zero explicitly saved in Family remains an intentional override.
     if (k === 'assigned_to_id' && !rateEdited.current
+      && project.hourly_rate_is_personal_default === true
       && project.assigned_to?.role === 'parent'
       && project.hourly_rate_override != null && Number(project.hourly_rate_override) === 0
       && String(value) !== String(project.assigned_to.id)
@@ -62,6 +63,11 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         hourly_rate_override: form.hourly_rate_override || null,
         due_date: form.due_date || null,
       };
+      // Let the locked server assignment rule resolve untouched personal
+      // defaults. Resending zero or null would turn it into a new rate choice.
+      if (!rateEdited.current && project.hourly_rate_is_personal_default === true) {
+        delete payload.hourly_rate_override;
+      }
       if (personal) {
         delete payload.assigned_to_id;
         delete payload.payment_kind;
