@@ -13,6 +13,7 @@ import { useApi } from '../hooks/useApi';
 import { formatCurrency } from '../utils/format';
 import { useConfirmState } from '../hooks/useConfirmState';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BackLink from '../components/BackLink';
 import Button from '../components/Button';
@@ -49,6 +50,7 @@ export default function ProjectDetail() {
 
 function ProjectDetailPage() {
   const { user, isParent } = useRole();
+  const { isParentAccount, isPersonalSpace } = useSpace();
   const location = useLocation();
   const returnList = projectListDestination(location.state?.projectListReturn, user?.id);
   const { id } = useParams();
@@ -160,7 +162,7 @@ function ProjectDetailPage() {
   const handleCompleteMilestone = (msId) => {
     if (pendingMilestoneId) return;
     const ms = (project.milestones || []).find((m) => m.id === msId);
-    const bonus = !isHomeworkPlan && ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
+    const bonus = !isHomeworkPlan && !(isParentAccount && isPersonalSpace) && ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
     askConfirm({
       title: 'Mark this milestone complete?',
       message: `This will close out “${ms?.title || 'this milestone'}”${bonus}. It can't be undone.`,
@@ -220,6 +222,7 @@ function ProjectDetailPage() {
         timezone={user?.family?.timezone || 'America/Phoenix'}
         project={project}
         isParent={isParent}
+        personal={isParentAccount && isPersonalSpace}
         isAssigned={isAssigned}
         onAction={handleAction}
         onEdit={() => setEditOpen(true)}
@@ -254,13 +257,14 @@ function ProjectDetailPage() {
           exit={{ opacity: 0 }}
         >
           {currentTab === 'Overview' && (
-            <OverviewTab project={project} isParent={isParent} />
+            <OverviewTab project={project} isParent={isParent} personal={isParentAccount && isPersonalSpace} />
           )}
           {currentTab === 'Plan' && (<div className="space-y-3">
             {isParent && !isHomeworkPlan && <ProjectAIAssist project={project} onApplied={reload} onRefresh={reload} />}
             <PlanTab
               project={project}
               isParent={isParent}
+              personal={isParentAccount && isPersonalSpace}
               pendingMilestoneId={pendingMilestoneId}
               onCompleteMilestone={handleCompleteMilestone}
               onDeleteMilestone={handleDeleteMilestone}

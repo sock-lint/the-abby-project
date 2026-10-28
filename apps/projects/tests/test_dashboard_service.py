@@ -343,7 +343,10 @@ class SinceLastVisitTests(TestCase):
         self.child.refresh_from_db()
         self.assertGreater(self.child.last_seen_at, first)
 
-    def test_parent_fetch_also_stamps(self):
+    def test_parent_family_fetch_preserves_personal_visit_stamp(self):
+        last_seen = timezone.now() - timedelta(days=2)
+        User.objects.filter(pk=self.parent.pk).update(last_seen_at=last_seen)
+        self.parent.refresh_from_db()
         build_dashboard(self.parent)
         self.parent.refresh_from_db()
-        self.assertIsNotNone(self.parent.last_seen_at)
+        self.assertEqual(self.parent.last_seen_at, last_seen)

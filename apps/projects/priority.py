@@ -3,8 +3,8 @@
 Exports one public function — `build_next_actions(user, *, target_date=None,
 hour=None, limit=20)` — which returns a ranked list of `NextAction`
 dataclass instances covering chores, homework, daily starter habits, and
-(optionally) a single streak-protecting habit. Parents always receive `[]` —
-the parent hero is driven by the approval queue, not a priority feed.
+(optionally) a single streak-protecting habit. Family parents receive `[]`;
+explicit personal requests include their own chores and positive habits.
 
 Scoring weights live in `SCORING_WEIGHTS` at module top so they can be
 tuned in one place. See
@@ -63,7 +63,7 @@ class NextAction:
         }
 
 
-def build_next_actions(user, *, target_date=None, hour=None, limit=20):
+def build_next_actions(user, *, target_date=None, hour=None, limit=20, personal=False):
     """Return a ranked list of NextAction instances for the user.
 
     Args:
@@ -77,9 +77,10 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
 
     Returns:
         list[NextAction] sorted by score descending with deterministic
-        tie-breaking. Parents always receive `[]`.
+        tie-breaking. Family parents receive `[]`; personal parents receive
+        their own actions with the rewards personal completion can pay.
     """
-    if user.role != "child":
+    if user.role != "child" and not (personal and user.role == "parent"):
         return []
 
     from django.utils import timezone
@@ -97,9 +98,10 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
         hour = timezone.localtime(now).hour
 
     actions = []
-    actions.extend(_chore_actions(user, target_date))
+    actions.extend(_chore_actions(user, target_date, personal=personal and user.role == "parent"))
     actions.extend(_homework_actions(user, target_date))
-    actions.extend(_habit_actions(user, habit_date, hour=hour))
+    actions.extend(_habit_actions(user, habit_date, hour=hour, show_all=True)
+                   if personal else _habit_actions(user, habit_date, hour=hour))
 
     def sort_key(a):
         has_money = bool(a.reward and a.reward.get("money") not in (None, "0.00"))
@@ -117,19 +119,20 @@ def _available_chores(user, target_date):
     return list(ChoreService.get_available_chores(user, target_date))
 
 
-def _chore_reward(chore):
-    if not chore.reward_amount and not chore.coin_reward:
+def _chore_reward(chore, *, personal=False):
+    money = "0.00" if personal else str(chore.reward_amount)
+    if (personal or not chore.reward_amount) and not chore.coin_reward:
         return None
     return {
-        "money": str(chore.reward_amount),
+        "money": money,
         "coins": int(chore.coin_reward),
     }
 
 
-def _chore_subtitle(chore):
-    if chore.reward_amount and chore.coin_reward:
+def _chore_subtitle(chore, *, personal=False):
+    if not personal and chore.reward_amount and chore.coin_reward:
         return f"chore · ${chore.reward_amount} · {chore.coin_reward} coins"
-    if chore.reward_amount:
+    if not personal and chore.reward_amount:
         return f"chore · ${chore.reward_amount}"
     if chore.coin_reward:
         return f"chore · {chore.coin_reward} coins"
@@ -150,7 +153,7 @@ def _chore_score(chore, target_date):
     return 0
 
 
-def _chore_actions(user, target_date):
+def _chore_actions(user, target_date, *, personal=False):
     actions = []
     for chore in _available_chores(user, target_date):
         if chore.is_done_today:
@@ -159,10 +162,10 @@ def _chore_actions(user, target_date):
             kind="chore",
             id=chore.pk,
             title=chore.title,
-            subtitle=_chore_subtitle(chore),
+            subtitle=_chore_subtitle(chore, personal=personal),
             score=_chore_score(chore, target_date),
             due_at=None,
-            reward=_chore_reward(chore),
+            reward=_chore_reward(chore, personal=personal),
             icon=chore.icon or "Sparkles",
             tone="moss",
             action_url="/chores",
@@ -269,9 +272,9 @@ def _untapped_positive_habits(user, target_date):
     return [h for h in habits if h._taps_today < h.max_taps_per_day]
 
 
-def _habit_actions(user, target_date, *, hour):
+def _habit_actions(user, target_date, *, hour, show_all=False):
     habits = _untapped_positive_habits(user, target_date)
-    starters = [h for h in habits if getattr(h, "starter_key", None)]
+    starters = habits if show_all else [h for h in habits if getattr(h, "starter_key", None)]
     actions = [NextAction(
         kind="habit",
         id=habit.pk,
@@ -289,7 +292,7 @@ def _habit_actions(user, target_date, *, hour):
         tone="moss",
         action_url="/habits",
     ) for habit in starters]
-    if hour < 18:
+    if show_all or hour < 18:
         return actions
     streak = _login_streak(user)
     if streak < 1:

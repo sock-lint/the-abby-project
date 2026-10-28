@@ -1,6 +1,6 @@
 import { getDashboard } from '../api';
 import { useApi } from '../hooks/useApi';
-import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import ErrorAlert from '../components/ErrorAlert';
 import ChildDashboard from './ChildDashboard';
 import ParentDashboard from './ParentDashboard';
@@ -16,7 +16,7 @@ import PageHeader from '../components/layout/PageHeader';
  */
 export default function Dashboard() {
   const { data, loading, error, reload } = useApi(getDashboard);
-  const { isParent } = useRole();
+  const { isFamilySpace: isParent } = useSpace();
 
   if (loading) return <DashboardSkeleton />;
   if (error || !data) {

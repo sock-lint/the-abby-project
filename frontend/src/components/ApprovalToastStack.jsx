@@ -36,14 +36,14 @@ function Toast({ toast, onDismiss }) {
 }
 
 /**
- * ApprovalToastStack — child-only toast strip that closes the parent
- * approval feedback loop. Polls /api/notifications/ and emits a toast
+ * ApprovalToastStack — personal-space toast strip for children and parents
+ * in My space. Watches the shared pulse and emits a toast
  * the first time we see each new approval-decision row (chore approved,
  * homework approved, creation approved, exchange approved, etc.).
  *
  * Sibling of DropToastStack + SavingsToastStack. Mounted globally in
- * JournalShell so the toast fires regardless of which page the child
- * is on when the parent finishes triaging.
+ * JournalShell so personal participants see decisions on any page.
+ * Family keeps its review interface instead of personal decision toasts.
  *
  * Stacked under the SavingsToastStack so a burst of approvals doesn't
  * overlap a savings-goal celebration.

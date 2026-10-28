@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,6 +10,11 @@ import { buildParent } from '../test/factories.js';
 import { spyHandler } from '../test/spy.js';
 import { DEFAULT_OVERRIDES, ingestDraftKey, readIngestDraft, storeIngestDraft } from './ingest/ingestDraft';
 import { STORAGE_KEYS } from '../constants/storage';
+import { useSpace } from '../hooks/useSpace';
+
+vi.mock('../hooks/useSpace', () => ({ useSpace: vi.fn() }));
+
+beforeEach(() => useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: false }));
 
 vi.mock('../components/GoogleDrivePickerButton', () => ({
   default: ({ onPick, children, disabled, pdfOnly }) => (
@@ -47,6 +52,24 @@ function keepDraft(changes = {}, userId = 99) {
 }
 
 describe('ProjectIngest', () => {
+  it('imports for a parent’s personal space without exposing or replaying a saved cash bonus', async () => {
+    useSpace.mockReturnValue({ isParentAccount: true, isPersonalSpace: true });
+    keepDraft({ overrides: { ...DEFAULT_OVERRIDES, bonus_amount: '25', materials_budget: '12' } });
+    const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', { id: 44 });
+    server.use(http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)), commit.handler);
+    const { user } = renderPage(buildParent({ id: 99 }));
+    await screen.findByRole('button', { name: /create project/i });
+    expect(screen.queryByRole('spinbutton', { name: 'Bonus ($)' })).not.toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: /materials budget/i })).toHaveValue(12);
+    await user.click(screen.getByRole('button', { name: /create project/i }));
+    expect(await screen.findByText('Created project')).toBeInTheDocument();
+    expect(commit.calls).toHaveLength(1);
+    expect(commit.calls[0]).toMatchObject({ method: 'POST', body: { bonus_amount: '0', materials_budget: '12' } });
+    expect(commit.calls[0].url).toMatch(/\/api\/projects\/ingest\/job-3\/commit\/$/);
+    expect(commit.calls[0].body).not.toHaveProperty('assigned_to_id');
+    expect(readIngestDraft(99)).toBeNull();
+  });
+
   it('starts a selected Drive PDF through the normal review flow without saving its token', async () => {
     const start = spyHandler('post', '*/api/projects/ingest/google-drive/', readyJob);
     const ordinaryStart = spyHandler('post', '*/api/projects/ingest/', {});
@@ -186,18 +209,20 @@ describe('ProjectIngest', () => {
   });
 
   it('creates the project with saved overrides and clears its device draft', async () => {
-    keepDraft({ overrides: { ...DEFAULT_OVERRIDES, materials_budget: '25', difficulty: 4 } });
+    keepDraft({ overrides: { ...DEFAULT_OVERRIDES, bonus_amount: '7', materials_budget: '25', difficulty: 4 } });
     const save = spyHandler('patch', '*/api/projects/ingest/job-3/', {});
     const commit = spyHandler('post', '*/api/projects/ingest/job-3/commit/', { id: 44 });
     server.use(http.get('*/api/projects/ingest/job-3/', () => HttpResponse.json(readyJob)), save.handler, commit.handler);
     const { user } = renderPage();
-    await user.click(await screen.findByRole('button', { name: /create project/i }));
+    await screen.findByRole('button', { name: /create project/i });
+    expect(screen.getByRole('spinbutton', { name: 'Bonus ($)' })).toHaveValue(7);
+    await user.click(screen.getByRole('button', { name: /create project/i }));
     expect(await screen.findByText('Created project')).toBeInTheDocument();
     expect(save.calls).toHaveLength(1);
     expect(save.calls[0].body).toEqual({ result_json: plan });
     expect(commit.calls).toHaveLength(1);
     expect(commit.calls[0].url).toMatch(/\/api\/projects\/ingest\/job-3\/commit\/$/);
-    expect(commit.calls[0].body).toEqual({ ...plan, category_id: null, difficulty: 4, bonus_amount: '0', materials_budget: '25', due_date: null });
+    expect(commit.calls[0].body).toEqual({ ...plan, category_id: null, difficulty: 4, bonus_amount: '7', materials_budget: '25', due_date: null });
     expect(readIngestDraft(99)).toBeNull();
   });
 

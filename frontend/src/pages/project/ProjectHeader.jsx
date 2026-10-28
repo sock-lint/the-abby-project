@@ -68,7 +68,7 @@ function projectVersalProps(project) {
  * edit / QR). Reskinned for the Hyrule Field Notes aesthetic.
  */
 export default function ProjectHeader({
-  project, isParent, isAssigned,
+  project, isParent, isAssigned, personal = false,
   onAction, onEdit, onOpenQR, timezone = 'America/Phoenix',
 }) {
   const navigate = useNavigate();
@@ -140,7 +140,7 @@ export default function ProjectHeader({
           </div>
         </div>
         {!isHomeworkPlan && <div className="flex gap-2 flex-wrap">
-          {!isParent && isAssigned && ['active', 'in_progress'].includes(project.status) && (
+          {(!isParent || personal) && isAssigned && ['active', 'in_progress'].includes(project.status) && (
             <Button
               size="sm"
               onClick={() => navigate(`/clock?project=${project.id}`)}
@@ -154,7 +154,7 @@ export default function ProjectHeader({
               Start project
             </Button>
           )}
-          {isAssigned && project.status === 'in_progress' && (
+          {!isParent && isAssigned && project.status === 'in_progress' && !personal && (
             // Royal tone marks the child's one hand-off action apart from the
             // parent's teal actions beside it; the `!` overrides ride on the
             // Button primitive so height, disabled and focus behavior stay in
@@ -167,14 +167,15 @@ export default function ProjectHeader({
               Submit for review
             </Button>
           )}
+          {isParent && isAssigned && project.status === 'in_progress' && <Button variant="success" size="sm" onClick={() => onAction('approve')}>Complete project</Button>}
           {isParent && project.status === 'in_review' && (
             <>
               <Button variant="success" size="sm" onClick={() => onAction('approve')}>
-                Approve
+                {personal || isAssigned ? 'Complete project' : 'Approve'}
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => onAction('request-changes')}>
+              {!personal && <Button variant="secondary" size="sm" onClick={() => onAction('request-changes')}>
                 Request changes
-              </Button>
+              </Button>}
             </>
           )}
           {isParent && project.status === 'completed' && (

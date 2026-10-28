@@ -120,7 +120,7 @@ def _visible_history_ids(user, now):
     return visible
 
 
-def acquisition_challenges(user):
+def acquisition_challenges(user, *, personal=False):
     """One batched projection keyed by (species ID, potion ID), never a write."""
     now = timezone.now()
     pairs = available_pet_pairs()
@@ -205,7 +205,8 @@ def acquisition_challenges(user):
     for definition_id, pair_set in current_pairs.items():
         definition = current[definition_id]
         available[definition_id] = bool(
-            pair_set and user.role == "child" and definition_id in controls["offered"]
+            pair_set and user.is_active and (user.role == "child" or (personal and user.role == "parent"))
+            and definition_id in controls["offered"]
             and (definition.is_repeatable or definition_id in repeating or definition_id not in completed)
             and has_progress_source(definition.quest_type, definition.trigger_filter)
             and milestone_eligibility(user, definition, new_enrollment=False,

@@ -20,6 +20,21 @@ Age-aware lifelong journal: birthdays, chapter transitions (school years that do
 Celery tasks: `chronicle-birthday-check` (00:20, grants the fixed `BIRTHDAY_COIN_GIFT` (200) once for a new birthday), `chronicle-chapter-transition` (00:25, Aug 1 opens / Jun 1 closes + freezes RECAP; grade-12 Jun 1 also emits a standalone `graduated_high_school` MILESTONE entry).
 
 ## Endpoints
+
+Parent My space (`X-Abby-Space: personal`) reads only the parent's own history,
+chapter summaries and shared-entry comments; a targeted child summary is
+rejected. Journal creation/today/corrections remain bound to the authenticated
+author and preserve existing private defaults, rewards and UUID retries for
+parents too. Family can still read explicitly shared household journals/grades;
+co-parents cannot read private entries or alter another author's sharing.
+Academic grade capture and the Meadow projection remain child-only.
+
+Manual memories owned by a parent are owner-only in both My space and Family,
+including REST list/detail/edit/delete and shared MCP readers and entry actions.
+Their `is_private` value does not enable co-parent access; manual memories have
+no sharing action. Family parents retain normal read/edit/delete access to
+child-owned manual memories. Journal and grade sharing rules remain separate.
+
 - `ChronicleViewSet` at `/api/chronicle/` — `summary`, `pending-celebration`, `mark-viewed`, parent-only manual CRUD, self-scoped journal POST (exact UUID retries return the saved entry; unrelated second-of-day attempts return 409) + same-day text PATCH + historical sharing PATCH + today lookup GET.
 - Journal action is `IsAuthenticated`, binds writes to `request.user` so `user_id` in body is ignored.
 - `GET /api/chronicle/journal/today/` — returns today's local-day journal entry for `request.user`, or `204` when none yet.
@@ -57,7 +72,7 @@ checks in `tests/test_birthday_concurrency.py`.
 
 ## Gotchas
 
-- **Age-aware Chronicle**: `User.date_of_birth` + `User.grade_entry_year` (both nullable) feed computed properties `age_years`, `current_grade`, `school_year_label` (Freshman/Sophomore/Junior/Senior through grade 12; `"Age {n} · YYYY-YY"` after). `ChronicleEntry.chapter_year` is the August-starting year — named `chapter` not `school` because the same field keeps working post-HS. `ChronicleService.record_first` uses a partial unique index on `(user, event_slug) where kind=first_ever` for emit-once semantics, returning `None` on duplicate. `CharacterProfile.unlocks` JSONField is scaffolded for future feature-pack gates (Driver's Ed, First Job, College Prep) — no UI, no readers in the current release. Future birthday gifts use `BIRTHDAY_COIN_GIFT` (default 200), independent of age. Saved birthday entries and their earlier gifts are never recalculated. Full-screen `BirthdayCelebrationModal` fires at App boot when `/api/chronicle/pending-celebration/` returns an unviewed BIRTHDAY entry; dismiss hits `POST /api/chronicle/{id}/mark-viewed/`. Graduation is a milestone inside the timeline, not a terminal state — the app keeps rolling chapters forever, labels flip to age-based after grade 12.
+- **Age-aware Chronicle**: `User.date_of_birth` + `User.grade_entry_year` (both nullable) feed computed properties `age_years`, `current_grade`, `school_year_label` (Freshman/Sophomore/Junior/Senior through grade 12; `"Age {n} · YYYY-YY"` after). `ChronicleEntry.chapter_year` is the August-starting year — named `chapter` not `school` because the same field keeps working post-HS. `ChronicleService.record_first` uses a partial unique index on `(user, event_slug) where kind=first_ever` for emit-once semantics, returning `None` on duplicate. `CharacterProfile.unlocks` JSONField is scaffolded for future feature-pack gates (Driver's Ed, First Job, College Prep) — no UI, no readers in the current release. Future birthday gifts use `BIRTHDAY_COIN_GIFT` (default 200), independent of age. Saved birthday entries and their earlier gifts are never recalculated. Full-screen `BirthdayCelebrationModal` fires in a child's space or a parent's My space when `/api/chronicle/pending-celebration/` returns an unviewed BIRTHDAY entry; Family leaves it pending. Dismiss hits `POST /api/chronicle/{id}/mark-viewed/`. Graduation is a milestone inside the timeline, not a terminal state — the app keeps rolling chapters forever, labels flip to age-based after grade 12.
 
 - **Journal sharing and read access**: new journal and grade entries default to `is_private=True`. This now gates read access, rather than merely rendering a lock chip. `apps/chronicle/access.py::visible_chronicle_entries` applies author/family scoping and hides private journals and grades from parents across REST list, summary, detail, mark-viewed, and MCP Chronicle readers. Historical `daily_note` entries are author-only regardless of their sharing flag. Authors retain their private journals. Other children cannot read even shared sibling entries. A parent cannot change the child's sharing setting. Existing private journal rows remain private; no data migration makes them public.
 

@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
+from config.participation import is_personal_space
 
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 
@@ -108,6 +109,9 @@ class HabitWriteSerializer(serializers.ModelSerializer):
                 if getattr(actor, "is_authenticated", False) and family_id is not None
                 else users.none()
             )
+            if request is not None and is_personal_space(request):
+                fields["user"].required = False
+                fields["user"].queryset = users.filter(pk=actor.pk)
             fields["user"].error_messages["does_not_exist"] = "Choose a user in your family."
         return fields
 

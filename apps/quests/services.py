@@ -494,121 +494,124 @@ class QuestService:
     @staticmethod
     def _award_quest_rewards(quest, user):
         """Pay one participant while the campaign and user locks are held."""
-        from apps.rewards.models import CoinLedger
-        from apps.rewards.services import CoinService
-        from apps.rpg.inventory import grant_item
-        from apps.notifications.services import notify
+        from apps.activity.services import personal_challenge_scope
 
-        rewards = {"coins": 0, "xp": 0, "items": []}
-        definition = quest.definition
+        with personal_challenge_scope(user, quest):
+            from apps.rewards.models import CoinLedger
+            from apps.rewards.services import CoinService
+            from apps.rpg.inventory import grant_item
+            from apps.notifications.services import notify
 
-        # Award coins
-        if definition.coin_reward > 0:
-            CoinService.award_coins(
-                user, definition.coin_reward, CoinLedger.Reason.ADJUSTMENT,
-                description=f"Quest complete: {definition.name}",
-            )
-            rewards["coins"] = definition.coin_reward
+            rewards = {"coins": 0, "xp": 0, "items": []}
+            definition = quest.definition
 
-        # Award XP — tag-distributed across QuestSkillTag rows when any
-        # exist. Quests without tags still award coins + items + trigger
-        # BadgeService.evaluate_badges (so QUEST_COMPLETED fires) but
-        # skip the skill-tree credit. Parents authoring custom quests
-        # should attach tags; every system quest in quests.yaml ships
-        # with a ``skill_tags:`` block.
-        if definition.xp_reward > 0:
-            from apps.achievements.services import AwardService
-            AwardService.grant(
-                user,
-                xp_tags=definition.skill_tags.select_related("skill"),
-                xp=definition.xp_reward,
-                xp_source_label=f"Quest: {definition.name}",
-            )
-            rewards["xp"] = definition.xp_reward
-        else:
-            # Quests with xp_reward == 0 still need badge evaluation so the
-            # QUEST_COMPLETED criterion fires. AwardService is the usual
-            # doorway; when it isn't called, evaluate directly.
-            from apps.achievements.services import BadgeService
-            # Audit H8: quest completion moves quest counters + meta, plus
-            # coin (quest reward already paid) and skill_xp (untagged
-            # quest case where AwardService isn't reached).
-            BadgeService.evaluate_badges(
-                user, scopes={"quest", "coin", "skill_xp", "badges"},
-            )
-
-        # Award item rewards. Eggs auto-salvage to coins when the player
-        # already mounts the matching species — quests like Dragon Slayer
-        # (rewards Wolf Egg + Dragon Egg) would otherwise stack dead eggs
-        # in the inventory of a kid who's already evolved both lifecycles.
-        # Salvage value = item.coin_value × quantity, mirroring the
-        # cosmetic-dupe rule in DropService.
-        from apps.quests.reward_items import accepted_reward_items, egg_reward_is_duplicate, reward_item_details
-        accepted_items = accepted_reward_items(quest)
-        for reward_item in accepted_items:
-            item = reward_item.item
-            details = {"item_id": item.pk, **reward_item_details(
-                item, snapshot=getattr(reward_item, "reward_snapshot", None),
-            ), "quantity": reward_item.quantity}
-            is_owned_egg = egg_reward_is_duplicate(user, item, (row.item for row in accepted_items))
-            if is_owned_egg and item.coin_value > 0:
-                salvage = item.coin_value * reward_item.quantity
+            # Award coins
+            if definition.coin_reward > 0:
                 CoinService.award_coins(
-                    user, salvage, CoinLedger.Reason.ADJUSTMENT,
-                    description=f"Quest egg salvage: {item.display_name}",
+                    user, definition.coin_reward, CoinLedger.Reason.ADJUSTMENT,
+                    description=f"Quest complete: {definition.name}",
                 )
-                rewards["coins"] += salvage
-                rewards["items"].append({
-                    **details,
-                    "salvaged_to_coins": salvage,
-                })
-                continue
-            grant_item(user, item, reward_item.quantity)
-            rewards["items"].append(details)
+                rewards["coins"] = definition.coin_reward
 
-        # Completion and every recipient's payout share the campaign/user
-        # locks. Its status guard makes this extra roll one-time, including
-        # co-op members who did not land the finishing hit.
-        from apps.rpg.services import DropService
-        DropService.award_accomplishment(user, TriggerType.QUEST_COMPLETE)
-        from apps.chronicle.recognition import safe_record_firsts
-        safe_record_firsts(user, TriggerType.QUEST_COMPLETE)
+            # Award XP — tag-distributed across QuestSkillTag rows when any
+            # exist. Quests without tags still award coins + items + trigger
+            # BadgeService.evaluate_badges (so QUEST_COMPLETED fires) but
+            # skip the skill-tree credit. Parents authoring custom quests
+            # should attach tags; every system quest in quests.yaml ships
+            # with a ``skill_tags:`` block.
+            if definition.xp_reward > 0:
+                from apps.achievements.services import AwardService
+                AwardService.grant(
+                    user,
+                    xp_tags=definition.skill_tags.select_related("skill"),
+                    xp=definition.xp_reward,
+                    xp_source_label=f"Quest: {definition.name}",
+                )
+                rewards["xp"] = definition.xp_reward
+            else:
+                # Quests with xp_reward == 0 still need badge evaluation so the
+                # QUEST_COMPLETED criterion fires. AwardService is the usual
+                # doorway; when it isn't called, evaluate directly.
+                from apps.achievements.services import BadgeService
+                # Audit H8: quest completion moves quest counters + meta, plus
+                # coin (quest reward already paid) and skill_xp (untagged
+                # quest case where AwardService isn't reached).
+                BadgeService.evaluate_badges(
+                    user, scopes={"quest", "coin", "skill_xp", "badges"},
+                )
 
-        notify(
-            user,
-            title=f"Challenge complete: {definition.name}!",
-            message=f"Earned {rewards['coins']} coins and {rewards['xp']} XP!",
-            notification_type="badge_earned",
-            link="/quests",
-        )
+            # Award item rewards. Eggs auto-salvage to coins when the player
+            # already mounts the matching species — quests like Dragon Slayer
+            # (rewards Wolf Egg + Dragon Egg) would otherwise stack dead eggs
+            # in the inventory of a kid who's already evolved both lifecycles.
+            # Salvage value = item.coin_value × quantity, mirroring the
+            # cosmetic-dupe rule in DropService.
+            from apps.quests.reward_items import accepted_reward_items, egg_reward_is_duplicate, reward_item_details
+            accepted_items = accepted_reward_items(quest)
+            for reward_item in accepted_items:
+                item = reward_item.item
+                details = {"item_id": item.pk, **reward_item_details(
+                    item, snapshot=getattr(reward_item, "reward_snapshot", None),
+                ), "quantity": reward_item.quantity}
+                is_owned_egg = egg_reward_is_duplicate(user, item, (row.item for row in accepted_items))
+                if is_owned_egg and item.coin_value > 0:
+                    salvage = item.coin_value * reward_item.quantity
+                    CoinService.award_coins(
+                        user, salvage, CoinLedger.Reason.ADJUSTMENT,
+                        description=f"Quest egg salvage: {item.display_name}",
+                    )
+                    rewards["coins"] += salvage
+                    rewards["items"].append({
+                        **details,
+                        "salvaged_to_coins": salvage,
+                    })
+                    continue
+                grant_item(user, item, reward_item.quantity)
+                rewards["items"].append(details)
 
-        from apps.activity.services import ActivityLogService
-        ActivityLogService.record(
-            category="quest",
-            event_type="quest.complete",
-            summary=f"Challenge complete: {definition.name}",
-            subject=user,
-            target=quest,
-            coins_delta=int(rewards["coins"]) or None,
-            xp_delta=int(rewards["xp"]) or None,
-            breakdown=[
-                {"label": "coins", "value": rewards["coins"], "op": "note"},
-                {"label": "xp", "value": rewards["xp"], "op": "note"},
-                {"label": "items",
-                 "value": ", ".join(i["item_name"] for i in rewards["items"]) or "—",
-                 "op": "note"},
-            ],
-            extras={
-                "quest_id": quest.pk,
-                "quest_name": definition.name,
-                "coin_reward": rewards["coins"],
-                "xp_reward": rewards["xp"],
-                "item_rewards": rewards["items"],
-            },
-        )
+            # Completion and every recipient's payout share the campaign/user
+            # locks. Its status guard makes this extra roll one-time, including
+            # co-op members who did not land the finishing hit.
+            from apps.rpg.services import DropService
+            DropService.award_accomplishment(user, TriggerType.QUEST_COMPLETE)
+            from apps.chronicle.recognition import safe_record_firsts
+            safe_record_firsts(user, TriggerType.QUEST_COMPLETE)
 
-        logger.info("User %s completed quest: %s", user.username, definition.name)
-        return rewards
+            notify(
+                user,
+                title=f"Challenge complete: {definition.name}!",
+                message=f"Earned {rewards['coins']} coins and {rewards['xp']} XP!",
+                notification_type="badge_earned",
+                link="/quests",
+            )
+
+            from apps.activity.services import ActivityLogService
+            ActivityLogService.record(
+                category="quest",
+                event_type="quest.complete",
+                summary=f"Challenge complete: {definition.name}",
+                subject=user,
+                target=quest,
+                coins_delta=int(rewards["coins"]) or None,
+                xp_delta=int(rewards["xp"]) or None,
+                breakdown=[
+                    {"label": "coins", "value": rewards["coins"], "op": "note"},
+                    {"label": "xp", "value": rewards["xp"], "op": "note"},
+                    {"label": "items",
+                     "value": ", ".join(i["item_name"] for i in rewards["items"]) or "—",
+                     "op": "note"},
+                ],
+                extras={
+                    "quest_id": quest.pk,
+                    "quest_name": definition.name,
+                    "coin_reward": rewards["coins"],
+                    "xp_reward": rewards["xp"],
+                    "item_rewards": rewards["items"],
+                },
+            )
+
+            logger.info("User %s completed quest: %s", user.username, definition.name)
+            return rewards
 
     @staticmethod
     def expire_quests():

@@ -199,8 +199,8 @@ export default function QuickActionsSheet(props) {
 function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReload, context }) {
   const mounted = useMountedRef();
   const navigate = useNavigate();
-  const { isParent, children, selectedChild, targetUserId, selectChild } = context;
-  const childPath = (path) => targetUserId ? `${path}&child=${encodeURIComponent(targetUserId)}` : path;
+  const { isParent, isParentAccount, children, selectedChild, targetUserId, selectChild } = context;
+  const childPath = (path) => isParent && targetUserId ? `${path}&child=${encodeURIComponent(targetUserId)}` : path;
   const needsChild = context.loading || !selectedChild;
   const go = (path) => { onClose(); navigate(childPath(path)); };
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
@@ -220,7 +220,7 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
   const todayJournal = journal.data;
 
   // Contextual enable/disable flags.
-  const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
+  const { data: hwDashboard } = useApi(isParent || isParentAccount ? () => Promise.resolve(null) : getHomeworkDashboard);
   const { data: goalsData } = useApi(isParent ? () => Promise.resolve([]) : getSavingsGoals);
 
   // Projects load at the sheet level (shared with ClockPane) so the menu can
@@ -391,20 +391,20 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
               />
               <ErrorAlert message={journal.error} onRetry={journal.reload} />
               {/* Use the same feature names as the Tasks tabs. */}
-              <ActionRow
+              {!isParentAccount && <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Log a grade"
                 hint="Keep a result and what you learned"
                 tone="royal"
                 onClick={() => setGradeOpen(true)}
-              />
-              <ActionRow
+              />}
+              {!isParentAccount && <ActionRow
                 icon={<BookOpen size={18} />}
                 label="Add homework"
                 hint="Self-assign homework"
                 tone="royal"
                 onClick={() => setHomeworkOpen(true)}
-              />
+              />}
               {hasDueHw && (
                 <ActionRow
                   icon={<BookOpen size={18} />}
@@ -424,24 +424,24 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
                   tone="moss"
                   onClick={() => { onClose(); navigate('/trials'); }}
                 />
-              <ActionRow
+              {!isParentAccount && <ActionRow
                 icon={<Box size={18} />}
                 label="Ask for a print"
                 hint="3D print request — parent approves it"
                 tone="teal"
                 onClick={() => { onClose(); navigate('/treasury?tab=forge&new=1'); }}
-              />
+              />}
               <ActionRow
                 icon={<Sparkles size={18} />}
-                label="Suggest a chore"
-                hint="Suggest a chore — parent sets the reward"
+                label={isParentAccount ? 'New chore' : 'Suggest a chore'}
+                hint={isParentAccount ? 'Set your own task and schedule' : 'Suggest a chore — parent sets the reward'}
                 tone="gold"
                 onClick={() => { onClose(); navigate('/quests?tab=duties&propose=1'); }}
               />
               <ActionRow
                 icon={<Feather size={18} />}
-                label="Suggest a habit"
-                hint="Suggest a habit — parent sets the XP"
+                label={isParentAccount ? 'New habit' : 'Suggest a habit'}
+                hint={isParentAccount ? 'Create a habit for yourself' : 'Suggest a habit — parent sets the XP'}
                 tone="royal"
                 onClick={() => { onClose(); navigate('/quests?tab=rituals&propose=1'); }}
               />

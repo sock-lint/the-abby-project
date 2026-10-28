@@ -140,6 +140,20 @@ frontend/src/
 
 ## Auth wiring
 
+### Parent workspaces
+
+`SpaceProvider` sits inside `BrowserRouter` above Pulse/review/shell. Parents
+have Family (Today/Tasks/Children/Rewards) and My space (the six personal
+destinations). `useRole` remains actual authorization; `useSpace` supplies
+presentation and `useChildContext.isParent` means the Family view. Personal
+parents target their own account. The provider remounts workspace data/forms,
+binds the API hint to the exact credential, respects existing unfinished-work
+guards, and keeps per-account per-tab route preferences. Requests snapshot
+`X-Abby-Space: personal`; explicit Family review reads override that hint,
+including every pending-list page. Private read namespaces also include space.
+Do not change `user.role` to show a participant interface. See
+[the user guide](../docs/family-and-my-space.md).
+
 - Token stored in `localStorage` key `abby_auth_token`, sent as `Authorization: Token <key>`.
 - **Shared browser session:** tabs on the same origin share the browser token; Unity is retired and no longer consumes it. Delayed 401s and logout responses clear only the token they used, preserving a newer sign-in. `AuthProvider` reloads on an external tab's auth-token change or localStorage clear, keeping the rendered user/role aligned with the credential. It also drops the cached user snapshot so offline boot cannot hydrate the previous account.
 - **Offline identity:** `AuthProvider` stores the last verified user in a versioned `{ token, user }` envelope bound to the exact credential that fetched it. It restores that identity only after a network failure with the matching token. Legacy snapshots and mismatched credentials are rejected; anonymous boots never accept a cached `/auth/me/` success. Login, signup and OAuth replacement clear the old snapshot before installing the new credential. `sessionError` carries OAuth/logout push-cleanup failures to the Login page.
@@ -416,11 +430,11 @@ Icon-prefixed text input used to filter long catalog lists. Fully controlled —
 ## Celebration moments (2026-05)
 
 The app surfaces reveal/toast components mounted near the top of [`App.jsx`](src/App.jsx) so big-moment notifications don't sit lost in the bell. These respect the global `prefers-reduced-motion` rule in [`index.css`](src/index.css):
-- [`CelebrationModal`](src/components/CelebrationModal.jsx) — full-screen reveal for `streak_milestone` (3/7/14/30/60/100) + `perfect_day`. At App boot it polls `GET /api/notifications/pending-celebration/` (returns the most recent unread streak/perfect-day notification — sister to `/api/chronicle/pending-celebration/`); dismissing fires `markNotificationRead`.
+- [`CelebrationModal`](src/components/CelebrationModal.jsx) — full-screen reveal for `streak_milestone` (3/7/14/30/60/100) + `perfect_day`. In personal space it reads `GET /api/notifications/pending-celebration/` (returns the most recent unread streak/perfect-day notification — sister to `/api/chronicle/pending-celebration/`); dismissing fires `markNotificationRead` in that same space. Parent Family visits leave personal celebrations unread for My space. Birthday celebrations retain priority, and leaving the space aborts the pending read/recovery.
 - [`PetCeremonyModal`](src/pages/bestiary/PetCeremonyModal.jsx) — sequenced reveals for `hatch_pet` (sparkle) and `evolve` (crown halo), launched from `Hatchery` and `Companions`. Tap-anywhere dismiss. See `apps/pets/CLAUDE.md` for the three modes (hatch/evolve/expedition_return).
 - [`RareDropReveal`](src/components/RareDropReveal.jsx) + [`rareDropTiers.js`](src/components/rareDropTiers.js) — escalates `rare`/`epic`/`legendary` drops out of the slide-in [`DropToastStack`](src/components/DropToastStack.jsx) into a center-screen card with rarity glow, queued so multiple rares don't collide.
 - [`DailyChallengeCard`](src/components/dashboard/DailyChallengeCard.jsx) shows Today's automatic bonus with actual paid Coins/XP and no Claim action. `PinnedChallengeCard` features the chosen goal without controlling whether work counts. The old claim modal is retained only as a legacy component.
-- [`ApprovalToastStack`](src/components/ApprovalToastStack.jsx) + [`useApprovalToasts`](src/hooks/useApprovalToasts.js) — child-side toasts for chore/homework/creation/exchange/redemption approvals + rejections, polled from notifications. Seen-IDs persist in `localStorage` per the keys in [`constants/storage.js`](src/constants/storage.js) so a refresh doesn't re-show them.
+- [`ApprovalToastStack`](src/components/ApprovalToastStack.jsx) + [`useApprovalToasts`](src/hooks/useApprovalToasts.js) — personal-space toasts for chore/homework/creation/exchange/redemption approvals + rejections, polled from notifications for children and parents in My space. Seen-IDs persist in `localStorage` per the keys in [`constants/storage.js`](src/constants/storage.js) so a refresh doesn't re-show them.
 - [`QuestProgressToastStack`](src/components/QuestProgressToastStack.jsx) + [`useQuestProgressToasts`](src/hooks/useQuestProgressToasts.js) — 4s floater on every active-quest progress increment ("+10 toward Dragon Slayer 62%") so contributing actions feel tied to the quest rather than vanishing into a stat. Driven by polling `getActiveQuest()` for delta detection on `current_progress`.
 
 Plus a small framer-motion equip toast on [`Character.jsx`](src/pages/Character.jsx) — "Now wearing X" floats up on every cosmetic equip/unequip.

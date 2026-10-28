@@ -372,7 +372,8 @@ def reset_day_counters(user, *, kind: str = "all") -> dict[str, Any]:
 #     child's UI tap. The op seeds state; the tester verifies.
 # --------------------------------------------------------------------------
 
-# 12 notification types the child-side ``useApprovalToasts`` hook watches.
+# 12 decision types ``useApprovalToasts`` watches for children and parents in
+# My space. Family keeps its review UI instead of these personal toasts.
 # Mirrors ``APPROVAL_TYPES`` in frontend/src/hooks/useApprovalToasts.js.
 # Exchange uses ``denied`` instead of ``rejected`` to match the model enum.
 APPROVAL_NOTIFICATION_TYPES = {

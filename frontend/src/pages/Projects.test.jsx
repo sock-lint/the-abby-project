@@ -158,7 +158,7 @@ describe('Projects', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText('Abby P')).toBeInTheDocument());
-    const [, , childSelect] = screen.getAllByRole('combobox');
+    const childSelect = await screen.findByRole('combobox', { name: 'Filter by child' });
     await selectDropdown(user, childSelect, 'unassigned');
     expect(screen.queryByText('Abby P')).toBeNull();
     expect(screen.getByText('Open')).toBeInTheDocument();

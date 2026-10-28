@@ -35,9 +35,10 @@ def _locked_reading_members(target, requester):
     }
     actor, target = members.get(requester.pk), members.get(target.pk)
     if (
-        target is None or target.role != "child" or actor is None or not actor.is_active
+        target is None or actor is None or not actor.is_active
         or (actor.role, actor.is_staff) != (requester.role, requester.is_staff)
         or actor.role not in {"parent", "child"}
+        or (target.role != "child" and (target.role != "parent" or target.pk != actor.pk))
         or (actor.role == "child" and actor.pk != target.pk)
     ):
         raise NotFound("Child not found.")

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import QuestDefinition, Quest
@@ -90,6 +91,8 @@ class CreateQuestView(APIView):
         data = serializer.validated_data
 
         coop_ids = data.get("coop_user_ids") or []
+        if is_personal_space(request) and coop_ids:
+            return child_not_found_response()
         skill_tag_rows = data.get("skill_tags") or []
 
         # Pre-validate skill ids before any write so a typo surfaces as
@@ -117,9 +120,12 @@ class CreateQuestView(APIView):
                     return child_not_found_response()
                 coop_children.append(child)
         elif data.get("assigned_to"):
-            single_child = get_child_or_404(
-                data["assigned_to"], requesting_user=request.user,
-            )
+            if is_personal_space(request):
+                single_child = request.user if data["assigned_to"] == request.user.pk else None
+            else:
+                single_child = get_child_or_404(
+                    data["assigned_to"], requesting_user=request.user,
+                )
             if not single_child:
                 return child_not_found_response()
 
@@ -212,7 +218,10 @@ class AssignQuestView(APIView):
         user_id = request.data.get("user_id")
         if not user_id:
             return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        child = get_child_or_404(user_id, requesting_user=request.user)
+        if is_personal_space(request):
+            child = request.user if str(user_id) == str(request.user.pk) else None
+        else:
+            child = get_child_or_404(user_id, requesting_user=request.user)
         if not child:
             return child_not_found_response()
         try:
@@ -232,6 +241,8 @@ class StartCoOpQuestView(APIView):
     permission_classes = [IsParent]
 
     def post(self, request, pk):
+        if is_personal_space(request):
+            return child_not_found_response()
         user_ids = request.data.get("user_ids") or []
         if not isinstance(user_ids, list) or len(user_ids) < 2:
             return Response(
