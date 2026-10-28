@@ -40,10 +40,12 @@ def project_category_resolution(name):
     from apps.rpg.models import RPGContentOverride
 
     if not isinstance(name, str):
-        # Keep native ORM coercion for saved legacy current-name selectors.
+        # Prepare legacy selectors with the category's native CharField rules.
+        # PostgreSQL's iexact lookup does not perform this field preparation.
         # Their original values do not become retained source aliases.
+        current_name = SkillCategory._meta.get_field("name").get_prep_value(name)
         return ProjectCategoryResolution(SkillCategory.objects.filter(
-            name__iexact=name).values_list("pk", flat=True))
+            name__iexact=current_name).values_list("pk", flat=True))
     current = SkillCategory.objects.filter(name__iexact=name)
     # A current category's own override is not a competing historical identity.
     # Only genuinely renamed rows need the bounded ambiguity check.

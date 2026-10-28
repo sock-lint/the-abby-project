@@ -1092,6 +1092,33 @@ class ContentPack:
                             "bundled admission cycle; retained catalog history is unchanged.")
                     state.cycle_pins[node] = conflict, reason
                     plan(planned, causes, *node, conflict, reason)
+            def unsupported_retained_trial(name, entry):
+                # With no prerequisite, a retained repeatable quest cannot
+                # justify its own refusal through gates that its saved capacity
+                # always satisfies. Under a proposed False plan the quest is
+                # available with infinite capacity, so every such gate's ordinary
+                # equation admits it; the unforced quest equation then removes
+                # False. No independently supported trial can be lost here.
+                # Local policy pins are omitted by that check. Actual seeds and
+                # settled outside gates remain authoritative and are not pruned.
+                if (entry.get("prerequisite_quest") is not None
+                        or ("quest", None) in nodes or ("quest", None) in planned):
+                    return False
+                gates = badge_references(entry.get("required_badge"))
+                if not gates:
+                    return False
+                for badge in gates:
+                    key = "badge", badge
+                    versions = badge_entries.get(key, [])
+                    if key not in component or key in seeds or not versions:
+                        return False
+                    for version in versions:
+                        parsed = self._startup_quest_completion_rule(version.get("criteria_value"))
+                        if (version["criteria_type"] != "quest_completed"
+                                or parsed is None or name not in parsed[0]):
+                            return False
+                return True
+
             # A conflict can otherwise justify itself around a capacity cycle:
             # the refusal removes saved repeatability, which then sustains that
             # same refusal. Try retained conditional capacity locally. Accept a
@@ -1112,7 +1139,8 @@ class ContentPack:
                             or candidates[0].get("is_repeatable", False)):
                         continue
                     saved = quest_matches(name)
-                    if len(saved) == 1 and saved[0].is_repeatable:
+                    if (len(saved) == 1 and saved[0].is_repeatable
+                            and not unsupported_retained_trial(name, candidates[0])):
                         conditional.append(node)
                 accepted = False
                 for proposed in conditional:
