@@ -254,7 +254,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
 
         try:
             result = HabitService.log_tap(
-                request.user, habit, direction, usage_actor=request.user,
+                request.user, habit, direction, usage_actor=request.user, include_source=True,
             )
         except ValueError as exc:
             return Response(
@@ -262,6 +262,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        habit_log_id = result.pop("habit_log_id")
         game_event = None
         if direction == 1:
             # Imported lazily to avoid a static dep from habits → rpg at
@@ -270,7 +271,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.rpg.services import GameLoopService
 
             game_event = GameLoopService.on_task_completed(
-                request.user, TriggerType.HABIT_LOG, {"habit_id": habit.pk},
+                request.user, TriggerType.HABIT_LOG, {"habit_id": habit.pk, "habit_log_id": habit_log_id},
             )
 
         return Response({**result, "game_event": game_event})

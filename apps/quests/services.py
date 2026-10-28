@@ -126,6 +126,8 @@ class QuestService:
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)
+        from .progress_sources import require_current_progress_source
+        require_current_progress_source(definition)
         definition_ids = equivalent_definition_ids(definition)
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id__in=definition_ids).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
@@ -229,6 +231,8 @@ class QuestService:
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)
+        from .progress_sources import require_current_progress_source
+        require_current_progress_source(definition)
         definition_ids = equivalent_definition_ids(definition)
         personal_goals = ChallengeGoal.objects.filter(user__in=users, catalog_definition_id__in=definition_ids)
         if definition.is_cooperative:
@@ -312,7 +316,7 @@ class QuestService:
 
     @staticmethod
     @transaction.atomic
-    def record_progress(user, trigger_type, context=None, *, quest_id=None):
+    def record_progress(user, trigger_type, context=None, *, quest_id=None, category_context=None):
         """Record quest progress from a completed task.
 
         Returns dict with: quest_id, quest_name, damage_dealt, new_progress, completed (bool), rewards (if completed).
@@ -367,8 +371,13 @@ class QuestService:
             return None
 
         # Check skill category filter
-        if trigger_filter.get("skill_category_id") and context.get("skill_category_id") != trigger_filter["skill_category_id"]:
-            return None
+        if trigger_filter.get("skill_category_id"):
+            from .activity import resolve_category_context
+            from .category_matching import matches_category
+            if category_context is None:
+                category_context = resolve_category_context(user, trigger_type, context)
+            if not matches_category(category_context, trigger_filter["skill_category_id"]):
+                return None
 
         # Check chore filter
         if trigger_filter.get("chore_ids") and context.get("chore_id") not in trigger_filter["chore_ids"]:

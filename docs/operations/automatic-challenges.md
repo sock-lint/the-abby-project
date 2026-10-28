@@ -154,8 +154,32 @@ after their caller has already locked the project row. PostgreSQL overlap
 regressions are in `apps/projects/tests/test_challenge_credit_concurrency.py`.
 Existing windows never restart when the child returns, completes or pins them. An already active
 legacy challenge retains its original dates, target, progress and reward promise.
-New automatic enrollment omits reward-only badge-earned/Perfect-Day definitions;
-those saved legacy instances remain readable. Default goals count effort events,
+New offers, manual solo/co-op starts, rerolls and private quest creation require
+an activity that the saved-work pipeline can produce. Reward-only badge-earned,
+Perfect-Day and quest-completion rules cannot start a new campaign. Boss rules
+also need at least one matching activity that deals damage. Mixed rules remain
+eligible when they include a supported progress source; missing, null and empty
+trigger lists keep their existing unfiltered meaning. Retained definitions report
+`catalog_available: false` when they cannot progress; saved campaigns, history,
+rewards and identical creation-request retries stay preserved.
+
+One activity must be able to satisfy every selected filter. On-time rules need
+approved homework, and category rules need activities with saved skill-tag
+categories. For example, a creation-only rule with a category filter cannot open
+a new campaign because creation facts do not record category evidence. Catalog
+and workbench availability, item reward hints and companion offers use that same
+check for new offers. Accepted progress and reward promises retain their saved
+fulfillment paths.
+
+Category restrictions match the category saved alongside the accepted activity's
+skill tags. Later tag edits or moving a skill into another category do not
+reinterpret that activity. Older facts without category evidence are retained
+without inventing a category or replaying their progress.
+For milestones, the milestone's own skill tags take precedence; project tags
+provide the fallback when no milestone tags are assigned. This category evidence
+is separate from the existing daily-bonus XP allocation, which stays unchanged.
+
+Default goals count effort events,
 so bonus awards do not recursively complete more goals. Expedition returns count
 only when the goal explicitly includes that trigger.
 

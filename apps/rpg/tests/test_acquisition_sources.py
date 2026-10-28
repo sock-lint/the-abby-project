@@ -61,6 +61,59 @@ class AcquisitionSourcesTests(TestCase):
         row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
         self.assertEqual(row["acquisition_sources"], [])
 
+    def test_zero_damage_boss_is_not_advertised_as_a_new_reward_path(self):
+        from apps.quests.services import QuestService
+
+        self.quest.quest_type = "boss"
+        self.quest.trigger_filter = {"allowed_triggers": ["creation_logged"]}
+        self.quest.save()
+        with self.assertRaisesRegex(ValueError, "Choose a saved-work activity"):
+            QuestService.start_quest(self.user, self.quest.pk)
+        response = self.client.get("/api/cosmetics/catalog/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["active_frame"][0]["acquisition_sources"], [])
+
+    def test_creation_collection_and_mixed_boss_keep_their_reward_paths(self):
+        for quest_type, triggers in (
+            ("collection", ["creation_logged"]),
+            ("boss", ["creation_logged", "habit_log"]),
+        ):
+            with self.subTest(quest_type=quest_type):
+                self.quest.quest_type = quest_type
+                self.quest.trigger_filter = {"allowed_triggers": triggers}
+                self.quest.save()
+                response = self.client.get("/api/cosmetics/catalog/")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["active_frame"][0]["acquisition_sources"], [{
+                    "kind": "challenge", "name": self.quest.name, "path": "/quests?tab=trials",
+                }])
+
+    def test_new_admission_change_does_not_remove_a_saved_goal_reward_hint(self):
+        from apps.quests.goals import list_goals
+
+        list_goals(self.user)
+        self.quest.quest_type = "boss"
+        self.quest.trigger_filter = {"allowed_triggers": ["creation_logged"]}
+        self.quest.save()
+        response = self.client.get("/api/cosmetics/catalog/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["active_frame"][0]["acquisition_sources"], [{
+            "kind": "challenge", "name": self.quest.name, "path": "/quests?tab=trials",
+        }])
+
+    def test_new_admission_change_does_not_remove_a_saved_legacy_reward_hint(self):
+        from apps.quests.services import QuestService
+
+        QuestService.start_quest(self.user, self.quest.pk)
+        self.quest.quest_type = "boss"
+        self.quest.trigger_filter = {"allowed_triggers": ["creation_logged"]}
+        self.quest.save()
+        response = self.client.get("/api/cosmetics/catalog/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["active_frame"][0]["acquisition_sources"], [{
+            "kind": "challenge", "name": self.quest.name, "path": "/quests?tab=trials",
+        }])
+
     def test_retained_alias_does_not_advertise_a_second_challenge(self):
         alias = QuestDefinition.objects.create(
             name="Retained duplicate", quest_type="collection", target_value=10,
