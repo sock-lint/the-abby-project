@@ -238,6 +238,14 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Reading, journal, untagged daily-bonus XP and named category mastery resolve
+  captured current/retained taxonomy IDs. Journal keeps the native weighted
+  split; nonempty activity tags retain priority over the daily-bonus fallback.
+  Finite badge capacity follows those same eligible XP destinations.
+  The global snapshot bounds categories and public MCP source metadata,
+  freezes the identity maps, and binds category labels/maps to catalog freshness.
+  Decision bindings include only consumed taxonomy provenance; household
+  simulation and report work remain outside those locks.
   Modeled first hatch/evolution, automatic challenge, legendary badge, streak
   and approved exchange boundaries retain their once-only scoped badge checks.
   Chronicle rows and milestone-badge rewards remain excluded; those checks can
@@ -325,6 +333,13 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 - **RPG content authoring** (`content/rpg/`): Pets, eggs, potions, items, drops, quests, badges, and the skill tree are authored as YAML in `content/rpg/initial/*.yaml` and loaded by `python manage.py loadrpgcontent` — a dependency-ordered, idempotent upsert. `seed_data` invokes this internally. The loader (`apps/rpg/content/loader.py`) is the single source of truth for cross-entity wiring: one `pet_species.yaml` entry fans out to both a `PetSpecies` row and an egg `ItemDefinition` with typed FK; same pattern for `potion_types.yaml` → potion items. Third-party packs live under `content/rpg/packs/<name>/` and are loaded with `--namespace <prefix>-` so slugs don't collide with core. When adding new RPG content, edit YAML — don't add `get_or_create` calls to Python seed code. See `content/rpg/README.md` for schema + authoring workflow.
 
+  Badge skill-level thresholds and skill prerequisite levels use the installed
+  XP curve's maximum (currently 6) during shared preview/load validation. Badge
+  thresholds keep their positive minimum; raw YAML prerequisites retain level-0
+  compatibility. Invalid reviewed candidates fail before any upsert. Native
+  badge availability hides unreachable unearned level goals while preserving
+  earned history and payouts.
+
   Unkeyed deployment loads seed missing shop offers into the explicit legacy
   `default-family` destination (or the supplied family), preserving every
   existing offer and parent edit. Names do not establish seed ownership, so
@@ -336,6 +351,19 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
   authoritative. Reviewed publications still reject ambiguous links and roll
   back the entire publication. `tests/test_startup_loader_safety.py` covers
   these boundaries through the actual loader and startup command.
+
+  Unkeyed loads also reserve genuinely renamed authored category source names,
+  including database case-insensitive matches. Exact retained sources keep
+  their existing numeric identity; other spellings never adopt that identity.
+  Explicit/manual loads reject a new conflicting category and roll back the
+  load. Default startup instead reports and withholds that source category and
+  its dependent subjects, skills, prerequisites, named category badges and
+  challenges, including dependencies in later bundled packs. Each withheld row
+  retains its complete saved scalar rules and links; unrelated content still
+  loads. Deferral markers exist only for that command, so an explicit source
+  repair can load the withheld content on the next run. Unknown references and
+  unrelated validation errors remain strict. See
+  `tests/test_loader_category_source_conflicts.py`.
 
 ## RPG tunables (hardcoded constants in `apps/rpg/services.py`)
 These are intentionally NOT in settings — they're game-design constants, not deploy-time config.

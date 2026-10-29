@@ -1,5 +1,28 @@
 # Shared API response fixtures
 
+`badges-retained-category-tie.json` retains an actually earned mastery badge
+after its current and retained category identities compete. The producer checks
+native failure on the tie, hides an unearned copy, preserves raw criteria and
+history, and proves reads change no awards. Its React consumer preserves the
+server's availability flags and the independent reachable goal.
+
+`badges-reachable-legacy-levels.json` preserves native-reachable legacy level
+values in a real child badge response, including numeric strings, fractions,
+zero and false. The producer checks native eligibility, excludes a genuinely
+unreachable fractional threshold, proves reads award nothing, then confirms
+once-only native earning. The catalog producer and React transport consumer
+share this response. New authoring retains strict validation; read compatibility
+does not rewrite saved criteria.
+
+`badges-retained-unreachable-level.json` is a real child-authenticated
+`GET /api/badges/` response. Its producer earns a valid level-6 badge through
+native services before simulating legacy level-7 criteria. The earned badge
+remains with `catalog_available: false`, a separate unearned level-7 goal is
+omitted, and a valid level-6 goal stays available. Assertions before fixture
+comparison preserve the original award, XP and Coin state. The existing
+`config.tests.test_catalog_api_contract_fixtures` producer and
+`frontend/src/api/catalogContractFixtures.test.js` consumer check the response.
+
 `parent-personal-dashboard.json` is a real parent-authenticated dashboard with
 `X-Abby-Space: personal`: its role remains `parent`, its Coins and habits belong
 to that parent, and household review/overview fields are absent. The header
@@ -246,6 +269,22 @@ value. Producers live in `config/tests/test_progression_api_contract_fixtures.py
 React transport and report checks live in
 `frontend/src/api/progressionLabContractFixtures.test.js` and the Progression Lab
 page tests.
+
+`progression-lab-renamed-taxonomy-report.json` is a real staff-parent simulation
+after registered MCP renames of Reading, Language Arts and Life Skills. The
+producer asserts 450 Reading XP, 100 explicit challenge-tag XP and one mastery
+badge before comparing the fixture; it rejects household queries and award
+writes. The existing Lab React consumer verifies that same response and request.
+
+`progression-lab-renamed-fixed-routes-report.json` combines journal writing with
+untagged movement after registered category and skill renames. Reading is
+disabled and the modeled Endurance destination is absent, so activity tags
+cannot mask the installed daily-bonus fallback. Before fixture comparison, the
+producer verifies 450 journal XP and 600 daily-bonus XP over 30 days, the native
+journal's original 10/5 skill split and the native 20-XP Persistence destination.
+It compares those exact original skill IDs with a detached one-day trial and
+rejects household queries or award writes during the anonymous REST forecast.
+The existing Lab React consumer transports the same real response and scenario.
 
 `progression-lab-reward-budget-report.json` adds a synthetic shared daily
 expedition/pouch Coin allowance to the same endpoint. Its normalized scenario

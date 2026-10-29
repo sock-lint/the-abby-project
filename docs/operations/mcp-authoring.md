@@ -283,7 +283,10 @@ previous file intact when a write is interrupted before replacement.
    `content_digest`, using the same actor/family and explicit confirmation.
    Changed source bytes, changed catalog state, an expired plan or a different
    actor requires another preview. The publication and its receipt commit
-   together. Retrying a completed publication returns its existing receipt.
+   together. Retrying a completed publication returns its existing receipt,
+   including after `delete_content_pack` disposes of the draft directory. The
+   current actor, family, scope, confirmation and reviewed digest must still
+   match; this retry does not read or recreate source files.
 
 `load_content_pack` follows the same reviewed-publication contract; it cannot
 bypass a preview. Its `dry_run` option creates a preview. Stable pack-owned
@@ -293,11 +296,27 @@ author's explicit family. Draft files are also family-owned. Unowned legacy
 draft directories require operator reconciliation rather than automatic
 adoption by the first caller.
 
+Badge skill-level goals and skill prerequisites must fit the installed XP curve,
+whose current maximum is level 6. Preview and publication reject out-of-range
+requirements before changing the catalog. Raw YAML retains its existing
+level-0 prerequisite compatibility; direct MCP prerequisite editing starts at
+level 1. A rejected draft can be corrected and previewed again. Existing badge
+goals keep the native checkers' integer coercion for saved thresholds, so a
+legacy numeric string, fraction, zero or boolean remains visible if it is
+reachable. This read compatibility does not allow those values in new badge
+authoring or rewrite saved criteria and awards. Retained count-based skill goals
+with nonpositive counts stay visible when the native checker can award them,
+even above the curve; an unusable level remains unavailable. Mastery still
+requires its actual category skills to reach the threshold.
+
 Public challenge drafts check name collisions within the public definition
 namespace. A private household challenge may share a public title and does not
 block an unrelated public edit selected by ID. Genuine public collisions,
 retained source identities and named badge dependencies still require explicit
-resolution.
+resolution. A named project or mastery badge with competing current/retained
+category identities is hidden from new goal choices until the tie is resolved.
+Its earned history remains available. A later read reflects the resolved
+identity without rewriting earlier awards.
 
 Reconciliation removes owned obsolete drop rules and retires removed shop
 offers. Quest reward links are reconciled to the new definition. Owned
@@ -324,6 +343,9 @@ Explicit proposed project/challenge payouts are assumptions, not discovered
 server-approved reward amounts. Drop expectations use current eligible pools;
 expected item value is not spendable Coins. Affordability is conditional on
 the supplied scenario, not a promise of when a child will earn a reward.
+Reading availability uses the native award service's exact current or retained
+taxonomy identity. Renames preserve that destination; distinct competing
+identities make XP unavailable. The forecast reads only global catalog data.
 
 For actual outcomes, use `list_coin_ledger` and `get_economy_audit` with
 `mcp:read`. Dates follow the target family's timezone. Ledger pagination uses a
@@ -558,6 +580,32 @@ bundled/pack definitions require reviewed source reconciliation. REST returns 40
 with a readable `detail` and `code: taxonomy_in_use`; MCP returns that structured
 code. Errors expose no private dependency names or counts. Unused caller-owned
 direct entries can be deleted with their own override metadata atomically.
+
+Named project-category badges keep case-insensitive matching across all current
+category names, including names which differ only by case. Omitting `category`
+counts uncategorized completed projects; `categories` keeps its distinct-category
+count. Renamed source identities remain eligible when unambiguous, and cannot
+redirect a saved rule to another category with the old name. Existing earned
+badge receipts and payouts are preserved.
+
+Category authoring rejects case-insensitive reuse of a genuinely renamed source
+and a direct rename that would introduce a retained/current identity conflict
+or leave two renamed-only sources competing for the same spelling.
+This includes renaming a case-variant duplicate of an otherwise unchanged badge
+category. The rejected edit saves nothing. Current-only case variants and
+case-only renames remain supported. Create a distinct category and retire the
+old choice when a rename would overlap another source identity. In an existing
+tie between a renamed category and a current case variant, restore the renamed
+category's original spelling first; moving the current competitor away can
+close off that repair route and is rejected. Unrelated metadata and retirement
+edits remain available. Already-persisted ties between two renamed-only sources
+stay fail-closed and require explicit source reconciliation; these tools do not
+guess an owner, rewrite provenance or replay awards.
+
+Existing badges with unreachable skill-level requirements are unavailable for
+new goals and reported by the catalog audit. Earned badges remain readable and
+selectable as trophies with `catalog_available: false`; saved awards, XP and
+Coins are preserved. Repairing a requirement does not replay an old payout.
 Private quest category filters recheck their explicit IDs within the creation
 transaction; a missing category rolls back both the new definition and its MCP
 receipt. Identical request replay still returns the saved original response.
@@ -588,14 +636,37 @@ its temporary identity tracking clears after success, failure and dry runs. This
 catalog cleanup described in the companion lifecycle runbook.
 Default bundled startup loads report and defer individual new retired-reference
 rows, rolling back their scalar fields and links while loading safe content.
+They also report new categories which would compete with a retained source and
+defer their dependent subjects, skills, prerequisites, named badges and quests.
+Project badge selectors follow the database's case-insensitive matching;
+mastery and skill-source references keep their exact matching. Deferred rows
+keep their complete saved fields and relationships, including in later bundled
+packs; startup never adopts another category by folding its name.
+Category provenance whose target no longer exists does not reserve its name.
+Reloading or creating that category can restore a live identity while retaining
+the orphaned metadata; live retained identities and keyed ownership claims
+still require their existing reconciliation paths.
+The default command reads its selected source graph under the catalog lock
+before writing badges. Named quest-completion badges and badge-gated quests
+follow a withheld category dependency across pack boundaries, including forward
+references and successive badge/quest gates. Existing rows stay unchanged.
+Saved skill prerequisite overrides remain authoritative over stale YAML edges.
+The preflight also checks known future retired-parent rejections while retaining
+existing parent links and respecting restorations in earlier selected packs.
+An any-of badge retains a safe alternative, a repeatable alternative can satisfy
+a positive completion count, and empty-list or nonpositive legacy-count rules
+keep their native meaning. This is source-dependency withholding, not a new
+household achievement evaluator. Explicit category-conflict errors identify the
+requested YAML spelling, retaining catalog entry and pack for reconciliation.
 Later bundled packs recognize those deferred skill and quest identities within
 the same atomic startup batch. The temporary markers clear on success, failure
 and dry runs, including when a command instance is reused. A dependent skill's
 source prerequisites are checked before any scalar or link changes, including
 existing targets and forward references, so deferred rules leave its full saved
-row intact. Existing saved references remain valid. Explicit `--pack` loads, keyed previews
-and publication stay strict; unknown references, invalid source and identity
-conflicts still fail rather than being classified as retirement deferrals.
+row intact. Existing saved references remain valid. Explicit `--pack` loads,
+keyed previews and publication reject category-source conflicts atomically.
+Unknown references and unrelated validation errors still fail startup instead
+of being treated as a deferral.
 
 Skill identities include their category. Duplicate labels show their category in
 the native pickers; if literal names imitate those labels, escaped quoted name

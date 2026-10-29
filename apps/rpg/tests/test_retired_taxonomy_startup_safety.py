@@ -152,7 +152,7 @@ class RetiredTaxonomyStartupSafetyTests(TestCase):
             dependent = Skill.objects.get(name="Dependent")
             before = list(SkillPrerequisite.objects.filter(skill=dependent).values_list("required_skill_id", "required_level"))
             content["skills"][-1].update(description="Changed rules", locked=False,
-                prereqs=[{"skill": "Saved target", "level": 9}, "Retired target"])
+                prereqs=[{"skill": "Saved target", "level": 5}, "Retired target"])
             (root / "skill_tree.yaml").write_text(yaml.safe_dump(content))
             output = self.load_default(directory)
             dependent.refresh_from_db()
