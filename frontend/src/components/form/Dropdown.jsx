@@ -258,6 +258,9 @@ const Dropdown = forwardRef(function Dropdown({
         // default activation so the browser can synthesize the selection click.
         if (event.pointerType === 'mouse') event.preventDefault();
       }}
+      // Compatibility mousedown from touch can focus the dialog ancestor.
+      // Retain trigger focus until the following click commits the choice.
+      onMouseDown={(event) => event.preventDefault()}
     >
       {visibleOptions.length === 0 && <div className="px-3 py-3 text-ink-secondary">No options available</div>}
       {optionGroups.map((group, index) => (

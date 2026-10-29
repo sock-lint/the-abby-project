@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
@@ -298,3 +298,72 @@ test('required Homework child selection focuses the themed field before any API 
   await expect(dialog.getByRole('alert')).toContainText(/select|choose/i);
   expect(writes).toEqual([]);
 });
+
+for (const [browserName, device] of [['chromium', 'Pixel 7'], ['webkit', 'iPhone 14']]) {
+  test(`${browserName}: touch selections in a focusable sheet commit once without losing the form`, async ({ playwright }, info) => {
+    const browser = await playwright[browserName].launch();
+    const page = await browser.newPage({ ...devices[device] });
+    page.setDefaultTimeout(15_000);
+    const writes = [];
+    const unexpected = [];
+    try {
+      await page.route('**/*', route => {
+        if (new URL(route.request().url()).origin !== origin) {
+          unexpected.push(route.request().url());
+          return route.abort();
+        }
+        return route.continue();
+      });
+      await page.route('**/api/**', route => {
+        const request = route.request();
+        if (!new URL(request.url()).pathname.startsWith('/api/')) return route.continue();
+        if (new URL(request.url()).pathname === '/api/homework/' && request.method() === 'POST') {
+          writes.push(request.postDataJSON());
+          return route.fulfill({ json: { id: 1 } });
+        }
+        unexpected.push(`${request.method()} ${new URL(request.url()).pathname}`);
+        return route.abort();
+      });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(`${origin}/e2e/dropdowns-fixture.html?compact=1`);
+      await page.getByRole('button', { name: 'New assignment', exact: true }).tap();
+      const dialog = page.getByRole('dialog', { name: 'New assignment', exact: true });
+      // A real BottomSheet can receive focus when a compatibility mousedown
+      // bubbles from a touch option. Keep selection attached to the field.
+      await expect(dialog).toHaveAttribute('tabindex', '-1');
+      await dialog.getByPlaceholder('Title', { exact: true }).fill('Synthetic touch assignment');
+      await dialog.locator('input[type="date"]').fill('2099-12-31');
+      const form = dialog.locator('form');
+      await form.evaluate(element => {
+        element.dropdownChanges = [];
+        element.addEventListener('change', event => {
+          if (event.target.tagName === 'SELECT') element.dropdownChanges.push(event.target.value);
+        });
+      });
+      for (const [name, option, value] of [['Assign to', 'Alex', '21'], ['Subject', 'Science', 'science']]) {
+        const control = dialog.getByRole('combobox', { name, exact: true });
+        await control.tap();
+        await expect(control).toBeFocused();
+        const popup = dropdownListbox(control);
+        await popup.getByRole('option', { name: option, exact: true }).tap();
+        await expect(control).toHaveJSProperty('value', value);
+        await expect(control).toBeFocused();
+        await expect(popup).toHaveCount(0);
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByPlaceholder('Title', { exact: true })).toHaveValue('Synthetic touch assignment');
+      }
+      expect(await form.evaluate(element => element.dropdownChanges)).toEqual(['21', 'science']);
+      expect(writes).toEqual([]);
+      await page.screenshot({ path: info.outputPath(`touch-sheet-${browserName}.png`) });
+      await dialog.getByRole('button', { name: 'Create assignment', exact: true }).tap();
+      await expect(page.getByRole('status')).toHaveText('Assignment saved');
+      expect(writes).toEqual([{
+        title: 'Synthetic touch assignment', description: '', subject: 'science',
+        due_date: '2099-12-31', effort_level: 3, assigned_to: 21,
+      }]);
+      expect(unexpected).toEqual([]);
+    } finally {
+      await browser.close();
+    }
+  });
+}

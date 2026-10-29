@@ -303,6 +303,33 @@ describe('Dropdown', () => {
     expect(trigger).toHaveFocus();
   });
 
+  it('selects a touch choice inside a focusable dialog without losing the generated click', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const popoverDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'showPopover');
+    // Browsers keep a top-layer popup in its dialog's DOM. jsdom lacks
+    // showPopover, so expose that path without moving the popup to body.
+    Object.defineProperty(HTMLElement.prototype, 'showPopover', { configurable: true, value() { this.style.display = 'block'; } });
+    let unmount;
+    try {
+      ({ unmount } = render(<div role="dialog" tabIndex={-1}>
+        <Controlled initial="a" onChange={onChange} />
+      </div>));
+      const trigger = screen.getByRole('combobox');
+      await user.click(trigger);
+      const option = screen.getByRole('option', { name: 'Cooking' });
+      await user.pointer([{ target: option, keys: '[TouchA>]' }, { keys: '[/TouchA]' }]);
+      expect(onChange).toHaveBeenCalledOnce();
+      expect(trigger).toHaveValue('c');
+      expect(trigger).toHaveFocus();
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    } finally {
+      unmount?.();
+      if (popoverDescriptor) Object.defineProperty(HTMLElement.prototype, 'showPopover', popoverDescriptor);
+      else delete HTMLElement.prototype.showPopover;
+    }
+  });
+
   it('keeps virtual focus inside its modal when portaled options are clicked', async () => {
     const user = userEvent.setup();
     render(<Modal onEscape={vi.fn()} />);

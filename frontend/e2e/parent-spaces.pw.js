@@ -591,9 +591,14 @@ for (const width of [390, 1280]) {
       await page.getByRole('button', { name: 'Open profile menu', exact: true }).focus();
       await page.keyboard.press('Tab');
       await expect(control).toBeFocused();
-      await control.press('Enter');
-      await control.press('ArrowDown');
+      // Check each activation before a later action could close an open menu.
+      for (const key of ['Enter', 'ArrowDown', 'Space']) {
+        await control.press(key);
+        await expect(control).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      }
       await control.click({ force: true });
+      await expect(control).toHaveAttribute('aria-expanded', 'false');
       await expect(page.getByRole('listbox')).toHaveCount(0);
     } else {
       await expect(spaceControl(page, width, 'family')).toHaveAccessibleDescription(help);
