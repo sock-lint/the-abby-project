@@ -98,6 +98,15 @@ python manage.py loadrpgcontent --dry-run
 python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dragons-
 ```
 
+Renamed categories keep their original authored source name. A new category
+cannot reuse that retained name with different casing. An explicit pack load
+rejects the conflict and rolls back its changes. During ordinary bundled
+startup, the loader reports the conflict and leaves that category and its
+dependent content unchanged while loading unrelated content. The warning lists
+the withheld rows; reconcile the authored names, then run the load again.
+Exact retained source names continue to select their original saved category.
+Unknown references and other validation failures still reject the load.
+
 ## Authoring workflow
 
 Active owned-art scope is recorded in

@@ -8,6 +8,7 @@ from apps.chronicle import services as chronicle_services
 from apps.chronicle import grade_services
 from apps.reading.services import ReadingRewardService
 from apps.rpg.progression import engine
+from apps.rpg.progression import catalog
 
 
 class FixedXPRulesFingerprintTests(SimpleTestCase):
@@ -36,3 +37,6 @@ class FixedXPRulesFingerprintTests(SimpleTestCase):
 
     def test_grade_destination_changes_invalidate_saved_forecasts(self):
         self.assert_source_change_invalidates(grade_services._grade_xp_tags)
+
+    def test_detached_catalog_identity_policy_changes_invalidate_saved_forecasts(self):
+        self.assert_source_change_invalidates(catalog)

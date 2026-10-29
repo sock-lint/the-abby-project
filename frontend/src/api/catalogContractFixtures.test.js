@@ -26,6 +26,9 @@ import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-ros
 import rosterHatch from '../../../contracts/api/fixtures/pet-incubation-roster-hatched.json';
 import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
+import retainedLevelBadges from '../../../contracts/api/fixtures/badges-retained-unreachable-level.json';
+import reachableLegacyLevels from '../../../contracts/api/fixtures/badges-reachable-legacy-levels.json';
+import retainedCategoryBadges from '../../../contracts/api/fixtures/badges-retained-category-tie.json';
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
@@ -157,6 +160,47 @@ describe('current owned-art API contracts', () => {
     expect(catalog.results.find((badge) => badge.id === 101)).toMatchObject({ rarity: 'rare', coin_bonus: 35, xp_bonus: 30 });
     expect(catalog.results.find((badge) => badge.id === 102).coin_bonus).toBe(0);
     expect((await getEarnedBadges()).results[0].badge).toMatchObject({ id: 101, rarity: 'rare', coin_bonus: 35 });
+  });
+
+  it('retains earned unavailable-level badges while omitting unreachable new goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, retainedLevelBadges);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(retainedLevelBadges);
+    expect(response.results.map(({ id }) => id).sort()).toEqual([951, 953]);
+    expect(response.results.find(({ id }) => id === 951)).toMatchObject({
+      criteria_value: { level: 7 }, catalog_available: false,
+    });
+    expect(response.results.find(({ id }) => id === 953)).toMatchObject({
+      criteria_value: { level: 6 }, catalog_available: true,
+    });
+  });
+  it('transports native-reachable legacy level values without hiding or rewriting their goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, reachableLegacyLevels);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(reachableLegacyLevels);
+    expect(new Map(response.results.map(({ id, criteria_value }) => [id, criteria_value.level]))).toEqual(new Map([
+      [954, '2'], [955, 1.5], [956, 0], [958, false],
+    ]));
+    expect(response.results.every(({ catalog_available }) => catalog_available === true)).toBe(true);
+    expect(response.results.some(({ id }) => id === 960)).toBe(false);
+  });
+  it('retains earned category badges while omitting ambiguous unearned goals', async () => {
+    const request = spyHandler('get', /\/api\/badges\/$/, retainedCategoryBadges);
+    server.use(request.handler);
+    const response = await getBadges();
+    expect(request.calls).toHaveLength(1);
+    expect(response).toEqual(retainedCategoryBadges);
+    expect(response.results.map(({ id }) => id).sort()).toEqual([961, 963]);
+    expect(response.results.find(({ id }) => id === 961)).toMatchObject({
+      criteria_type: 'category_mastery',
+      criteria_value: { category: 'Fixture named category', min_level: 1 },
+      catalog_available: false,
+    });
+    expect(response.results.find(({ id }) => id === 963).catalog_available).toBe(true);
   });
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
     server.use(

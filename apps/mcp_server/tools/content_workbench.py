@@ -15,7 +15,7 @@ from apps.rpg.progression import describe_progression, normalize_config, simulat
 from apps.rpg.progression_views import ProgressionSimulationThrottle
 from apps.rpg.workbench_views import WorkbenchSimulationThrottle
 
-from ..catalog import catalog_queryset, catalog_row
+from ..catalog import catalog_queryset, catalog_rows
 from ..context import require_staff_parent, reset_current_user, set_current_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..retries import authorized_household
@@ -90,7 +90,7 @@ def get_content_workbench(params: WorkbenchReferencesIn) -> WorkbenchReferencesO
     more = len(rows) > params.limit
     rows = rows[:params.limit]
     return {
-        "section": params.section, "results": [to_plain(catalog_row(params.section, row)) for row in rows],
+        "section": params.section, "results": to_plain(catalog_rows(params.section, rows)),
         "total": queryset.count(), "after": params.after, "next_after": rows[-1].pk if more else None,
         "rules": {
             "item_types": sorted(CREATE_ITEM_TYPES), "rarities": list(ItemDefinition.Rarity.values),
