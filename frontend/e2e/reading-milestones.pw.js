@@ -65,6 +65,7 @@ async function prepare(page, width, height, auth) {
       calls.push(record);
       if ([...url.searchParams.keys()].some((key) => !['_abby_session', '_abby_retry'].includes(key))) unexpected.push(`query ${url.search}`);
       if (record.method === 'GET' && record.path === '/api/auth/me/') return route.fulfill({ json: auth });
+      if (record.method === 'GET' && record.path === '/api/egg-discoveries/') return route.fulfill({ json: { enabled: false, offers: [], discoveries: [], active_id: null } });
       if (await handler(route, record)) return;
       unexpected.push(`${record.method} ${record.path}`);
       return route.fulfill({ status: 500, json: { detail: 'Unexpected synthetic request.' } });

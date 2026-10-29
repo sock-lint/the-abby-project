@@ -111,7 +111,8 @@
         "Only new reading sessions dated today in the family's timezone count toward this reward. Pages, chapters, ratings, finishing books, optional reflections, edits, and older sessions do not earn extra rewards. Deleting a rewarded session never rearms the day.",
         "The daily reading reward records streak activity and one drop opportunity at a 20% base rate plus normal streak and Drop Charm bonuses. Reading drops use the existing food and coin-pouch catalog. A separate first-activity check-in bonus can also apply.",
         "Each earned daily Reading Adventure counts once toward challenges that explicitly ask for reading; individual extra logs, edits and deletions do not add more credit. Reading stays outside unfiltered challenges and the daily bonus. Saved legacy quests can also match it for 5 base boss damage or one collection step.",
-        "Reading Companion offers a Chick egg, Base potion and two Birdseed after 3 daily Adventures at your own pace, with no deadline. Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. After Reading Companion and Reading Comprehension level 1, your next earned daily Adventure opens Reading Voyager: 20 Adventures in 84 days for the Bookworm title. These challenges add reading XP and items, with no authored Coin payout."
+        "Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. Earlier accepted Reading Companion rewards still include the Chick egg, Base potion and two Birdseed after 3 daily Adventures at your own pace, with no deadline. When egg discoveries are available, choose Chick there; new system egg challenges are replaced.",
+        "After Reading Companion and Reading Comprehension level 1, your next earned daily Adventure opens Reading Voyager: 20 Adventures in 84 days for the Bookworm title. For a new offer when Egg discoveries is available, hatching Base Chick can replace completing Reading Companion; the reading skill requirement remains. Already accepted attempts keep their displayed requirements. These reading challenges have no authored Coin payout."
       ],
       "parent_knobs": {
         "settings": [
@@ -573,7 +574,10 @@
         "Care and growth use your own pet's confirmed family and stage; another species is never displayed as Chick or its grown form.",
         "Feeding consumes food; preferred food grants more growth than neutral food.",
         "Food gives at least 5/8/10/12/15 base growth from Common through Legendary, plus 10 for a preferred food. Valid authored growth can raise the base; Growth Tonic doubles the total. Check the food's effect before feeding.",
-        "Ghost, Wolf, Bomb, Shadow and Dragon Trails guarantee their named companion egg and one Base potion through eligible everyday activities; the challenge card shows the exact reward and progress.",
+        "When Egg discoveries is available in Challenges, choose one egg to pursue through reading, movement and making or practice. Its compatible potion and two common foods are included. Ordinary eggs need 240 minutes with at least 90 in each of two types. Rare eggs unlock after two different species hatch; each balanced hour gives a search, with a 20% chance on searches 1–4 and a guarantee on search 5.",
+        "Egg discoveries replace new random, shop, expedition and system-challenge eggs. Earlier accepted Trails and other egg challenges keep their exact rewards in Earlier egg rewards; paid shop requests, saved expedition loot and owned ingredients also remain usable. Parent goals stay separate.",
+        "Without Egg discoveries, eligible Ghost, Wolf, Bomb, Shadow and Dragon Trails remain guaranteed egg-and-Base-potion paths. Their cards show the exact requirements.",
+        "Seasonal discoveries limit when you can start, not when you finish. Pausing saves activity and searches.",
         "At 100 growth the pet evolves into a mount while the original pet remains in your collection.",
         "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress.",
         "Direct growth consumables are capped per pet per local day, while tonic-boosted feeding is limited by food items."
@@ -663,13 +667,14 @@
       "audience_title": "Items you can collect",
       "chapter": "rpg_layer",
       "summary": "Random items rolled from everyday progress.",
-      "kid_voice": "Some activities give you a chance to find an item, such as an egg,\na potion, pet food, a quest scroll, a coin pouch, or a cosmetic for\nyour profile. Find collected items in Inventory.\n",
+      "kid_voice": "Some activities give you a chance to find an item, such as\na potion, pet food, a quest scroll, a coin pouch, or a cosmetic for\nyour profile. Find collected items in Inventory.\n",
       "mechanics": [
         "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds.",
         "Eligible drop-table rows are weighted and can require a minimum level.",
         "A successful ordinary drop uses tier weights 60/25/10/4/1 from Common to Legendary. Major accomplishments use 40/30/20/8/2. Empty tiers redistribute across those available; item weights choose within a tier. Streak bonuses increase drop frequency, not the rarity mix.",
         "Perfect Day completion drops exclude Common items and use the remaining accomplishment weights, so eligible loot is always Uncommon or better.",
         "New drops, mystery boxes and lucky dips draw from available items, excluding unprepared pet species, potion variants and pet accessories. An empty mystery pool consumes nothing.",
+        "When Egg discoveries is available, new random drops and mystery boxes do not contain eggs. Choose your egg in Challenges instead. Other item drops continue, and already saved expedition loot keeps its rolled contents.",
         "Unowned cosmetics are preferred over duplicates in the same tier without changing that tier's chance. Fully collected cosmetic tiers salvage new ordinary duplicate draws for at most 10 Coins; new drop receipts show the exact amount. Owned consumables and older saved trips retain their existing promises.",
         "Some triggers are daily-capped at their source so drops cannot be farmed by delete/recreate loops."
       ],
@@ -691,7 +696,7 @@
       "trial_template": "tap_and_reward",
       "trial": {
         "prompt": "Tap the chest to roll a drop.",
-        "payoff": "Maybe an egg · maybe a potion · maybe a coin pouch",
+        "payoff": "Maybe pet food · maybe a potion · maybe a coin pouch",
         "target_icon": "📦",
         "reward_icon": "🎁"
       },

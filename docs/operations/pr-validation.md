@@ -62,6 +62,13 @@ staging origin, then run `npm run build:native`. The CI origin
 backend; it is never an installable integration environment. Native sync and
 physical-device limitations are documented in `frontend/CLAUDE.md`.
 
+The egg discovery preview additionally runs
+`config.tests.test_egg_discovery_api_contract_fixtures` in the hosted fixture
+comparison and `src/api/eggDiscoveryContractFixtures.test.jsx` in its React
+consumer step. Source integration is covered by
+`config.tests.test_egg_discovery_source_adapters`; the full backend job also
+executes `apps.egg_discoveries`, including its PostgreSQL concurrency tests.
+
 For contracts, set `SECRET_KEY` to a synthetic test-only value and
 `DATABASE_URL=sqlite:///:memory:`, then run:
 

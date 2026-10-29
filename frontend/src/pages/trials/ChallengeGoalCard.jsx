@@ -112,6 +112,7 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onR
 export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, busy, canAct = true, futureControls, actionError }) {
   const navigate = useNavigate();
   const path = goalActionPath(goal.action);
+  const earlierEggPromise = goal.legacy_egg_promise === true;
   const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   const { hideArt, description } = useChallengeSurprise(goal);
   const close = () => {
@@ -141,11 +142,13 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, b
         <div>
           <h3 className="font-body font-bold text-body text-ink-primary">What counts</h3>
           <p className="font-body text-body text-ink-secondary mt-1">{goal.what_counts}</p>
-          <p className="font-body text-caption text-ink-secondary mt-2">Pinning only keeps this goal on Today. Every matching challenge progresses automatically.</p>
+          <p className="font-body text-caption text-ink-secondary mt-2">{earlierEggPromise
+            ? 'Earlier egg rewards keep their saved progress. Your chosen discovery stays on Today.'
+            : 'Pinning only keeps this goal on Today. Every matching challenge progresses automatically.'}</p>
         </div>
         {goal.status === 'active' && <div className="flex flex-wrap gap-2">
           {path && canAct && <Button onClick={() => { onClose(); navigate(path); }}>{goal.action.label}</Button>}
-          {onPin && <Button variant="secondary" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>{goal.pinned ? 'Unpin' : 'Pin to Today'}</Button>}
+          {onPin && !earlierEggPromise && <Button variant="secondary" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>{goal.pinned ? 'Unpin' : 'Pin to Today'}</Button>}
         </div>}
         <ErrorAlert message={actionError} />
         {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <div className="space-y-2">

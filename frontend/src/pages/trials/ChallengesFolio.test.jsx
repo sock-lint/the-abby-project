@@ -4,8 +4,47 @@ import { renderWithProviders, screen, within } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import ChallengesFolio from './ChallengesFolio';
 import { selectDropdown } from '../../test/selectDropdown';
+import retainedDiscoveryPromises from '../../../../contracts/api/fixtures/challenge-discovery-retained-promises.json';
 
 describe('Challenges Task folio', () => {
+  it('groups the actual accepted egg response behind a closed disclosure and preserves its saved target and supplies', async () => {
+    const goal = retainedDiscoveryPromises.results[0];
+    const select = vi.fn(), pin = vi.fn();
+    const { user } = renderWithProviders(<ChallengesFolio goals={retainedDiscoveryPromises.results} pinnedGoal={goal} lockedCatalog={retainedDiscoveryPromises.locked_catalog} onSelect={select} onPin={pin} />, { withAuth: false });
+    const disclosure = screen.getByText('Earlier egg rewards · 1').closest('details');
+    expect(disclosure).not.toHaveAttribute('open');
+    expect(screen.queryByRole('article', { name: goal.name })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Pinned challenge' })).toBeNull();
+    await user.click(screen.getByText('Earlier egg rewards · 1'));
+    const saved = screen.getByRole('article', { name: goal.name });
+    expect(saved).toHaveTextContent('3 / 8 activities');
+    expect(within(saved).getByRole('list', { name: 'Completion reward items' })).toHaveTextContent('Mushroom Egg');
+    expect(within(saved).getByRole('list', { name: 'Completion reward items' })).toHaveTextContent('Fire Potion');
+    expect(within(saved).queryByRole('button', { name: /pin/i })).toBeNull();
+    await user.click(within(saved).getByRole('button', { name: `View ${goal.name}` }));
+    expect(select).toHaveBeenCalledWith(goal);
+    expect(pin).not.toHaveBeenCalled();
+  });
+
+  it('keeps earlier egg promises in a closed group while parent goals and unrelated bonuses remain visible', async () => {
+    const earlier = buildChallengeGoal({ id: 'goal:egg', origin: 'catalog', name: 'Saved Wolf Trail', progress: '9', target: '10', pinned: true, legacy_egg_promise: true });
+    const parent = buildChallengeGoal({ id: 'goal:parent', name: 'Run together' });
+    const bonus = buildChallengeGoal({ id: 'goal:bonus', origin: 'catalog', name: 'Read for fun', progress: '2' });
+    const select = vi.fn(), pin = vi.fn();
+    const { user } = renderWithProviders(<ChallengesFolio goals={[earlier, parent, bonus]} pinnedGoal={earlier} onSelect={select} onPin={pin} />, { withAuth: false });
+    expect(screen.queryByRole('region', { name: 'Pinned challenge' })).toBeNull();
+    expect(screen.queryByRole('article', { name: earlier.name })).toBeNull();
+    expect(screen.getByRole('article', { name: parent.name })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: bonus.name })).toBeInTheDocument();
+    await user.click(screen.getByText('Earlier egg rewards · 1'));
+    const saved = screen.getByRole('article', { name: earlier.name });
+    expect(saved).toHaveTextContent('9 / 10 miles');
+    expect(within(saved).queryByRole('button', { name: /pin/i })).toBeNull();
+    await user.click(within(saved).getByRole('button', { name: `View ${earlier.name}` }));
+    expect(select).toHaveBeenCalledWith(earlier);
+    expect(pin).not.toHaveBeenCalled();
+  });
+
   it('keeps all ended history accessible after retrying the last eligible attempt', async () => {
     const expired = buildChallengeGoal({ name: 'Ended bonus', origin: 'catalog', status: 'expired', retry: { allowed: true } });
     const fresh = buildChallengeGoal({ id: 'goal:fresh', name: 'Fresh bonus', origin: 'catalog', progress: '0', retry: { allowed: false } });

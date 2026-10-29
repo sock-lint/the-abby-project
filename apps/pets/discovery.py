@@ -20,6 +20,7 @@ from apps.quests.progress_sources import has_progress_source
 from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_pairs, egg_species, item_is_available, potion_type_for_item
 from apps.rpg.models import ItemDefinition
+from apps.egg_discoveries.policy import discovery_enabled, legacy_egg_acquisition_allowed
 
 
 TRIALS_PATH = "/quests?tab=trials"
@@ -32,7 +33,7 @@ def _pairs(rewards, available_pairs, *, saved=False):
         item, quantity = reward.item, reward.quantity
         if type(quantity) is not int or quantity <= 0:
             return set()
-        if not saved and not item_is_available(item):
+        if not saved and (not legacy_egg_acquisition_allowed(item) or not item_is_available(item)):
             return set()
         if item.item_type == "egg":
             species = egg_species(item) if item.pet_species_id else None
@@ -243,14 +244,32 @@ def acquisition_challenges(user, *, personal=False):
         # has not been created yet, and froze its live attempt (including an
         # attempt whose saved snapshot is not presentable). A retained alias
         # goal on a superseded definition never opens another window.
+        from apps.quests.goals import _occurrence_window
+
         return any(pair in _saved_pairs({"items": goal.reward_items}, catalog, pairs) and (
             (goal.catalog_definition_id == definition_id and (
-                goal.repeat_days or goal.repeat_weekly
-                or (not goal.control_occurrences and (goal.ends_at is None or goal.ends_at > now))))
+                (not discovery_enabled() and (goal.repeat_days or goal.repeat_weekly))
+                or (not goal.control_occurrences and (goal.ends_at is None or goal.ends_at > now)
+                    and _occurrence_window(goal, now)[0] == _occurrence_window(goal, goal.starts_at)[0])))
             or any(can_still_pay(row) for row in goal.control_occurrences))
             for goal in accepted)
 
+    # Enrollment itself accepted cycle zero, even when no source/read has
+    # materialized its occurrence yet. Later unsaved cycles make no promise.
+    pending_accepted = {}
+    if discovery_enabled():
+        from apps.quests.goals import _occurrence_window
+
+        for goal in goals:
+            if (goal.control_occurrences or goal.starts_at > now
+                    or (goal.ends_at is not None and goal.ends_at <= now)
+                    or _occurrence_window(goal, now)[0] != _occurrence_window(goal, goal.starts_at)[0]):
+                continue
+            for pair in _saved_pairs({"items": goal.reward_items}, catalog, pairs):
+                pending_accepted[pair, identity(goal, controls)] = goal
+
     keys = set(candidates) | set(legacy_candidates)
+    keys.update(pending_accepted)
     keys.update((pair, pk) for pk, offered_pairs in current_pairs.items() for pair in offered_pairs)
     visible = _visible_history_ids(user, now) if occurrences else set()
     legacy_visible = set(Quest.objects.filter(participants__user=user).exclude(status="active")
@@ -261,6 +280,7 @@ def acquisition_challenges(user, *, personal=False):
         if definition is None:
             continue
         attempt, path = None, TRIALS_PATH
+        pending = pending_accepted.get((pair, definition_id))
         saved = candidates[pair, definition_id]
         if saved:
             chosen = max(saved, key=lambda row: (row.awarded_at is not None or row.status == "completed",
@@ -283,10 +303,23 @@ def acquisition_challenges(user, *, personal=False):
             if chosen.status == "active" or chosen.pk in legacy_visible:
                 path += "&" + urlencode({"goal": attempt["id"]})
         result[pair].append({
-            "definition_id": definition_id, "name": definition.name,
+            "definition_id": definition_id, "name": pending.name if pending else definition.name,
             "offer_available": (available.get(definition_id, False) and pair in current_pairs.get(definition_id, set())
-                                and reachable(pair, definition_id)),
-            "target": str(definition.target_value), "duration_days": definition.duration_days,
+                                and reachable(pair, definition_id)) or pending is not None,
+            "target": str(pending.target) if pending else str(definition.target_value), "duration_days": definition.duration_days,
             "attempt": attempt, "path": path,
         })
     return {pair: sorted(rows, key=lambda row: (row["name"], row["definition_id"])) for pair, rows in result.items()}
+
+
+def acquisition_discoveries(user):
+    """Current exact egg choices for the Hatchery; projections never accept."""
+    if not discovery_enabled():
+        return {}
+    from apps.egg_discoveries.catalog import offers_for
+
+    return {(offer.egg.pet_species_id, offer.potion.potion_type_id): {
+        "key": offer.key, "path": TRIALS_PATH, "name": offer.public()["name"],
+        "eligible": offer.unavailable_reason is None,
+        "unavailable_reason": offer.unavailable_reason, "tier": offer.tier,
+    } for offer in offers_for(user)}

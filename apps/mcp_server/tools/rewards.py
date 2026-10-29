@@ -53,7 +53,10 @@ def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
     qs = Reward.objects.filter(family_id=family_id)
     if params.active_only:
         qs = qs.filter(is_active=True)
-    rewards = list(qs.order_by("order", "cost_coins", "name"))
+    rewards = list(qs.select_related("item_definition__pet_species", "item_definition__potion_type")
+                   .order_by("order", "cost_coins", "name"))
+    if user.role == "child":
+        rewards = [reward for reward in rewards if reward_is_available(reward)]
     return {
         "rewards": [reward_to_dict(r) for r in rewards],
         "balance": CoinService.get_balance(user),

@@ -98,12 +98,16 @@ class PotionTypeMiniSerializer(serializers.ModelSerializer):
 
 class CodexPotionSerializer(PotionTypeMiniSerializer):
     acquisition_challenges = serializers.SerializerMethodField()
+    acquisition_discovery = serializers.SerializerMethodField()
 
     class Meta(PotionTypeMiniSerializer.Meta):
-        fields = [*PotionTypeMiniSerializer.Meta.fields, "acquisition_challenges"]
+        fields = [*PotionTypeMiniSerializer.Meta.fields, "acquisition_challenges", "acquisition_discovery"]
 
     def get_acquisition_challenges(self, obj):
         return self.context.get("acquisition_challenges", {}).get((self.context.get("species_id"), obj.pk), [])
+
+    def get_acquisition_discovery(self, obj):
+        return self.context.get("acquisition_discoveries", {}).get((self.context.get("species_id"), obj.pk))
 
 
 class PetSpeciesCatalogSerializer(CatalogPortraitFields, serializers.ModelSerializer):
@@ -162,6 +166,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
     def get_available_potions(self, obj):
         return CodexPotionSerializer(available_pet_variants(obj), many=True, context={
             "species_id": obj.pk, "acquisition_challenges": self.context.get("acquisition_challenges", {}),
+            "acquisition_discoveries": self.context.get("acquisition_discoveries", {}),
         }).data
 
     def get_catalog_available(self, obj):

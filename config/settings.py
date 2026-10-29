@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "apps.rpg",
     "apps.habits",
     "apps.pets",
+    "apps.egg_discoveries",
     "apps.quests",
     "apps.lorebook",
     "apps.activity",
@@ -129,6 +130,14 @@ VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:noreply@summerforge.loca
 DEV_TOOLS_ENABLED = os.environ.get(
     "DEV_TOOLS_ENABLED", "False"
 ).lower() in ("true", "1", "yes")
+
+# Enables the prospective egg-source transition together with discoveries.
+# Owned ingredients and accepted challenge/trip/shop promises remain usable.
+# Deploy this revision to every writer before changing the release setting.
+EGG_DISCOVERY_ENABLED = os.environ.get("EGG_DISCOVERY_ENABLED", "False").lower() in ("true", "1", "yes")
+# Exact offer keys may receive reviewed inclusive family-local start windows.
+# Accepted discoveries freeze that window and have no completion deadline.
+EGG_DISCOVERY_SEASONS = {}
 
 # --- MCP server -----------------------------------------------------------
 # Exposed via ``python manage.py runmcp`` and the ``mcp`` compose service.

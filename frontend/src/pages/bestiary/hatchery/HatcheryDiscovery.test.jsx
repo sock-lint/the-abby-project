@@ -7,6 +7,7 @@ import Hatchery from './Hatchery';
 import { server } from '../../../test/server';
 import { selectDropdown } from '../../../test/selectDropdown';
 import { spyHandler } from '../../../test/spy';
+import enabledDiscovery from '../../../../../contracts/api/fixtures/codex-discovery-enabled.json';
 
 // Retain the real family/lifecycle/portrait presentation; only optional heavy
 // decorative 3D is replaced. Browse checks never press the 3D opt-in button.
@@ -27,13 +28,13 @@ const egg = { id: 501, slug: 'meshtint-dragon-egg', name: 'Dragon Egg', item_typ
 const potionItem = (potion) => ({ id: 600 + potion.id, slug: `${potion.slug}-potion`, name: `${potion.name} Potion`,
   item_type: 'potion', catalog_available: true, metadata: { variant: potion.slug } });
 
-function mount({ catalogSpecies = species, stable = { pets: [], mounts: [] }, inventory = [], incubation = null, handlers = [] } = {}) {
+function mount({ catalogSpecies = species, stable = { pets: [], mounts: [] }, inventory = [], incubation = null, handlers = [], discoveryEnabled = false } = {}) {
   const mutations = [];
   const observe = ({ request }) => { if (!['GET', 'HEAD'].includes(request.method)) mutations.push({ method: request.method, url: request.url }); };
   server.events.on('request:start', observe);
   server.use(
     ...handlers,
-    http.get('*/api/pets/codex/', () => HttpResponse.json({ species: catalogSpecies, potions: [base, fire, ice],
+    http.get('*/api/pets/codex/', () => HttpResponse.json({ egg_discovery_enabled: discoveryEnabled, species: catalogSpecies, potions: [base, fire, ice],
       totals: { species: catalogSpecies.length, discovered_species: 0, mounts_possible: 11, mounts_owned: 0 } })),
     http.get('*/api/pets/stable/', () => HttpResponse.json(stable)),
     http.get('*/api/inventory/', () => HttpResponse.json(inventory)),
@@ -50,6 +51,57 @@ async function explore(user, family) {
 }
 
 describe('Hatchery companion discovery', () => {
+  it('presents the actual enabled codex contract as discovery earning with retained earlier progress', async () => {
+    const view = mount({ handlers: [http.get('*/api/pets/codex/', () => HttpResponse.json(enabledDiscovery))] });
+    try {
+      const user = userEvent.setup();
+      const discovery = await explore(user, 'Mushroom');
+      await user.click(discovery.getByRole('button', { name: 'Fire appearance', exact: true }));
+      expect(discovery.getByRole('link', { name: 'View egg discoveries' })).toHaveAttribute('href', '/quests?tab=trials');
+      expect(discovery.getByText('My earlier Ember Grove')).toBeInTheDocument();
+      expect(discovery.getByText('3 of 8')).toBeInTheDocument();
+      expect(discovery.getByText('Earlier egg rewards')).toBeInTheDocument();
+      expect(discovery.queryByText('Guaranteed reward')).toBeNull();
+      await selectDropdown(user, discovery.getByRole('combobox', { name: 'Explore a family' }), 'Dragon');
+      expect(discovery.getByText('Hatch two different companions to unlock rare discoveries.')).toBeInTheDocument();
+      expect(discovery.queryByText(/Visit Challenges to find current egg and potion rewards/)).toBeNull();
+      expect(view.mutations).toEqual([]);
+    } finally { view.stopObserving(); }
+  });
+
+  it('uses exact discovery eligibility and keeps the saved earlier promise readable without new enrollment or mutation', async () => {
+    const saved = { definition_id: 75, name: 'Earlier Ember Nest', offer_available: false, path: '/quests?tab=trials&goal=goal%3A75',
+      attempt: { id: 'goal:75', name: 'Earlier Ember Nest', progress: '2', target: '3', status: 'active' } };
+    const view = mount({ discoveryEnabled: true, catalogSpecies: [{ ...chick, available_potions: [{ ...base, acquisition_discovery: {
+      key: 'chick-egg:base', name: 'Chick Egg · Base', path: '/quests?tab=trials', eligible: false,
+      unavailable_reason: 'This discovery is already saved in your collection.', tier: 'ordinary',
+    }, acquisition_challenges: [saved] }] }] });
+    try {
+      const discovery = await explore(userEvent.setup());
+      expect(discovery.getByText('This discovery is already saved in your collection.')).toBeInTheDocument();
+      expect(discovery.getByRole('link', { name: 'View egg discoveries' })).toHaveAttribute('href', '/quests?tab=trials');
+      expect(discovery.getByText('Earlier egg rewards')).toBeInTheDocument();
+      expect(discovery.getByText('2 of 3')).toBeInTheDocument();
+      expect(discovery.getByText('Saved challenge promise. This offer is unavailable for new attempts.')).toBeInTheDocument();
+      expect(discovery.queryByText('Guaranteed reward')).toBeNull();
+      expect(discovery.queryByText(/Visit Challenges to find current egg and potion rewards/)).toBeNull();
+      expect(view.mutations).toEqual([]);
+    } finally { view.stopObserving(); }
+  });
+
+  it('identifies a saved enrollment before its first attempt without presenting a new egg offer', async () => {
+    const enrolled = { definition_id: 76, name: 'Saved reading egg', offer_available: true, target: '3', path: '/quests?tab=trials' };
+    const view = mount({ discoveryEnabled: true, catalogSpecies: [{ ...chick, available_potions: [{ ...base, acquisition_challenges: [enrolled] }] }] });
+    try {
+      const discovery = await explore(userEvent.setup());
+      expect(discovery.getByText('Saved reward')).toBeInTheDocument();
+      expect(discovery.getByText(/Your earlier enrollment is saved\. Matching activities keep counting toward its original reward\./)).toBeInTheDocument();
+      expect(discovery.queryByText('Guaranteed reward')).toBeNull();
+      expect(discovery.queryByText(/No saved attempt yet/)).toBeNull();
+      expect(view.mutations).toEqual([]);
+    } finally { view.stopObserving(); }
+  });
+
   it('browses approved families and exact elemental growth forms without owning ingredients or starting a recipe', async () => {
     const view = mount();
     try {
