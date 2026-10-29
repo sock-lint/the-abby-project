@@ -45,6 +45,17 @@ def conflict_chain(size):
         "quests": {"quests": quests}, "badges": {"badges": badges}}
 
 
+def available_prerequisite_chain(size):
+    source = conflict_chain(size)
+    retained_names = {f"C{index}" for index in range(size)}
+    for entry in source["quests"]["quests"]:
+        if entry["name"] in retained_names:
+            entry["prerequisite_quest"] = "P"
+            entry["trigger_filter"] = {"allowed_triggers": ["reading_logged"]}
+    source["quests"]["quests"].append(quest("P"))
+    return source
+
+
 def prerequisite_backedge_chain(size):
     quests, badges = [], []
     for index in range(size):
@@ -66,8 +77,9 @@ class StartupConflictChainWorkTests(TestCase):
         self.actor = make_family("Conflict chain work", parents=[{
             "username": "conflict-chain-work", "is_staff": True}]).parents[0]
 
-    def exercise_chain(self, size, *, prerequisite_backedge=False):
-        source = prerequisite_backedge_chain(size) if prerequisite_backedge else conflict_chain(size)
+    def exercise_chain(self, size, *, prerequisite_backedge=False, available_prerequisite=False):
+        source = (prerequisite_backedge_chain(size) if prerequisite_backedge else
+            available_prerequisite_chain(size) if available_prerequisite else conflict_chain(size))
         SkillCategory.objects.create(name="Arch", is_retired=True)
         retained = SkillCategory.objects.create(name="Mechatronics")
         RPGContentOverride.objects.create(
@@ -116,8 +128,13 @@ class StartupConflictChainWorkTests(TestCase):
             loader.load(stdout=StringIO())
             gate, holder_name = ("Bs", "D") if prerequisite_backedge else ("G", "H")
             self.assertEqual(list(Badge.objects.values_list("name", flat=True)), [gate])
-            self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)),
-                {holder_name, *(f"C{index}" for index in range(size))})
+            expected_names = {holder_name, *(f"C{index}" for index in range(size))}
+            if available_prerequisite:
+                expected_names.add("P")
+                prerequisite = QuestDefinition.objects.get(name="P")
+                self.assertIsNone(prerequisite.prerequisite_quest_id)
+                self.assertIsNone(prerequisite.required_badge_id)
+            self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)), expected_names)
             self.assertEqual(list(QuestDefinition.objects.filter(name__startswith="C").order_by("name").values()), saved)
             holder = QuestDefinition.objects.get(name=holder_name)
             self.assertEqual(holder.required_badge.name, gate)
@@ -160,6 +177,21 @@ class StartupConflictChainWorkTests(TestCase):
                 cache.clear()
                 try:
                     counts, _plan, _catalog = self.exercise_chain(size, prerequisite_backedge=True)
+                    self.assertGreater(counts["blocked_badge"], 0)
+                    self.assertGreater(counts["following_plans"], 0)
+                    self.assertLessEqual(counts["blocked_badge"], 12 * size * size)
+                    self.assertLessEqual(counts["following_plans"], 12 * size + 16)
+                finally:
+                    transaction.savepoint_rollback(sid)
+                    cache.clear()
+
+    def test_available_external_prerequisites_keep_retained_capacity_trials_bounded(self):
+        for size in (10, 20):
+            with self.subTest(cycles=size):
+                sid = transaction.savepoint()
+                cache.clear()
+                try:
+                    counts, _plan, _catalog = self.exercise_chain(size, available_prerequisite=True)
                     self.assertGreater(counts["blocked_badge"], 0)
                     self.assertGreater(counts["following_plans"], 0)
                     self.assertLessEqual(counts["blocked_badge"], 12 * size * size)

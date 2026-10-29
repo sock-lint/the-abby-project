@@ -1092,17 +1092,23 @@ class ContentPack:
                             "bundled admission cycle; retained catalog history is unchanged.")
                     state.cycle_pins[node] = conflict, reason
                     plan(planned, causes, *node, conflict, reason)
-            def unsupported_retained_trial(name, entry):
-                # With no prerequisite, a retained repeatable quest cannot
-                # justify its own refusal through gates that its saved capacity
+            def unsupported_retained_trial(name, entry, selection):
+                # Without an unavailable prerequisite, a retained repeatable quest
+                # cannot justify its refusal through gates that its saved capacity
                 # always satisfies. Under a proposed False plan the quest is
                 # available with infinite capacity, so every such gate's ordinary
                 # equation admits it; the unforced quest equation then removes
                 # False. No independently supported trial can be lost here.
                 # Local policy pins are omitted by that check. Actual seeds and
                 # settled outside gates remain authoritative and are not pruned.
-                if (entry.get("prerequisite_quest") is not None
-                        or ("quest", None) in nodes or ("quest", None) in planned):
+                prerequisite = entry.get("prerequisite_quest")
+                if prerequisite is not None:
+                    # Outside inputs retain their original availability during
+                    # every local trial; an in-component input can still change.
+                    if (("quest", prerequisite) in component
+                            or admission_input("quest", prerequisite, selection) is not None):
+                        return False
+                elif ("quest", None) in nodes or ("quest", None) in selection:
                     return False
                 gates = badge_references(entry.get("required_badge"))
                 if not gates:
@@ -1140,7 +1146,7 @@ class ContentPack:
                         continue
                     saved = quest_matches(name)
                     if (len(saved) == 1 and saved[0].is_repeatable
-                            and not unsupported_retained_trial(name, candidates[0])):
+                            and not unsupported_retained_trial(name, candidates[0], original)):
                         conditional.append(node)
                 accepted = False
                 for proposed in conditional:
