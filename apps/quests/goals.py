@@ -265,14 +265,22 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             continue
         from .reference_locks import admit_definition_choices, admit_definition_identity
         try:
+            admitted_required_skill_id = definition.required_skill_id
             admit_definition_choices(definition)
             admit_definition_identity(definition)
+            # Compare with the choices admitted before the identity wait.
+            # Refreshing first would silently adopt an unadmitted category.
+            require_current_progress_source(definition)
             if definition_uses_egg_discovery(definition, current=True):
                 continue
             # Identity admission may have waited behind a writer that changed
             # a normal prerequisite into an egg prerequisite, or added a gate.
             # Its preliminary eligibility must never become a saved promise.
-            definition.refresh_from_db()
+            # Retain the prefetched skill/reward links whose choices were
+            # admitted; a scalar refresh must not adopt replacement links.
+            definition.refresh_from_db(fields=[field.name for field in definition._meta.concrete_fields])
+            if definition.required_skill_id != admitted_required_skill_id:
+                continue  # A fresh request can admit the new skill in order.
             gated = has_milestone_gate(definition)
             if (definition.is_cooperative or (gated_only and not gated)
                     or (gated and gate_activity is None) or not definition_is_available(definition)
@@ -288,7 +296,6 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
                     eligibility = milestone_eligibility(user, definition)
                     if not eligibility["unlocked"]:
                         continue
-            require_current_progress_source(definition)
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy
             # windows and existing goals retain their reward references.

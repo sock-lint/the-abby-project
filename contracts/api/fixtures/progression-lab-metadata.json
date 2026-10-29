@@ -570,7 +570,7 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "cdaecdc191f48e1450648abcf7361aa376cfaffb22a0d37c9cd42d92917fcefd",
+  "rules_fingerprint": "bcee026d326c65058d41d5f1aeda35098de00d0bc4827451dfa69ac5cda3afc6",
   "engine_version": "2026-10-29.1",
   "source_commit": "unavailable",
   "work_budget": {
