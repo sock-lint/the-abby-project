@@ -1,0 +1,175 @@
+{
+  "enabled": true,
+  "offers": [
+    {
+      "key": "discovery-ordinary-egg:base",
+      "name": "Discovery Ordinary Egg · Base",
+      "tier": "ordinary",
+      "egg_item": {
+        "id": 3,
+        "name": "Discovery Ordinary Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": false,
+      "unavailable_reason": "You have already hatched this companion.",
+      "season": null,
+      "requirements": {
+        "total_minutes": 240,
+        "min_minutes_per_type": 90,
+        "activity_types_required": 2,
+        "minutes_per_search_type": null,
+        "minutes_per_search": null,
+        "max_minutes_per_type_per_search": null,
+        "chance_percent": null,
+        "guaranteed_search": null,
+        "required_hatched_species": 0
+      }
+    },
+    {
+      "key": "discovery-other-egg:base",
+      "name": "Discovery Other Egg · Base",
+      "tier": "ordinary",
+      "egg_item": {
+        "id": 4,
+        "name": "Discovery Other Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": false,
+      "unavailable_reason": "You have already hatched this companion.",
+      "season": null,
+      "requirements": {
+        "total_minutes": 240,
+        "min_minutes_per_type": 90,
+        "activity_types_required": 2,
+        "minutes_per_search_type": null,
+        "minutes_per_search": null,
+        "max_minutes_per_type_per_search": null,
+        "chance_percent": null,
+        "guaranteed_search": null,
+        "required_hatched_species": 0
+      }
+    },
+    {
+      "key": "discovery-rare-egg:base",
+      "name": "Discovery Rare Egg · Base",
+      "tier": "rare",
+      "egg_item": {
+        "id": 5,
+        "name": "Discovery Rare Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": false,
+      "unavailable_reason": "This discovery is already saved in your collection.",
+      "season": null,
+      "requirements": {
+        "total_minutes": null,
+        "min_minutes_per_type": null,
+        "activity_types_required": 2,
+        "minutes_per_search_type": 30,
+        "minutes_per_search": 60,
+        "max_minutes_per_type_per_search": 30,
+        "chance_percent": 20,
+        "guaranteed_search": 5,
+        "required_hatched_species": 2
+      }
+    }
+  ],
+  "discoveries": [
+    {
+      "id": 1,
+      "offer_key": "discovery-rare-egg:base",
+      "name": "Discovery Rare Egg · Base",
+      "tier": "rare",
+      "egg_item": {
+        "id": 5,
+        "name": "Discovery Rare Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "season": null,
+      "requirements": {
+        "total_minutes": null,
+        "min_minutes_per_type": null,
+        "activity_types_required": 2,
+        "minutes_per_search_type": 30,
+        "minutes_per_search": 60,
+        "max_minutes_per_type_per_search": 30,
+        "chance_percent": 20,
+        "guaranteed_search": 5,
+        "required_hatched_species": 2
+      },
+      "status": "completed",
+      "minutes": {
+        "reading": 150,
+        "movement": 0,
+        "practice": 150
+      },
+      "searches": [
+        {
+          "number": 1,
+          "found": false,
+          "guaranteed": false
+        },
+        {
+          "number": 2,
+          "found": false,
+          "guaranteed": false
+        },
+        {
+          "number": 3,
+          "found": false,
+          "guaranteed": false
+        },
+        {
+          "number": 4,
+          "found": false,
+          "guaranteed": false
+        },
+        {
+          "number": 5,
+          "found": true,
+          "guaranteed": true
+        }
+      ],
+      "receipt": {
+        "items": [
+          {
+            "item_id": 5,
+            "item_name": "Discovery Rare Egg",
+            "item_type": "egg",
+            "item_icon": "E",
+            "item_sprite_key": "big-egg",
+            "quantity": 1
+          },
+          {
+            "item_id": 1,
+            "item_name": "Base Potion",
+            "item_type": "potion",
+            "item_icon": "P",
+            "item_sprite_key": "potion-brew-earthy",
+            "quantity": 1
+          },
+          {
+            "item_id": 2,
+            "item_name": "Starter Food",
+            "item_type": "food",
+            "item_icon": "F",
+            "item_sprite_key": "",
+            "quantity": 2
+          }
+        ]
+      },
+      "remaining_searches": 0,
+      "can_resume": false,
+      "unavailable_reason": null
+    }
+  ],
+  "active_id": null
+}

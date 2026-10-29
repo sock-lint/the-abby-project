@@ -364,6 +364,7 @@ export const handlers = [
 
   // Quests
   http.get('*/api/quests/active/', () => HttpResponse.json(null)),
+  http.get('*/api/egg-discoveries/', () => HttpResponse.json({ enabled: false, offers: [], discoveries: [], active_id: null })),
   http.get('*/api/challenges/', () => HttpResponse.json({ results: [], pin: null, daily_bonus: null, challenge_receipts: [] })),
   http.post('*/api/challenges/:id/retry/', ok),
   http.patch('*/api/challenges/goals/:id/schedule/', ok),

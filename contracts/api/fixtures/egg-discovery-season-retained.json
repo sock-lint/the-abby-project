@@ -1,0 +1,128 @@
+{
+  "enabled": true,
+  "offers": [
+    {
+      "key": "discovery-ordinary-egg:base",
+      "name": "Discovery Ordinary Egg · Base",
+      "tier": "ordinary",
+      "egg_item": {
+        "id": 3,
+        "name": "Discovery Ordinary Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": false,
+      "unavailable_reason": "This discovery is already saved in your collection.",
+      "season": {
+        "starts_on": "2026-10-01",
+        "ends_on": "2026-10-31"
+      },
+      "requirements": {
+        "total_minutes": 240,
+        "min_minutes_per_type": 90,
+        "activity_types_required": 2,
+        "minutes_per_search_type": null,
+        "minutes_per_search": null,
+        "max_minutes_per_type_per_search": null,
+        "chance_percent": null,
+        "guaranteed_search": null,
+        "required_hatched_species": 0
+      }
+    },
+    {
+      "key": "discovery-other-egg:base",
+      "name": "Discovery Other Egg · Base",
+      "tier": "ordinary",
+      "egg_item": {
+        "id": 4,
+        "name": "Discovery Other Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": true,
+      "unavailable_reason": null,
+      "season": null,
+      "requirements": {
+        "total_minutes": 240,
+        "min_minutes_per_type": 90,
+        "activity_types_required": 2,
+        "minutes_per_search_type": null,
+        "minutes_per_search": null,
+        "max_minutes_per_type_per_search": null,
+        "chance_percent": null,
+        "guaranteed_search": null,
+        "required_hatched_species": 0
+      }
+    },
+    {
+      "key": "discovery-rare-egg:base",
+      "name": "Discovery Rare Egg · Base",
+      "tier": "rare",
+      "egg_item": {
+        "id": 5,
+        "name": "Discovery Rare Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "eligible": false,
+      "unavailable_reason": "Hatch two different companions to unlock rare discoveries.",
+      "season": null,
+      "requirements": {
+        "total_minutes": null,
+        "min_minutes_per_type": null,
+        "activity_types_required": 2,
+        "minutes_per_search_type": 30,
+        "minutes_per_search": 60,
+        "max_minutes_per_type_per_search": 30,
+        "chance_percent": 20,
+        "guaranteed_search": 5,
+        "required_hatched_species": 2
+      }
+    }
+  ],
+  "discoveries": [
+    {
+      "id": 1,
+      "offer_key": "discovery-ordinary-egg:base",
+      "name": "Discovery Ordinary Egg · Base",
+      "tier": "ordinary",
+      "egg_item": {
+        "id": 3,
+        "name": "Discovery Ordinary Egg",
+        "icon": "E",
+        "sprite_key": "big-egg"
+      },
+      "potion_name": "Base",
+      "season": {
+        "starts_on": "2026-10-01",
+        "ends_on": "2026-10-31"
+      },
+      "requirements": {
+        "total_minutes": 240,
+        "min_minutes_per_type": 90,
+        "activity_types_required": 2,
+        "minutes_per_search_type": null,
+        "minutes_per_search": null,
+        "max_minutes_per_type_per_search": null,
+        "chance_percent": null,
+        "guaranteed_search": null,
+        "required_hatched_species": 0
+      },
+      "status": "active",
+      "minutes": {
+        "reading": 0,
+        "movement": 0,
+        "practice": 45
+      },
+      "searches": [],
+      "receipt": null,
+      "remaining_searches": null,
+      "can_resume": false,
+      "unavailable_reason": null
+    }
+  ],
+  "active_id": 1
+}

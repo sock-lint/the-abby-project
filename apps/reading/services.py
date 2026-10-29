@@ -115,6 +115,19 @@ def create_reading_session(requester, target, validated_data):
         if book.status in (ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.PAUSED):
             book.status = ReadingBook.Status.READING
             book.save(update_fields=["status", "updated_at"])
+        from apps.egg_discoveries.services import credit_activity, enabled as discovery_enabled
+
+        # The native reward identity also survives sessions saved before the
+        # discovery preview existed. Deleting and recreating one cannot move
+        # that old work into a newly selected egg.
+        if discovery_enabled() and not ReadingRewardCredit.objects.filter(
+            user=target, client_request_id=session.client_request_id,
+        ).exists():
+            credit_activity(
+                target, category="reading", source_kind="reading_session",
+                source_key=str(session.client_request_id), minutes=session.duration_minutes,
+                occurred_on=session.occurred_on,
+            )
         ReadingRewardService.credit_new_session(target, session)
     return session, created
 

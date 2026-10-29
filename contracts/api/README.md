@@ -1,5 +1,14 @@
 # Shared API response fixtures
 
+`egg-discovery-{catalog,ordinary-active,rare-missed,rare-guaranteed,paused,season-retained,disabled}.json`
+are real authenticated self-scoped discovery preview responses. They preserve
+server requirements, cumulative category minutes, immutable search outcomes,
+the fifth-search guarantee and its exact granted ingredient receipt. The
+seasonal example remains resumable after its start window. Disabled responses
+are empty and reads award nothing. Producer:
+`config.tests.test_egg_discovery_api_contract_fixtures`; React consumer:
+`src/api/eggDiscoveryContractFixtures.test.jsx`. Both run in required PR checks.
+
 `badges-retained-category-tie.json` retains an actually earned mastery badge
 after its current and retained category identities compete. The producer checks
 native failure on the tie, hides an unearned copy, preserves raw criteria and

@@ -16,6 +16,13 @@ family-local day. Print, ebook and audiobook minutes count equally; pages,
 chapters and reflections remain optional and do not determine reward value.
 Reading has no payments, approval flow or journal mirroring.
 
+When the disabled-by-default egg discovery preview is enabled, a genuinely new
+current-day session credits its full recorded duration to its owner's selected
+egg before the existing reward service runs. Discovery keeps its own durable
+UUID credit, independent of the ten-minute daily Reading Adventure cap. Edits,
+backdated entries, notes-only logs and a deleted/recreated UUID do not create
+new discovery credit. See `apps/egg_discoveries/CLAUDE.md`.
+
 The web endpoints are `/api/reading-books/`, `/api/reading-sessions/`,
 `/api/reading/summary/`, `/api/reading/recommendations/`,
 `/api/reading/discovery-feedback/`, and `/api/reading-family-suggestions/`. Shelf,

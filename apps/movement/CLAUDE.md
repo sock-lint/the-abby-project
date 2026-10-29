@@ -2,6 +2,15 @@
 
 Self-reported physical activity sessions. No approval flow — child logs a session and earns XP immediately. First `DAILY_REWARD_LIMIT` sessions per local day fire XP + drop roll + game loop; subsequent sessions still advance automatic measurable goals while skipping the separate movement XP/drop award path.
 
+The disabled-by-default egg discovery preview independently credits new
+current-day session minutes before XP and legacy challenge processing. Its
+durable UUID receipt survives deletion so a recreated source cannot reroll a
+search. Zero-credit UUID receipts are retained while the preview is off, and
+its migration reserves surviving older UUIDs without awarding progress.
+Sessions without a UUID use their saved row identity. Past-day sessions
+do not advance discoveries; sessions beyond the daily XP cap still can. See
+`apps/egg_discoveries/CLAUDE.md`.
+
 ## Models
 - `MovementType` — catalog of sessionable activities (seeded with ~10 rows covering Sports + Body Work). `default_intensity` (low / medium / high), parent-extensible via `created_by` FK. `MovementTypeSkillTag` provides default skill fan-out.
 - `MovementTypeSkillTag` — `(movement_type, skill, xp_weight)` mirroring `ChoreSkillTag`.

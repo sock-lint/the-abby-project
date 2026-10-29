@@ -13,6 +13,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 |---|---|
 | [`apps/rpg/CLAUDE.md`](apps/rpg/CLAUDE.md) | RPG game loop · prepared sprite artwork · drops · streaks · consumables · cosmetics |
 | [`apps/pets/CLAUDE.md`](apps/pets/CLAUDE.md) | Pets · mounts · expeditions · companion growth · bestiary UI |
+| [`apps/egg_discoveries/CLAUDE.md`](apps/egg_discoveries/CLAUDE.md) | Targeted egg preview · activity credit · bounded rare searches |
 | [`apps/quests/CLAUDE.md`](apps/quests/CLAUDE.md) | Automatic challenges · pins · parent measurable goals · legacy quests |
 | [`apps/chronicle/CLAUDE.md`](apps/chronicle/CLAUDE.md) | Age-aware chronicle · journal entries · chapter transitions · birthdays |
 | [`apps/homework/CLAUDE.md`](apps/homework/CLAUDE.md) | Homework lifecycle · effort scaling · AI planning · anti-farm gate |

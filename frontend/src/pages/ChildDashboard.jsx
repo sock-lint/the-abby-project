@@ -41,6 +41,7 @@ import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
+import EggDiscoveryCard from '../components/dashboard/EggDiscoveryCard';
 import { useSpace } from '../hooks/useSpace';
 
 const VISIBLE_LOG_CAP = 5;
@@ -264,6 +265,7 @@ export default function ChildDashboard({ data, reload }) {
         </section>
       )}
 
+      <EggDiscoveryCard refreshKey={data} />
       <ErrorAlert message={challengesError} />
       {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
       {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
