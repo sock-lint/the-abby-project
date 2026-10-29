@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import metadata from '../../../contracts/api/fixtures/progression-lab-metadata.json';
 import report from '../../../contracts/api/fixtures/progression-lab-report.json';
+import renamedTaxonomyReport from '../../../contracts/api/fixtures/progression-lab-renamed-taxonomy-report.json';
+import renamedFixedRoutesReport from '../../../contracts/api/fixtures/progression-lab-renamed-fixed-routes-report.json';
 import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
 import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
 import commitmentReport from '../../../contracts/api/fixtures/progression-lab-commitment-report.json';
@@ -45,6 +47,39 @@ function expectPairedIncubation(response) {
   expect(response.control.rules_fingerprint).toBe(response.binding.rules_fingerprint);
   expect(response.candidate.rules_fingerprint).toBe(response.binding.rules_fingerprint);
 }
+
+describe('retained taxonomy forecast transport', () => {
+  it('preserves native journal and untagged daily-bonus projections after taxonomy renames', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, renamedFixedRoutesReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(renamedFixedRoutesReport.config);
+    expect(simulation.calls).toHaveLength(1);
+    expect(simulation.calls[0].body).toEqual(renamedFixedRoutesReport.config);
+    expect(response.config).toMatchObject({ reading_minutes: 0, journal_per_day: true,
+      movement_sessions_per_day: 1, movement_minutes: 10, chores_per_day: 0 });
+    expect(response.flows.sources.find(({ source }) => source === 'journal').xp).toBe(450);
+    expect(response.flows.sources.find(({ source }) => source === 'daily_bonus').xp).toBe(600);
+    expect(response.flows.sources.find(({ source }) => source === 'movement').xp).toBe(0);
+    expect(response.flows.sources.some(({ source }) => source === 'reading')).toBe(false);
+    expect(response.trace.at(-1).total_xp_p50).toBe(1050);
+    expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
+  });
+
+  it('preserves server-projected Reading XP and category mastery after taxonomy renames', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, renamedTaxonomyReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(renamedTaxonomyReport.config);
+    expect(simulation.calls[0].body).toEqual(renamedTaxonomyReport.config);
+    expect(response.flows.sources.find(({ source }) => source === 'reading').xp).toBe(450);
+    expect(response.flows.sources.find(({ source }) => source === 'challenges').xp).toBe(100);
+    expect(response.trace.at(-1).badges_p50).toBe(1);
+    expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
+  });
+});
 
 describe('Progression lab shared API fixtures', () => {
   it('transports real challenge gates and recorded availability separately from unchanged native totals', async () => {

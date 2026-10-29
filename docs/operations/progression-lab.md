@@ -7,6 +7,25 @@ inventory, awards or notifications. The experiment notebook saves private
 design evidence separately; its observation panel reads only your family's
 recent-child Coin ledger aggregates.
 
+Reading XP, journal XP, the untagged daily-bonus fallback and named category
+mastery use exact current or retained taxonomy identities captured with the
+global catalog. MCP renames and retirement preserve their installed destinations;
+distinct competing identities fail closed. Journal preserves the native weighted
+split among resolved destinations and their unlock requirements. A daily bonus
+uses the qualifying activity's existing tags first, falling back to the installed
+Persistence identity only when those tags are empty. Badge reachability follows
+the same earning destinations and rounded XP, including daily bonuses qualified
+by combined project and movement minutes. Mastery still follows the current
+skills in its category and its existing level requirement. Calculations use
+detached IDs and never query taxonomy during a trial. Other assumed activity tags retain their
+documented scenario behavior.
+
+Catalog fingerprints include category labels and the resolved source identities.
+Changing these inputs makes saved comparisons stale without rewriting their
+reports. Decisions also check bounded public taxonomy source versions under short
+snapshot and final-save fences. These fences exclude household computation and
+do not read authoring families, prose or publication values.
+
 ## Save findings and act on them
 
 Use the experiment notebook to name a hypothesis and capture the current

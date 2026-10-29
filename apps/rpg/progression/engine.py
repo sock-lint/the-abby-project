@@ -262,6 +262,7 @@ def rules_fingerprint(*, incubation_policy=None):
                                     for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
         "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
         "fixed_xp_source_identity_source": inspect.getsource(fixed_xp_identity),
+        "catalog_source": inspect.getsource(inspect.getmodule(load_catalog)),
         "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
         "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
@@ -526,7 +527,7 @@ class Trial:
         self.category_required = defaultdict(set)
         for s in catalog.skills.values():
             if not s.is_locked_by_default:
-                self.category_required[s.category.name].add(s.pk)
+                self.category_required[s.category_id].add(s.pk)
         self.cross_category_skills = {
             pk
             for pk, info in self.skill_info.items()
@@ -556,7 +557,13 @@ class Trial:
                 if s.category.name == category and s.name == name
             ]
             for source, names in ACTIVITY_SKILLS.items()
+            if source not in {"reading", "journal"}
         }
+        # Installed award routes retain captured category-qualified identities.
+        # Other scenario-assumed activity tags still use their authored labels.
+        self.tags["reading"] = self._fixed_skill_tags("Language Arts", [(ReadingRewardService.SKILL_NAME, 1)])
+        self.tags["journal"] = self._fixed_skill_tags("Language Arts", JOURNAL_SKILL_WEIGHTS)
+        self.daily_bonus_fallback = self._fixed_skill_tags("Life Skills", [("Persistence", 1)])
         self.quests = self._eligible_quests()
         self.finite_keys = self._finite_keys()
         native_quest_ids = set(self.reachable_quest_ids)
@@ -592,6 +599,18 @@ class Trial:
         self.expedition_budget.unavailable_finite_total = len(quota_removed)
         self.expedition_budget.removed_finite_targets = dict(Counter(key.split(":")[0] for key in quota_removed))
         self.completed_finite = set()
+
+    def _fixed_skill_tags(self, category_name, names):
+        category_id = self.catalog.source_categories.get(category_name)
+        if category_id is None:
+            return []
+        tags = []
+        for name, weight in names:
+            skill_id = self.catalog.source_skills.get((category_id, name))
+            skill = self.catalog.skills.get(skill_id)
+            if skill is not None:
+                tags.append(SimpleNamespace(skill=skill, xp_weight=weight))
+        return tags
 
     @property
     def level(self):
@@ -917,7 +936,7 @@ class Trial:
         earning = set()
         for source, enabled in {
             "reading": c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES,
-            "project": c["project_minutes"] >= 3,
+            "project": round(c["project_minutes"] / 60 * 10) > 0,
             "chores": c["chores_per_day"] and c["chore_xp"] > 0,
             "habits": c["habits_per_day"] and c["habit_xp"] > 0,
             "journal": c["journal_per_day"],
@@ -929,10 +948,13 @@ class Trial:
                 earning.update(tag.skill.pk for tag in self.tags[source])
         # Daily bonus uses the first qualifying source's tags, including when
         # that source itself has zero XP (e.g. a Coin-only chore).
+        bonus_tags = None
         if c["chores_per_day"] or c["project_minutes"] >= 10:
-            earning.update(tag.skill.pk for tag in self.tags["chores"])
-        elif c["movement_sessions_per_day"] * c["movement_minutes"] >= 10:
-            earning.update(tag.skill.pk for tag in self.tags["movement"])
+            bonus_tags = self.tags["chores"]
+        elif c["project_minutes"] + c["movement_sessions_per_day"] * c["movement_minutes"] >= 10:
+            bonus_tags = self.tags["movement"]
+        if bonus_tags is not None:
+            earning.update(tag.skill.pk for tag in bonus_tags or self.daily_bonus_fallback)
         for _ in range(len(self.catalog.badges) + len(self.quests) + 1):
             previous = (
                 len(potential.badges),
@@ -1206,7 +1228,7 @@ class Trial:
             return
         self.counters["daily_bonus_day"] = self.day
         self.coin_award(DAILY_BONUS_COINS, "daily_bonus")
-        self.award_xp(DAILY_BONUS_XP, tags or self.tags["chores"], "daily_bonus")
+        self.award_xp(DAILY_BONUS_XP, tags or self.daily_bonus_fallback, "daily_bonus")
         self.evaluate_badges(scopes={"coin", "skill_xp", "badges"})
 
     def advance_challenges(self, trigger, context, *, catalog_eligible=True):
@@ -1268,6 +1290,11 @@ class Trial:
             self.recognize_event_firsts("quest_complete")
             self.milestones.setdefault("first_challenge", self.day)
 
+    @staticmethod
+    def _badge_integer_threshold(value):
+        """Match native IntegerField gte conversion for retained JSON criteria."""
+        return math.ceil(value) if isinstance(value, float) else int(value)
+
     def _badge_matches(self, badge):
         kind, c = badge.criteria_type, badge.criteria_value or {}
         count = int(c.get("count", 1))
@@ -1284,29 +1311,34 @@ class Trial:
         if kind == "days_worked":
             return self.counters["project_sessions"] >= int(c.get("count", 5))
         if kind == "skill_level_reached":
-            return sum(level >= c.get("level", 2) for level in levels.values()) >= count
+            minimum = self._badge_integer_threshold(c.get("level", 2))
+            return sum(level >= minimum for level in levels.values()) >= count
         if kind == "skills_unlocked":
             return sum(self.skill_info[pk][0] for pk in self.unlocked) >= count
         if kind == "subjects_completed":
+            minimum = self._badge_integer_threshold(c.get("min_level", 2))
             return (
                 len(
                     {
                         self.skill_info[pk][2]
                         for pk, level in levels.items()
-                        if level >= c.get("min_level", 2) and self.skill_info[pk][2]
+                        if level >= minimum and self.skill_info[pk][2]
                     }
                 )
                 >= count
             )
         if kind == "skill_categories_breadth":
+            minimum = self._badge_integer_threshold(c.get("min_level", 1))
             return len(
-                {self.skill_info[pk][1] for pk, level in levels.items() if level >= c.get("min_level", 1)}
+                {self.skill_info[pk][1] for pk, level in levels.items() if level >= minimum}
             ) >= c.get("categories", 4)
         if kind == "cross_category_unlock":
             return bool(self.cross_category_skills & self.unlocked)
         if kind == "category_mastery":
-            required = self.category_required.get(c.get("category"))
-            return bool(required) and all(levels.get(pk, 0) >= int(c.get("min_level", 3)) for pk in required)
+            category_id = self.catalog.source_categories.get(c.get("category"))
+            required = self.category_required.get(category_id)
+            minimum = int(c.get("min_level", 3))
+            return bool(required) and all(pk in levels and levels[pk] >= minimum for pk in required)
         if kind == "streak_days":
             return self.counters["project_best_streak"] >= int(c.get("days", 7))
         if kind == "total_coins_earned":

@@ -119,12 +119,108 @@ with main settings: `test_habit_daily_authority_concurrency`,
 checks cover a cross-family catalog edit between preparation and commit, source
 read/write fences, and continued unrelated-family activity during computation.
 
+Run `apps.achievements.tests.test_mastery_source_identity` for named badge
+criteria across taxonomy edits, and `test_reading_forecast_identity` and
+`test_deleted_pack_publication_replay` under `apps.mcp_server.tests` for native
+Reading forecast parity and completed publication retries after source disposal.
+These use synthetic registered MCP calls with native award/receipt controls.
+
+Lab taxonomy coverage is `apps.mcp_server.tests.test_lab_source_identity`,
+`apps.mcp_server.tests.test_lab_identity_freshness` and
+`apps.rpg.tests.test_progression_taxonomy_snapshot`. The freshness concurrency
+checks require disposable PostgreSQL: metadata edits must block during capture
+and final save, fail a decision after capture, and leave household XP activity
+unblocked during detached catalog work. The real Lab producer/React pair also
+checks a renamed-taxonomy Reading/mastery report.
+
+`apps.mcp_server.tests.test_lab_fixed_xp_routes` compares journal allocation and
+untagged daily-bonus fallback forecasts with native receipts and per-skill XP.
+It covers retained names, retirement/reparenting, ambiguity, partial resolution,
+locked destinations, nonempty activity-tag priority and finite badge capacity.
+Short-session controls use the actual rounded project XP and combined daily
+qualifying minutes when checking finite badge capacity.
+The real Lab producer/React pair also consumes the renamed fixed-route report,
+with 450 journal XP and 600 daily-bonus XP over thirty active days. Forecast
+purity checks prohibit household reads and native reward writers.
+
+`apps.rpg.tests.test_content_runtime_levels` and
+`apps.mcp_server.tests.test_content_runtime_levels` check runtime-derived badge
+and prerequisite bounds, atomic preview/publication rejection, native level-6
+controls and legacy level-0 YAML prerequisite compatibility. They also retain
+earned unavailable-level badges and payouts while hiding unreachable new goals.
+The real `badges-retained-unreachable-level.json` producer/React pair checks the
+same retained catalog response; reads cannot rewrite rewards or history.
+`test_category_projects_compatibility` and `test_legacy_runtime_level_visibility`
+under `apps.achievements.tests` retain current case-variant category unions,
+uncategorized-project rules and native-compatible saved level thresholds,
+including count-based goals that qualify with zero matching rows.
+`apps.rpg.tests.test_progression_legacy_runtime_levels` compares those thresholds
+with native eligibility, including integer-query rounding and missing progress.
+The catalog producer/React pair also consumes `badges-reachable-legacy-levels.json`.
+`apps.achievements.tests.test_named_goal_ambiguity` checks that retained/current
+category ties stop being offered as goals while earned history remains visible;
+current-name unions and uncategorized, plural and zero-count rules remain valid.
+The real producer/React pair consumes `badges-retained-category-tie.json`.
+`apps.mcp_server.tests.test_category_rename_admission` covers atomic rejection
+through MCP, REST and reviewed pack preview/publication, preserving current-name
+unions, case-only renames, first-source identity and legacy repair rules.
+
+`apps.rpg.tests.test_loader_category_source_conflicts` checks manual rollback
+and selective startup deferral. `test_startup_quest_badge_closure` under that
+same package covers forward cross-pack dependencies, saved prerequisite
+overrides, safe alternative goals and retained history. They also check saved
+completion capacity across source orders, retraction of transient plans and
+bounded conditional cycles without withholding reachable downstream goals.
+They distinguish badges written earlier in the same batch from saved badges
+whose source edits were withheld, and keep actual loading refusals across later
+planning passes. Dependency-component cases bound repeated badge checks, with
+disconnected valid edits and independent source conflicts as controls. Coupled
+capacity cases require a retained-rule plan to remain supported without forcing
+that choice; actual source conflicts remain strict.
+`test_stale_category_source_identity` checks category recovery when only
+orphaned provenance remains, while live identities and keyed claims stay
+protected. MCP's `test_category_retained_repair_admission` checks departures
+that would otherwise strand the supported rename-back repair.
+`apps.achievements.tests.test_named_goal_availability_queries`, MCP's
+`test_named_goal_catalog_queries` and RPG's
+`test_progression_named_goal_queries` bound selector queries in REST reads,
+MCP pages and detached Lab snapshots, including pagination, source limits,
+fresh reads and the 512-badge Lab limit.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,
 one unfinished slot, inactive-day readiness, next-active-visit claims, recorded
 policy/fingerprint changes and missing historical policy. These tests remain
 in memory or use disposable synthetic data; they never exercise household care.
+
+Exchange decisions additionally run
+`apps.mcp_server.tests.test_exchange_family_boundaries` and
+`test_exchange_family_boundaries_concurrency` with disposable PostgreSQL.
+They check foreign and missing request refusals, current actor and member
+admission, native decision parity, notes, once-only settlement, owner changes
+and native-versus-MCP lock contention. Both workers close their physical
+connections before test-database teardown. With PostgreSQL,
+`apps.rewards.tests.test_exchange_deleted_owner` races real child deletion with
+REST approval/rejection: a vanished owner returns 404 without settlement writes.
+Native reward decision and wallet concurrency checks remain required.
+
+`apps.rpg.tests.test_workbench_named_goal_queries` bounds the native REST
+content editor's named badge and quest-prerequisite lookups, preserving
+availability, editability, shop uses, catalog limits and fresh reads.
+The bundled-content command tests retain complete batch planning, ordered
+loading, explicit-pack behavior and rollback after an actual later failure.
+`apps.rpg.tests.test_startup_preflight_planning_context` requires planning errors
+to identify the supplying pack at the first, middle and last selected positions,
+including entries scanned by another loader, in normal and dry-run loads.
+`test_startup_legacy_badge_planning` keeps non-strict legacy badge criteria
+loadable during selective planning without changing saved criteria. It retains
+missing-content deferrals for valid counted goals and checks dry-run rollback,
+repeated loads, native numeric-count coercion and surviving any-of alternatives.
+Bundled preflight tests retain parser details, grouped successful headers,
+manual strictness and dry-run rollback. `test_startup_live_deferral_warnings`
+under the same package retains the original named cause across real cross-pack
+deferrals without repeatedly prefixing it.
 
 OAuth client management shares `contracts/api/fixtures/oauth-applications.json` between
 `config.tests.test_oauth_api_contract_fixtures` and `src/pages/Manage.oauth.test.jsx`.

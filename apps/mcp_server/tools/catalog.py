@@ -1,7 +1,7 @@
 """Global RPG authoring inputs and structural audit, separate from player access."""
 from typing import Any
 
-from ..catalog import audit_catalog_rows, catalog_page, catalog_row
+from ..catalog import audit_catalog_rows, catalog_page, catalog_rows
 from ..catalog_schemas import CatalogPageIn
 from ..context import get_current_user
 from ..errors import safe_tool
@@ -22,7 +22,7 @@ def read_rpg_catalog(params: CatalogPageIn) -> dict[str, Any]:
     """
     get_current_user()
     rows, page = catalog_page(params)
-    return to_plain({**page, "results": [catalog_row(params.section, row) for row in rows]})
+    return to_plain({**page, "results": catalog_rows(params.section, rows)})
 
 
 @tool()

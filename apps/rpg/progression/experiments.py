@@ -22,7 +22,7 @@ from apps.accounts.models import User
 from apps.quests.activity import household_timezone
 from apps.rpg.authoring_archive import MAX_ARCHIVED, ensure_active_capacity, list_authoring, locked_author
 from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
-from .catalog import load_catalog
+from .catalog import TAXONOMY_OVERRIDE_LIMIT, load_catalog, taxonomy_source_overrides
 from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, pet_incubation_policy, rules_fingerprint, simulate_progression
 from .feedback import evaluate_comparison, feedback_fingerprint, feedback_metadata, normalize_targets
 
@@ -175,7 +175,8 @@ def _current_binding():
 
 # Source rows, rather than accepted catalog rows, also cover eligibility changes
 # and previously excluded definitions becoming available. No household records or
-# private authoring/pack metadata enter this short-lived optimistic token.
+# private authoring/pack metadata enter this short-lived optimistic token. Only
+# exact global taxonomy provenance used by the detached catalog is included.
 _CATALOG_SOURCE_LIMITS = {
     "achievements.SkillCategory": 2048, "achievements.Subject": 8192,
     "achievements.Skill": 2048, "achievements.SkillPrerequisite": 32768,
@@ -183,6 +184,7 @@ _CATALOG_SOURCE_LIMITS = {
     "pets.PotionType": 256, "rpg.ItemDefinition": 4096,
     "rpg.DropTable": 16384, "quests.QuestDefinition": 4096,
     "quests.QuestSkillTag": 32768, "quests.QuestRewardItem": 32768,
+    "rpg.RPGContentOverride": TAXONOMY_OVERRIDE_LIMIT,
 }
 
 
@@ -208,6 +210,8 @@ def _catalog_source_token():
             queryset = queryset.filter(is_system=True)
         elif label in {"quests.questskilltag", "quests.questrewarditem"}:
             queryset = queryset.filter(quest_definition__is_system=True)
+        elif label == "rpg.rpgcontentoverride":
+            queryset = taxonomy_source_overrides()
         if connection.vendor == "postgresql":
             table = connection.ops.quote_name(model._meta.db_table)
             queryset = queryset.annotate(_source_version=RawSQL(
@@ -215,7 +219,11 @@ def _catalog_source_token():
             ))
             values = list(queryset.values_list("pk", "_source_version")[:limit + 1])
         else:
-            values = list(queryset.values_list(*[field.attname for field in model._meta.concrete_fields])[:limit + 1])
+            # Retained taxonomy identity is global even though its authoring
+            # record can also contain private family/prose/publication fields.
+            fields = (("pk", "model_label", "object_id", "source_lookup") if label == "rpg.rpgcontentoverride"
+                      else [field.attname for field in model._meta.concrete_fields])
+            values = list(queryset.values_list(*fields)[:limit + 1])
         if len(values) > limit:
             raise ValueError("Global catalog source exceeds the decision freshness limit.")
         rows.append((label, values))
@@ -457,6 +465,12 @@ def _record_decision(actor, experiment_id, data, *, include_observations=True):
     # no simulation, catalog projection or source inspection runs under it.
     from apps.rpg.content.publication import _catalog_lock
     _catalog_lock()
+    if connection.vendor == "postgresql":
+        # Native publication's catalog fence predates source-identity metadata.
+        # Keep these consumed global identities stable through the append too.
+        model = apps.get_model("rpg.RPGContentOverride")
+        with connection.cursor() as cursor:
+            cursor.execute("LOCK TABLE " + connection.ops.quote_name(model._meta.db_table) + " IN SHARE MODE")
     binding, source_token = _REQUEST_BINDING.get()
     if binding is None or source_token is None:
         raise ExperimentUnavailable("Current catalog is unavailable. Saved evidence remains readable; retry the decision after the catalog recovers.")

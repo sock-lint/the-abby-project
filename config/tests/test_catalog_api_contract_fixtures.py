@@ -9,8 +9,11 @@ from django.conf import settings
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
+from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress, UserBadge, XP_THRESHOLDS
+from apps.achievements.services import BadgeService, SkillService
 from apps.pets.models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserMount, UserPet
-from apps.rpg.models import ItemDefinition, UserInventory
+from apps.rewards.models import CoinLedger
+from apps.rpg.models import DropLog, ItemDefinition, UserInventory
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
 
@@ -55,6 +58,127 @@ class CatalogApiResponseFixtureTests(APITestCase):
         UserPet.objects.create(id=62, user=self.child, species=self.cat, potion=self.base, name="Kit", growth_points=30)
         for pk, item in enumerate((self.egg, self.potion, self.accessory, self.frame), 71):
             UserInventory.objects.create(id=pk, user=self.child, item=item, quantity=1)
+
+    def test_earned_badge_history_survives_unreachable_legacy_level(self):
+        category = SkillCategory.objects.create(id=931, name="Fixture runtime levels")
+        skill = Skill.objects.create(id=932, category=category, name="Fixture mastery practice")
+        earned = Badge.objects.create(id=951, name="Retained earned level badge", description="Previously earned recognition",
+            criteria_type="skill_level_reached", criteria_value={"level": max(XP_THRESHOLDS), "count": 1},
+            xp_bonus=0, award_coins=False)
+        self.assertEqual(SkillService.award_xp(self.child, skill, 1000000).level, max(XP_THRESHOLDS))
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"}), [earned])
+        marker = UserBadge.objects.get(user=self.child, badge=earned)
+        saved_marker = UserBadge.objects.values().get(pk=marker.pk)
+        before = {model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in (
+            UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory,
+        )}
+        # Historical raw imports/edits may contain an invalid level. Reads retain
+        # earned recognition without offering that unreachable goal to a child.
+        Badge.objects.filter(pk=earned.pk).update(criteria_value={"level": max(XP_THRESHOLDS) + 1, "count": 1})
+        Badge.objects.create(id=952, name="Hidden unearned level badge", description="Unreachable legacy goal",
+            criteria_type="skill_level_reached", criteria_value={"level": max(XP_THRESHOLDS) + 1, "count": 1},
+            xp_bonus=0, award_coins=False)
+        Badge.objects.create(id=953, name="Reachable next level badge", description="Supported maximum-level goal",
+            criteria_type="skill_level_reached", criteria_value={"level": max(XP_THRESHOLDS), "count": 1},
+            xp_bonus=0, award_coins=False)
+        self.assertEqual(UserBadge.objects.values().get(pk=marker.pk), saved_marker)
+        self.assertEqual({model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in (
+            UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory,
+        )}, before)
+        response = self.client.get("/api/badges/")
+        self.assertEqual(response.status_code, 200)
+        rows = {row["id"]: row for row in response.json()["results"]}
+        self.assertEqual(set(rows), {951, 953})
+        self.assertFalse(rows[951]["catalog_available"])
+        self.assertTrue(rows[953]["catalog_available"])
+        history = self.client.get("/api/badges/earned/")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["results"][0]["badge"]["id"], earned.pk)
+        self.assertFalse(history.json()["results"][0]["badge"]["catalog_available"])
+        self.assertEqual(UserBadge.objects.values().get(pk=marker.pk), saved_marker)
+        self.assertEqual({model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in (
+            UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory,
+        )}, before)
+        self.assert_response_fixture(response, "badges-retained-unreachable-level.json")
+
+    def test_native_reachable_legacy_level_goals_remain_visible_without_read_awards(self):
+        from apps.achievements import criteria
+
+        category = SkillCategory.objects.create(id=931, name="Fixture legacy levels")
+        skill = Skill.objects.create(id=932, category=category, name="Fixture legacy practice")
+        self.assertEqual(SkillService.award_xp(self.child, skill, 1000000).level, max(XP_THRESHOLDS))
+        badges = []
+        for pk, threshold in ((954, "2"), (955, 1.5), (956, 0), (958, False)):
+            badge = Badge.objects.create(id=pk, name=f"Reachable legacy goal {pk}",
+                description="Preserved native level conversion", criteria_type="skill_level_reached",
+                criteria_value={"level": threshold, "count": 1}, xp_bonus=0, award_coins=False)
+            self.assertTrue(criteria.check(self.child, badge))
+            badges.append(badge)
+        unreachable = Badge.objects.create(id=960, name="Unreachable legacy control",
+            criteria_type="skill_level_reached", criteria_value={"level": max(XP_THRESHOLDS) + 0.9, "count": 1},
+            xp_bonus=0, award_coins=False)
+        self.assertFalse(criteria.check(self.child, unreachable))
+        models = (UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory)
+        before = {model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in models}
+        response = self.client.get("/api/badges/")
+        self.assertEqual(response.status_code, 200)
+        rows = {row["id"]: row for row in response.json()["results"]}
+        self.assertEqual(set(rows), {badge.pk for badge in badges})
+        self.assertTrue(all(row["catalog_available"] for row in rows.values()))
+        for badge in badges:
+            self.assertEqual(rows[badge.pk]["criteria_value"], badge.criteria_value)
+        self.assertEqual({model._meta.label_lower: list(model.objects.order_by("pk").values())
+                          for model in models}, before)
+        self.assert_response_fixture(response, "badges-reachable-legacy-levels.json")
+        self.assertEqual(set(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"})), set(badges))
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"}), [])
+        self.assertEqual(UserBadge.objects.filter(user=self.child).count(), len(badges))
+        self.assertEqual(list(SkillProgress.objects.order_by("pk").values()), before["achievements.skillprogress"])
+        self.assertEqual(list(CoinLedger.objects.order_by("pk").values()), before["rewards.coinledger"])
+
+    def test_earned_named_badge_survives_category_identity_tie(self):
+        from apps.achievements import criteria
+        from apps.rpg.models import RPGContentOverride
+
+        original = "Fixture named category"
+        category = SkillCategory.objects.create(id=931, name=original)
+        skill = Skill.objects.create(id=932, category=category, name="Fixture named practice")
+        earned = Badge.objects.create(id=961, name="Retained earned category badge",
+            description="Previously earned named recognition", criteria_type="category_mastery",
+            criteria_value={"category": original, "min_level": 1}, xp_bonus=0, award_coins=False)
+        SkillService.award_xp(self.child, skill, XP_THRESHOLDS[1])
+        self.assertEqual(BadgeService.evaluate_badges(self.child, scopes={"skill_xp"}), [earned])
+        marker = UserBadge.objects.values().get(user=self.child, badge=earned)
+        unearned = Badge.objects.create(id=962, name="Hidden tied category badge",
+            criteria_type="category_mastery", criteria_value=earned.criteria_value,
+            xp_bonus=0, award_coins=False)
+        reachable = Badge.objects.create(id=963, name="Reachable independent skill badge",
+            criteria_type="skill_level_reached", criteria_value={"level": 1, "count": 1},
+            xp_bonus=0, award_coins=False)
+        category.name = "Fixture renamed category"
+        category.save(update_fields=["name"])
+        RPGContentOverride.objects.create(model_label="achievements.skillcategory", object_id=category.pk,
+            source_lookup={"name": original}, values={"_authoring": {"version": 1, "source": "mcp"}})
+        SkillCategory.objects.create(id=933, name=original)
+        self.assertFalse(criteria.check(self.child, unearned))
+        self.assertTrue(criteria.check(self.child, reachable))
+        models = (Badge, UserBadge, SkillProgress, CoinLedger, DropLog, UserInventory, RPGContentOverride)
+        before = {model._meta.label_lower: list(model.objects.order_by("pk").values()) for model in models}
+        response = self.client.get("/api/badges/")
+        self.assertEqual(response.status_code, 200)
+        rows = {row["id"]: row for row in response.json()["results"]}
+        self.assertEqual(set(rows), {earned.pk, reachable.pk})
+        self.assertFalse(rows[earned.pk]["catalog_available"])
+        self.assertEqual(rows[earned.pk]["criteria_value"], earned.criteria_value)
+        self.assertTrue(rows[reachable.pk]["catalog_available"])
+        history = self.client.get("/api/badges/earned/")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["results"][0]["badge"]["id"], earned.pk)
+        self.assertFalse(history.json()["results"][0]["badge"]["catalog_available"])
+        self.assertEqual(UserBadge.objects.values().get(user=self.child, badge=earned), marker)
+        self.assertEqual({model._meta.label_lower: list(model.objects.order_by("pk").values())
+                          for model in models}, before)
+        self.assert_response_fixture(response, "badges-retained-category-tie.json")
 
     def test_current_catalog_response(self):
         catalog = self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-supported-catalog.json")
