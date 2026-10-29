@@ -11,7 +11,7 @@ const Dropdown = forwardRef(function Dropdown({
   id, children, className = '', value, defaultValue, disabled, required,
   autoFocus, name, form, onChange, onInvalid, onFocus, onBlur,
   'aria-label': ariaLabel, 'aria-labelledby': ariaLabelledBy,
-  'aria-describedby': describedBy, 'aria-invalid': invalid,
+  'aria-describedby': describedBy, 'aria-invalid': invalid, 'aria-disabled': ariaDisabled,
   ...rest
 }, forwardedRef) {
   const generatedId = useId();
@@ -32,7 +32,9 @@ const Dropdown = forwardRef(function Dropdown({
     : options.find((option) => option.value === String(value))?.value ?? options.find((option) => !option.disabled)?.value ?? '';
   const selected = options.find((option) => option.value === selectedValue);
   const canUsePopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
-  const isOpen = open && !disabled;
+  // aria-disabled keeps an unavailable control reachable with its help text.
+  const unavailable = Boolean(disabled) || ariaDisabled === true || ariaDisabled === 'true';
+  const isOpen = open && !unavailable;
   const visibleOptions = options.map((option, index) => ({ ...option, index })).filter((option) => !option.hidden);
   const enabledOptions = visibleOptions.filter((option) => !option.disabled);
   const currentActiveIndex = enabledOptions.some((option) => option.index === activeIndex)
@@ -70,7 +72,7 @@ const Dropdown = forwardRef(function Dropdown({
     const observer = new MutationObserver(synchronize);
     observer.observe(select, { subtree: true, childList: true, attributes: true, characterData: true });
     return () => observer.disconnect();
-  }, [value, defaultValue, children, disabled]);
+  }, [value, defaultValue, children, unavailable]);
 
   useLayoutEffect(() => {
     if (revealSelectionRef.current) {
@@ -163,7 +165,7 @@ const Dropdown = forwardRef(function Dropdown({
   }, [currentActiveIndex, isOpen, listboxId]);
 
   function show(where = 'selected') {
-    if (disabled) return;
+    if (unavailable) return;
     searchRef.current = { text: '', time: 0 };
     const current = enabledOptions.find((option) => option.value === selectedValue);
     const initial = where === 'first' ? enabledOptions[0]
@@ -175,7 +177,7 @@ const Dropdown = forwardRef(function Dropdown({
 
   function choose(index) {
     const option = options[index];
-    if (!option || option.disabled || option.hidden || disabled) return;
+    if (!option || option.disabled || option.hidden || unavailable) return;
     const select = nativeRef.current;
     revealSelectionRef.current = true;
     if (select.value !== option.value) {
@@ -202,7 +204,7 @@ const Dropdown = forwardRef(function Dropdown({
 
   function handleKeyDown(event) {
     rest.onKeyDown?.(event);
-    if (event.defaultPrevented || disabled) return;
+    if (event.defaultPrevented || unavailable) return;
     if (event.key === 'Tab') { searchRef.current = { text: '', time: 0 }; setOpen(false); return; }
     if (event.key === 'Escape') {
       if (isOpen) { event.preventDefault(); event.stopPropagation(); setOpen(false); searchRef.current = { text: '', time: 0 }; }
@@ -251,7 +253,11 @@ const Dropdown = forwardRef(function Dropdown({
       data-dropdown-listbox="true"
       className="fixed z-50 m-0 overflow-y-auto overscroll-contain rounded-xl border border-control-border bg-ink-page p-1.5 text-base text-ink-primary shadow-lg"
       style={{ ...position, visibility: position ? 'visible' : 'hidden', boxSizing: 'border-box' }}
-      onPointerDown={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        // Keep virtual focus for mouse presses. Touch/pen must retain their
+        // default activation so the browser can synthesize the selection click.
+        if (event.pointerType === 'mouse') event.preventDefault();
+      }}
     >
       {visibleOptions.length === 0 && <div className="px-3 py-3 text-ink-secondary">No options available</div>}
       {optionGroups.map((group, index) => (
@@ -293,7 +299,7 @@ const Dropdown = forwardRef(function Dropdown({
         tabIndex={-1}
         value={value}
         defaultValue={defaultValue}
-        disabled={disabled}
+        disabled={unavailable}
         required={required}
         name={name}
         form={form}
@@ -327,15 +333,17 @@ const Dropdown = forwardRef(function Dropdown({
         aria-describedby={[describedBy, !invalid && validationMessage ? `${controlId}-validation` : null].filter(Boolean).join(' ') || undefined}
         aria-invalid={invalid || (validationMessage ? 'true' : undefined)}
         aria-required={required || undefined}
+        aria-disabled={unavailable || undefined}
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-activedescendant={isOpen && currentActiveIndex >= 0 ? `${listboxId}-option-${currentActiveIndex}` : undefined}
-        className={`${className} flex items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50`}
+        className={`${className} flex items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50`}
         onClick={() => {
           // Safari does not focus buttons on pointer clicks. Virtual option
           // focus and modal Escape handling both belong to this trigger.
           triggerRef.current?.focus({ preventScroll: true });
+          if (unavailable) return;
           searchRef.current = { text: '', time: 0 };
           if (isOpen) setOpen(false);
           else show();

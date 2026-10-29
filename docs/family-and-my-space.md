@@ -1,9 +1,9 @@
 # Family and My space
 
 Parents can manage their household and take part in Abby themselves with the
-same account. On phones, open the current-space dropdown beside your profile
-in the header, then choose **Family** or **My space**. On larger screens,
-choose either space in the two-button switch at the top of the app. Your
+same account. On phones and smaller tablets, open the current-space dropdown
+beside your profile in the header, then choose **Family** or **My space**.
+On wider screens, choose either space in the two-button switch at the top of the app. Your
 account keeps its parent permissions in both spaces; your progress belongs to
 you, separately from your children's progress.
 
@@ -76,8 +76,8 @@ represent a bank balance or turn your Coins into cash.
 Each space remembers its last page for your account in the current browser
 tab. Finish or close an open form before switching; unfinished work and busy
 saves keep the other space unavailable. Switching clears the previous view's
-forms and data before loading the new space. On phones, open the space dropdown
-to see the Family review count while in My space. On larger screens, the count
+forms and data before loading the new space. On phones and smaller tablets,
+open the space dropdown to see the Family review count while in My space. On wider screens, the count
 stays beside Family in the switch.
 Opening a notification also remembers its destination space in this tab, so
 reloading or continuing to another page keeps you in that space.

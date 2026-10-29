@@ -40,6 +40,45 @@ describe('Dropdown', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
+  it.each(['touch', 'pen', 'mouse'])('selects once on a %s click while preserving native pointer activation', async (pointerType) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Controlled initial="a" onChange={onChange} />);
+    const trigger = screen.getByRole('combobox');
+    await user.click(trigger);
+    const option = screen.getByRole('option', { name: 'Cooking' });
+    const down = new PointerEvent('pointerdown', { pointerType, bubbles: true, cancelable: true });
+    fireEvent(option, down);
+    // Mouse presses retain virtual focus. Touch/pen defaults must stay intact:
+    // canceling their pointerdown can suppress the browser's generated click.
+    expect(down.defaultPrevented).toBe(pointerType === 'mouse');
+    fireEvent.pointerUp(option, { pointerType });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(trigger).toHaveValue('a');
+    fireEvent.click(option);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(trigger).toHaveValue('c');
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('does not select during a canceled touch gesture or activate a disabled option', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Controlled initial="a" onChange={onChange} />);
+    await user.click(screen.getByRole('combobox'));
+    const option = screen.getByRole('option', { name: 'Cooking' });
+    fireEvent.pointerDown(option, { pointerType: 'touch' });
+    fireEvent.pointerMove(option, { pointerType: 'touch', clientY: 80 });
+    fireEvent.pointerCancel(option, { pointerType: 'touch' });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toHaveValue('a');
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.pointer([{ target: screen.getByRole('option', { name: 'Blocked' }), keys: '[TouchA>]' }, { keys: '[/TouchA]' }]);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
+
   it('moves virtual focus with arrows/Home/End and commits only on Enter', async () => {
     const user = userEvent.setup();
     render(<Controlled initial="a" />);
@@ -181,6 +220,48 @@ describe('Dropdown', () => {
     expect(screen.getByText('No options available')).toBeInTheDocument();
     await user.keyboard('{ArrowDown}{Enter}');
     expect(screen.getByRole('combobox')).toHaveValue('');
+  });
+
+  it.each([true, 'true'])('keeps aria-disabled=%s focusable with help while refusing pointer and keyboard activation', async (ariaDisabled) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { container } = render(<>
+      <button>Before</button>
+      <Controlled aria-disabled={ariaDisabled} aria-describedby="blocked-help" onChange={onChange} />
+      <p id="blocked-help">Save or close your current form before switching.</p>
+      <button>After</button>
+    </>);
+    const trigger = screen.getByRole('combobox');
+    expect(trigger).not.toBeDisabled();
+    expect(trigger).toHaveAttribute('aria-disabled', 'true');
+    expect(container.querySelector('select')).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Before' }));
+    await user.tab();
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAccessibleDescription('Save or close your current form before switching.');
+    await user.keyboard('{ArrowDown}{Home}{End}c{Enter} ');
+    await user.click(trigger);
+    await user.pointer([{ target: trigger, keys: '[TouchA>]' }, { keys: '[/TouchA]' }]);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
+  });
+
+  it('closes an aria-disabled menu and only reopens after an explicit activation on reenable', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Controlled />);
+    const trigger = screen.getByRole('combobox');
+    await user.click(trigger);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    rerender(<Controlled aria-disabled />);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    rerender(<Controlled aria-disabled="false" />);
+    expect(trigger).not.toHaveAttribute('aria-disabled', 'true');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await user.click(trigger);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
 
   it('supports autofocus on the visible control', () => {

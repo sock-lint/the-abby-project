@@ -45,11 +45,13 @@ test.afterAll(async () => {
   }
 });
 
-async function mockApp(page, { child = false, notifications = [], attentionCount = 0, recognition = false, timer = false } = {}) {
+async function mockApp(page, { child = false, notifications = [], attentionCount = 0, recognition = false, timer = false, reviewState = 'ready' } = {}) {
   const reads = [];
   const writes = [];
   const errors = [];
   const unexpected = [];
+  let releaseReviews = () => {};
+  const reviewGate = reviewState === 'loading' ? new Promise(resolve => { releaseReviews = resolve; }) : Promise.resolve();
   const identity = fixtures[child ? 'auth-me-child' : 'auth-me-ordinary-parent'];
   const basePersonal = fixtures['parent-personal-dashboard'];
   const personal = recognition ? { ...basePersonal, rpg: { ...basePersonal.rpg, identity: {
@@ -93,8 +95,14 @@ async function mockApp(page, { child = false, notifications = [], attentionCount
       return route.abort();
     }
     reads.push(record);
-    if (url.pathname === '/api/dashboard/') return route.fulfill({ json: child ? fixtures['dashboard-earned-identity']
-      : record.space === 'personal' ? personal : family });
+    if (url.pathname === '/api/dashboard/') {
+      if (!child && record.space !== 'personal') await reviewGate;
+      return route.fulfill({ json: child ? fixtures['dashboard-earned-identity']
+        : record.space === 'personal' ? personal : family });
+    }
+    if (reviewState === 'unavailable' && url.pathname === '/api/homework/dashboard/') {
+      return route.fulfill({ status: 500, json: { error: 'Synthetic review source unavailable' } });
+    }
     if (url.pathname === '/api/habits/') return route.fulfill({
       json: url.searchParams.has('pending') ? [] : [ownHabit, ...(createdHabit ? [createdHabit] : [])],
     });
@@ -126,7 +134,7 @@ async function mockApp(page, { child = false, notifications = [], attentionCount
     };
     return route.fulfill({ json: payloads[url.pathname] ?? [] });
   });
-  return { reads, writes, errors, unexpected };
+  return { reads, writes, errors, unexpected, releaseReviews };
 }
 
 function visibleNav(page, width) {
@@ -141,6 +149,28 @@ async function assertNavigation(page, width, names) {
 }
 async function assertFits(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
+function spaceGroup(page, width) {
+  return page.locator(`[data-space-switcher="${width < 1024 ? 'mobile' : 'desktop'}"]`);
+}
+
+async function assertContained(inner, outer) {
+  const [child, parent] = await Promise.all([inner.boundingBox(), outer.boundingBox()]);
+  expect(child.x).toBeGreaterThanOrEqual(parent.x - 0.5);
+  expect(child.y).toBeGreaterThanOrEqual(parent.y - 0.5);
+  expect(child.x + child.width).toBeLessThanOrEqual(parent.x + parent.width + 0.5);
+  expect(child.y + child.height).toBeLessThanOrEqual(parent.y + parent.height + 0.5);
+}
+
+async function assertFullSpaceLabel(control) {
+  const label = control.locator('span').first();
+  const size = await label.evaluate(element => ({
+    width: element.clientWidth, contentWidth: element.scrollWidth,
+    height: element.clientHeight, contentHeight: element.scrollHeight,
+  }));
+  expect(size.contentWidth).toBeLessThanOrEqual(size.width + 1);
+  expect(size.contentHeight).toBeLessThanOrEqual(size.height + 1);
 }
 
 function spaceControl(page, width, space = 'family') {
@@ -191,7 +221,8 @@ for (const width of [320, 390, 1280]) {
     await assertSpace(page, width, 'family');
     await assertNavigation(page, width, FAMILY_NAV);
     await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
-    const switcher = page.getByRole('group', { name: 'Choose your space' });
+    await page.evaluate(() => document.fonts.ready);
+    const switcher = spaceGroup(page, width);
     if (width >= 1024) await expect(switcher.getByRole('button')).toHaveCount(2);
     const track = switcher.locator('[data-space-track]');
     await expect(track).toHaveCount(1);
@@ -199,7 +230,8 @@ for (const width of [320, 390, 1280]) {
     const trackBox = await track.boundingBox();
     const rowBox = width >= 1024 ? await switcher.locator('..').boundingBox() : null;
     if (width < 1024) {
-      await expect(page.locator('header').getByRole('group', { name: 'Choose your space' })).toHaveCount(1);
+      await expect(page.locator('header').getByRole('combobox', { name: 'Choose your space' })).toHaveCount(1);
+      await assertContained(personal, switcher);
       expect(trackBox.width).toBe(112);
       expect(trackBox.height).toBe(24);
       expect(switcherBox.height).toBe(44);
@@ -282,7 +314,11 @@ for (const width of [320, 390, 1280]) {
     await dialog.getByLabel('Name', { exact: true }).fill('Walk after lunch');
     await assertFits(page);
     await expect(family).toBeDisabled();
-    await expect(page.getByText('Save or close your current form before switching spaces.')).toBeVisible();
+    await expect(page.locator('p:visible').filter({ hasText: 'Save or close your current form before switching spaces.' })).toBeVisible();
+    await expect(family).toHaveAccessibleDescription('Save or close your current form before switching spaces.');
+    if (width < 1024) {
+      await expect(family).toHaveAttribute('aria-disabled', 'true');
+    }
     await dialog.getByRole('button', { name: 'Create habit', exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await expect(family).toBeEnabled();
@@ -310,7 +346,7 @@ for (const width of [320, 390, 1280]) {
     const { errors, unexpected } = await mockApp(page, { child: true });
     await page.goto(`${origin}/`);
     await assertNavigation(page, width, PERSONAL_NAV);
-    await expect(page.getByRole('group', { name: 'Choose your space' })).toHaveCount(0);
+    await expect(page.locator('[data-space-switcher]')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('auth:last-user')).user.role)).toBe('child');
     await assertFits(page);
@@ -426,6 +462,8 @@ for (const width of [320, 390, 820]) {
       await expect(control).toHaveText(/Family 9\+/);
       await expect(control).toHaveAccessibleDescription('12 family items needing attention');
       await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
+      await expect(page.getByRole('group', { name: 'Choose your space' })).toHaveCount(0);
+      await page.evaluate(() => document.fonts.ready);
       if (enlarged) {
         // Enlarge header text and its popovers without changing the viewport
         // or unrelated page cards. Confirm the trigger's actual size below.
@@ -441,8 +479,11 @@ for (const width of [320, 390, 820]) {
         });
       }
       expect(await control.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBe(enlarged ? 28 : 14);
+      await assertFullSpaceLabel(control);
+      await assertContained(control, spaceGroup(page, width));
       await assertFits(page);
       const header = page.locator('[data-journal-sticky-header="true"] > header');
+      expect(await header.ariaSnapshot()).not.toContain('- text: 12 family items needing attention');
       await header.screenshot({ path: testInfo.outputPath(`family-attention-${width}.png`) });
       const bell = header.getByRole('button', { name: 'Notifications', exact: true });
       const clock = header.getByRole('button', { name: 'Clocked in on Synthetic active project', exact: true });
@@ -452,6 +493,13 @@ for (const width of [320, 390, 820]) {
         await target.focus();
         await expect(target).toBeFocused();
         await target.click({ trial: true });
+      }
+      // The compact header uses the existing horizontal shortcut rail. Every
+      // shortcut must become fully reachable when keyboard focus reveals it.
+      for (const shortcut of await header.getByRole('group', { name: 'Status shortcuts' }).getByRole('button').all()) {
+        await shortcut.focus();
+        await expect(shortcut).toBeFocused();
+        await shortcut.click({ trial: true });
       }
       await control.focus();
       await control.press('ArrowDown');
@@ -469,6 +517,8 @@ for (const width of [320, 390, 820]) {
       await control.press('End');
       await control.press('Enter');
       await expect(control).toHaveAttribute('value', 'personal');
+      await assertFullSpaceLabel(control);
+      await assertContained(control, spaceGroup(page, width));
       await assertFits(page);
       await header.screenshot({ path: testInfo.outputPath(`personal-recognition-${width}.png`) });
       await header.getByRole('button', { name: 'Open profile menu', exact: true }).click();
@@ -494,3 +544,157 @@ for (const width of [320, 390, 820]) {
     });
   }
 }
+
+// Exercise touch events in WebKit itself: mouse clicks in a narrow viewport
+// do not reproduce WebKit's handling of canceled touch pointer events.
+test.describe('WebKit touch space switching', () => {
+  for (const width of [320, 390, 820]) {
+    test(`touch input switches both spaces at ${width}px`, async ({ playwright }) => {
+      const browser = await playwright.webkit.launch();
+      try {
+        const page = await browser.newPage({ viewport: { width, height: 844 }, hasTouch: true, isMobile: true });
+        const { reads, writes, errors, unexpected } = await mockApp(page);
+        await page.goto(`${origin}/`);
+        const control = spaceControl(page, width);
+        await assertSpace(page, width, 'family');
+        for (const space of ['personal', 'family']) {
+          await control.tap();
+          const option = page.getByRole('option', { name: space === 'personal' ? 'My space' : /^Family/, exact: true });
+          await option.tap();
+          await expect(page.getByRole('listbox')).toHaveCount(0);
+          await assertSpace(page, width, space);
+          await assertNavigation(page, width, space === 'personal' ? PERSONAL_NAV : FAMILY_NAV);
+        }
+        expect(reads.some(read => read.path === '/api/dashboard/' && read.space === 'personal')).toBe(true);
+        expect(writes).toEqual([]);
+        expect(errors).toEqual([]);
+        expect(unexpected).toEqual([]);
+      } finally {
+        await browser.close();
+      }
+    });
+  }
+});
+
+for (const width of [390, 1280]) {
+  test(`unfinished page form keeps switch help reachable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { writes, errors, unexpected } = await mockApp(page);
+    await page.goto(`${origin}/quests/ventures/new`);
+    const title = page.getByLabel('Title', { exact: true });
+    await title.fill('Keep this unfinished project');
+    const help = 'Save or close your current form before switching spaces.';
+    const control = spaceControl(page, width, 'personal');
+    await expect(control).toBeDisabled();
+    await expect(control).toHaveAccessibleDescription(help);
+    if (width < 1024) {
+      await page.getByRole('button', { name: 'Open profile menu', exact: true }).focus();
+      await page.keyboard.press('Tab');
+      await expect(control).toBeFocused();
+      await control.press('Enter');
+      await control.press('ArrowDown');
+      await control.click({ force: true });
+      await expect(page.getByRole('listbox')).toHaveCount(0);
+    } else {
+      await expect(spaceControl(page, width, 'family')).toHaveAccessibleDescription(help);
+    }
+    await assertSpace(page, width, 'family');
+    await expect(title).toHaveValue('Keep this unfinished project');
+    expect(writes).toEqual([]);
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+  });
+}
+
+for (const reviewState of ['loading', 'unavailable']) {
+  test(`compact switch exposes ${reviewState} family reviews`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { releaseReviews, errors, unexpected } = await mockApp(page, { reviewState });
+    await page.goto(`${origin}/`);
+    const control = spaceControl(page, 390);
+    try {
+      await expect(control).toHaveText(reviewState === 'loading' ? 'Family …' : 'Family ?');
+      await expect(control).toHaveAccessibleDescription(reviewState === 'loading'
+        ? 'Checking family reviews' : 'Some family review queues are unavailable');
+      await control.click();
+      await expect(page.getByRole('option', { name: reviewState === 'loading' ? 'Family …' : 'Family ?', exact: true })).toBeVisible();
+      await control.press('Escape');
+    } finally {
+      releaseReviews();
+    }
+    if (reviewState === 'loading') {
+      await expect(page.getByRole('heading', { name: 'Family overview' })).toBeVisible();
+      await expect(control).toHaveText('Family');
+    }
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+  });
+}
+
+for (const child of [false, true]) {
+  test(`tablet header preserves ${child ? 'child name' : 'compact parent identity'} at 820px`, async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 844 });
+    const { errors, unexpected } = await mockApp(page, { child });
+    await page.goto(`${origin}/`);
+    await assertNavigation(page, 820, child ? PERSONAL_NAV : FAMILY_NAV);
+    const copy = page.locator('header .identity-header__account .identity-summary__copy');
+    if (child) {
+      await expect(copy).toBeVisible();
+      await expect(copy.locator('.identity-summary__name')).toHaveText(fixtures['auth-me-child'].display_name);
+      await expect(page.locator('[data-space-switcher]')).toHaveCount(0);
+    } else await expect(copy).toBeHidden();
+    expect(errors).toEqual([]);
+    expect(unexpected).toEqual([]);
+  });
+}
+
+test('desktop header follows its visual keyboard order without duplicate attention text', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 844 });
+  const { errors, unexpected } = await mockApp(page, { attentionCount: 12, recognition: true, timer: true });
+  await page.goto(`${origin}/`);
+  const header = page.locator('[data-journal-sticky-header="true"] > header');
+  const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+  await expect(spaceControl(page, 1280)).toHaveText(/Family\s*9\+/);
+  const shortcuts = await header.getByRole('group', { name: 'Status shortcuts' }).getByRole('button').all();
+  const targets = [profile, ...shortcuts, header.getByRole('button', { name: 'Notifications', exact: true }),
+    spaceControl(page, 1280, 'family'), spaceControl(page, 1280, 'personal')];
+  await profile.focus();
+  for (const target of targets.slice(1)) {
+    await page.keyboard.press('Tab');
+    await expect(target).toBeFocused();
+  }
+  for (const target of targets.slice(0, -1).reverse()) {
+    await page.keyboard.press('Shift+Tab');
+    await expect(target).toBeFocused();
+  }
+  expect((await header.boundingBox()).height).toBe(144);
+  expect((await spaceGroup(page, 1280).locator('..').boundingBox()).height).toBe(64);
+  expect(await header.ariaSnapshot()).not.toContain('- text: 12 family items needing attention');
+  expect(errors).toEqual([]);
+  expect(unexpected).toEqual([]);
+});
+
+test('zoomed narrow header keeps profile, space, clock and notifications reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 195, height: 422 });
+  const { errors, unexpected } = await mockApp(page, { attentionCount: 12, timer: true });
+  await page.goto(`${origin}/`);
+  const header = page.locator('[data-journal-sticky-header="true"] > header');
+  const targets = [header.getByRole('button', { name: 'Open profile menu', exact: true }), spaceControl(page, 195),
+    header.getByRole('button', { name: 'Clocked in on Synthetic active project', exact: true }),
+    header.getByRole('button', { name: 'Notifications', exact: true })];
+  for (const target of targets) {
+    await target.focus();
+    await expect(target).toBeFocused();
+    const box = await target.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(195);
+    expect(await target.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+    })).toBe(true);
+  }
+  await assertContained(spaceControl(page, 195), spaceGroup(page, 195));
+  expect(errors).toEqual([]);
+  expect(unexpected).toEqual([]);
+});
