@@ -10,6 +10,21 @@ vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn()
 beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
+  it.each([false, true])('shows and opens a personal parent goal’s future schedule (paused: %s)', async (paused) => {
+    const goal = buildChallengeGoal({ repeat_weekly: true, schedule: { next_week: { paused } } });
+    const select = vi.fn();
+    const { user } = renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={select} isPersonalParent />, { withAuth: false });
+    expect(screen.getByText(paused ? 'Future weeks paused' : 'Future weeks scheduled')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Manage future weeks' }));
+    expect(select).toHaveBeenCalledWith(goal);
+  });
+
+  it('keeps future schedule management and parent status copy out of a child goal card', () => {
+    const goal = buildChallengeGoal({ repeat_weekly: true, schedule: { next_week: { paused: true } } });
+    renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={() => {}} />, { withAuth: false });
+    expect(screen.queryByRole('button', { name: 'Manage future weeks' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Future weeks (paused|scheduled)/)).not.toBeInTheDocument();
+  });
   it.each(['card', 'detail'])('shows an untimed goal without inventing a deadline in its %s', (surface) => {
     const goal = buildChallengeGoal({ name: 'Reading Companion', origin: 'catalog', ends_at: null, repeat_weekly: false });
     renderWithProviders(surface === 'card'

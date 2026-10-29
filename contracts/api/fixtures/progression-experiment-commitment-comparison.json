@@ -106,9 +106,9 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-23.1",
-    "rules_fingerprint": "d92fae07005aa936ad7b83247fdc01b7c34bafcf116c2f63a90530e41bfe82f1",
+    "rules_fingerprint": "6bb7d754de3ba331469dada44fbd1d6a3988d3289109f0b70be0307b44160973",
     "feedback_fingerprint": "6e569e9c0cdac9fc5c586430baafe2657d0cc974c8c3d55988ed5b3cf21f5229",
-    "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
+    "catalog_fingerprint": "122ece774e5bcf4d922b3a89091f0e831ddc0bb56684687ef5e594a6f962c552",
     "source_commit": "unavailable"
   },
   "inputs": {
@@ -242,7 +242,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
+      "fingerprint": "122ece774e5bcf4d922b3a89091f0e831ddc0bb56684687ef5e594a6f962c552",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -252,7 +252,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "d92fae07005aa936ad7b83247fdc01b7c34bafcf116c2f63a90530e41bfe82f1",
+    "rules_fingerprint": "6bb7d754de3ba331469dada44fbd1d6a3988d3289109f0b70be0307b44160973",
     "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -4193,12 +4193,12 @@
       "longest_novelty_gap_p50": 20,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "badge": 1,
-        "mount": 1,
-        "cosmetic": 1,
         "quest": 1,
         "pet": 1,
-        "middle": 1
+        "middle": 1,
+        "badge": 1,
+        "cosmetic": 1,
+        "mount": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 85,
@@ -10957,7 +10957,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
+      "fingerprint": "122ece774e5bcf4d922b3a89091f0e831ddc0bb56684687ef5e594a6f962c552",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -10967,7 +10967,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "d92fae07005aa936ad7b83247fdc01b7c34bafcf116c2f63a90530e41bfe82f1",
+    "rules_fingerprint": "6bb7d754de3ba331469dada44fbd1d6a3988d3289109f0b70be0307b44160973",
     "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -15358,12 +15358,12 @@
       "longest_novelty_gap_p50": 20,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "badge": 1,
-        "mount": 1,
-        "cosmetic": 1,
         "quest": 1,
         "pet": 1,
-        "middle": 1
+        "middle": 1,
+        "badge": 1,
+        "cosmetic": 1,
+        "mount": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 88,

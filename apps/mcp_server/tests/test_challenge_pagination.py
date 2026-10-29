@@ -10,6 +10,7 @@ from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from pydantic import ValidationError
+from rest_framework.test import APIClient
 
 from apps.mcp_server.challenge_schemas import ListChallengesIn
 from apps.mcp_server.context import override_user
@@ -17,7 +18,7 @@ from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPVal
 from apps.mcp_server.server import mcp
 from apps.mcp_server.tools import challenges
 from apps.quests.goals import _snapshot
-from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestParticipant
+from apps.quests.models import ChallengeGoal, ChallengeOccurrence, DailyBonus, Quest, QuestDefinition, QuestParticipant
 from apps.rewards.models import CoinLedger
 from config.tests.factories import make_family
 
@@ -130,6 +131,65 @@ class ChallengePaginationTests(TestCase):
         })
         self.assertTrue(payload["saved_state_only"])
         self.assertEqual(before, list(ChallengeOccurrence.objects.values()))
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def wire_read(self, actor, **params):
+        with override_user(actor, scopes=frozenset({"mcp:read"})), CaptureQueriesContext(connection) as captured:
+            response = async_to_sync(mcp.call_tool)("list_challenges", {"params": params})
+        self.assertFalse(any(query["sql"].lstrip().upper().startswith((
+            "INSERT", "UPDATE", "DELETE", "REPLACE", "CREATE", "ALTER", "DROP",
+        )) for query in captured))
+        return response.structuredContent if hasattr(response, "structuredContent") else response[1]
+
+    def saved_bonus(self, user, *, coins, xp):
+        now = timezone.now()
+        return DailyBonus.objects.create(
+            user=user, date=timezone.localdate(now), timezone_name="America/Phoenix",
+            coin_reward=coins, xp_reward=xp, coins_awarded=coins, xp_awarded=xp,
+            completed_at=now, awarded_at=now,
+        )
+
+    def test_parent_mcp_bonus_stays_null_after_personal_rest_returns_saved_receipt(self):
+        bonus = self.saved_bonus(self.parent, coins=10, xp=20)
+        for selector in ({}, {"user_id": self.parent.pk}):
+            with self.subTest(selector=selector):
+                payload = self.wire_read(self.parent, **selector)
+                self.assertNotIn("error", payload)
+                self.assertEqual(payload["user_id"], self.parent.pk)
+                self.assertIsNone(payload["daily_bonus"])
+                self.assertEqual(payload["results"], [])
+                self.assertTrue(payload["saved_state_only"])
+
+        client = APIClient()
+        client.force_authenticate(self.parent)
+        response = client.get("/api/challenges/", HTTP_X_ABBY_SPACE="personal")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["daily_bonus"]["receipt_id"], f"daily:{bonus.pk}")
+        self.assertEqual(response.data["daily_bonus"]["coins_awarded"], 10)
+        self.assertEqual(response.data["daily_bonus"]["xp_awarded"], 20)
+        self.assertTrue(response.data["daily_bonus"]["awarded"])
+        # Personal REST enrollment must not silently change the MCP wire field.
+        self.assertIsNone(self.wire_read(self.parent)["daily_bonus"])
+        self.assertEqual(DailyBonus.objects.count(), 1)
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_child_self_and_parent_selected_child_keep_saved_daily_bonus_on_wire(self):
+        child_bonus = self.saved_bonus(self.child, coins=13, xp=17)
+        self.saved_bonus(self.parent, coins=23, xp=29)
+        for actor, selector in ((self.child, {}), (self.child, {"user_id": self.child.pk}),
+                                (self.parent, {"user_id": self.child.pk})):
+            with self.subTest(actor=actor.pk, selector=selector):
+                payload = self.wire_read(actor, **selector)
+                self.assertNotIn("error", payload)
+                self.assertEqual(payload["user_id"], self.child.pk)
+                self.assertEqual(payload["daily_bonus"]["receipt_id"], f"daily:{child_bonus.pk}")
+                self.assertEqual(payload["daily_bonus"]["coins_awarded"], 13)
+                self.assertEqual(payload["daily_bonus"]["xp_awarded"], 17)
+                self.assertTrue(payload["daily_bonus"]["awarded"])
+                self.assertTrue(payload["saved_state_only"])
+        denied = self.wire_read(self.child, user_id=self.sibling.pk)
+        self.assertEqual(denied["error"]["code"], "permission_denied")
+        self.assertEqual(DailyBonus.objects.count(), 2)
         self.assertFalse(CoinLedger.objects.exists())
 
     def test_tied_starts_have_no_duplicates_and_backdated_new_inserts_stay_out(self):

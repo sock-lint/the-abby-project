@@ -8,12 +8,12 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and exact namespaced Wolf,
-Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab accept Base, Fire and Ice;
-the other seven prepared families accept Base only (31 exact pairs). Fire/Ice
-potions remain excluded from random pools. Sixteen one-time challenges guarantee
-exact egg/potion bundles. The Snake/Hermit Crab artwork is owner-accepted and
-its exact canonical release has passed application readback; application rollout
-still requires the ordinary MAIN gates.
+Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant accept
+Base, Fire and Ice; the other five prepared families accept Base only (35 exact
+pairs). Fire/Ice potions remain excluded from random pools. Twenty one-time
+challenges guarantee exact egg/potion bundles. The owner approved all twelve
+Ghost/Potted Plant appearances. That exact runtime has passed canonical
+application readback; the ordinary MAIN rollout gates remain.
 Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
@@ -58,6 +58,24 @@ Base/Fire/Ice compatibility only when their exact species/sprite identity has
 positive support for all three. Existing adopted families retain their authoring
 allowance under narrower rollback policies. Proposed challenge image handles
 come from the receiving descriptor and do not establish artwork publication.
+
+Parents keep their parent role while participating in My space. Character,
+check-in, streak, drop and inventory services already operate on the owning
+account. Scheduled Perfect Day checks and streak reminders include parents
+with a personal challenge enrollment; reminders never fan out to family members.
+Perfect Day requires the parent's own assigned daily chores. Children continue
+to require their assigned and shared family daily chores. The required set must
+be nonempty and every qualifying completion must be approved.
+
+Ghost/Potted Plant activation is described in
+[its runbook](../../docs/operations/elemental-ghost-potted-plant.md). Initial
+content supplies Wisp (20) and Sprout (5) guarantees within 180 days, once, with
+one unchanged natural species egg plus matching global potion and zero authored
+Coins/XP. Ghost remains Rare and Potted Plant Common. The positive policy and
+initial compatibility change together to 35 pairs/20 guarantees; the exact
+runtime is the fifteenth pin, preserving all fourteen prior releases and code
+integrity pins. The historical preparation pack remains unregistered. Existing
+accepted rewards and incubation/expedition promises remain fulfillable.
 
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.
@@ -156,6 +174,10 @@ offers also require a trigger with positive damage. Reward-only badge,
 Perfect Day and quest-completion filters cannot consume a reroll. Mixed filters,
 ordinary unfiltered campaigns and explicit reading retain their existing
 eligibility; an empty candidate pool rolls back inventory consumption.
+One candidate activity must satisfy every active selector, including category,
+project, chores, timeliness and savings filters. New item and companion reward
+hints share that admission check; accepted reward promises keep their saved
+paths.
 
 Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, retains the configured local worker/streak date (currently America/Phoenix), and awards `perfect_days_count += 1`, 15 bonus coins and an Uncommon-or-better accomplishment drop once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 
@@ -216,6 +238,14 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Reading, journal, untagged daily-bonus XP and named category mastery resolve
+  captured current/retained taxonomy IDs. Journal keeps the native weighted
+  split; nonempty activity tags retain priority over the daily-bonus fallback.
+  Finite badge capacity follows those same eligible XP destinations.
+  The global snapshot bounds categories and public MCP source metadata,
+  freezes the identity maps, and binds category labels/maps to catalog freshness.
+  Decision bindings include only consumed taxonomy provenance; household
+  simulation and report work remain outside those locks.
   Modeled first hatch/evolution, automatic challenge, legendary badge, streak
   and approved exchange boundaries retain their once-only scoped badge checks.
   Chronicle rows and milestone-badge rewards remain excluded; those checks can
@@ -303,6 +333,13 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 - **RPG content authoring** (`content/rpg/`): Pets, eggs, potions, items, drops, quests, badges, and the skill tree are authored as YAML in `content/rpg/initial/*.yaml` and loaded by `python manage.py loadrpgcontent` — a dependency-ordered, idempotent upsert. `seed_data` invokes this internally. The loader (`apps/rpg/content/loader.py`) is the single source of truth for cross-entity wiring: one `pet_species.yaml` entry fans out to both a `PetSpecies` row and an egg `ItemDefinition` with typed FK; same pattern for `potion_types.yaml` → potion items. Third-party packs live under `content/rpg/packs/<name>/` and are loaded with `--namespace <prefix>-` so slugs don't collide with core. When adding new RPG content, edit YAML — don't add `get_or_create` calls to Python seed code. See `content/rpg/README.md` for schema + authoring workflow.
 
+  Badge skill-level thresholds and skill prerequisite levels use the installed
+  XP curve's maximum (currently 6) during shared preview/load validation. Badge
+  thresholds keep their positive minimum; raw YAML prerequisites retain level-0
+  compatibility. Invalid reviewed candidates fail before any upsert. Native
+  badge availability hides unreachable unearned level goals while preserving
+  earned history and payouts.
+
   Unkeyed deployment loads seed missing shop offers into the explicit legacy
   `default-family` destination (or the supplied family), preserving every
   existing offer and parent edit. Names do not establish seed ownership, so
@@ -314,6 +351,19 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
   authoritative. Reviewed publications still reject ambiguous links and roll
   back the entire publication. `tests/test_startup_loader_safety.py` covers
   these boundaries through the actual loader and startup command.
+
+  Unkeyed loads also reserve genuinely renamed authored category source names,
+  including database case-insensitive matches. Exact retained sources keep
+  their existing numeric identity; other spellings never adopt that identity.
+  Explicit/manual loads reject a new conflicting category and roll back the
+  load. Default startup instead reports and withholds that source category and
+  its dependent subjects, skills, prerequisites, named category badges and
+  challenges, including dependencies in later bundled packs. Each withheld row
+  retains its complete saved scalar rules and links; unrelated content still
+  loads. Deferral markers exist only for that command, so an explicit source
+  repair can load the withheld content on the next run. Unknown references and
+  unrelated validation errors remain strict. See
+  `tests/test_loader_category_source_conflicts.py`.
 
 ## RPG tunables (hardcoded constants in `apps/rpg/services.py`)
 These are intentionally NOT in settings — they're game-design constants, not deploy-time config.

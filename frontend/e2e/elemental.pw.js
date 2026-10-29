@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 import { createHash } from 'node:crypto';
-import { evaluationPin, evaluationPins, snakeCrabEvaluationPin } from './elemental-evaluation-server.mjs';
+import { evaluationPin, evaluationPins, snakeCrabEvaluationPin, ghostPlantEvaluationPin } from './elemental-evaluation-server.mjs';
 import { chooseDropdown as chooseSharedDropdown } from './dropdown-helpers.js';
 
 // Real SwiftShader scene changes measured up to 12.5s before click completion.
@@ -39,20 +39,23 @@ for (const accepted of evaluationPins) {
 }
 const beeBatManifest = evaluationManifest?.family_id === evaluationPin.family_id ? evaluationManifest : installedManifest(evaluationPin.family_id);
 const snakeCrabManifest = evaluationManifest?.family_id === snakeCrabEvaluationPin.family_id ? evaluationManifest : installedManifest(snakeCrabEvaluationPin.family_id);
+const ghostPlantManifest = evaluationManifest?.family_id === ghostPlantEvaluationPin.family_id ? evaluationManifest : installedManifest(ghostPlantEvaluationPin.family_id);
 const beeBatSpecies = beeBatManifest ? ['meshtint-bee', 'meshtint-bat'] : [];
 const snakeCrabSpecies = snakeCrabManifest ? ['meshtint-snake', 'meshtint-hermit-crab'] : [];
-const reviewSpecies = [...beeBatSpecies, ...snakeCrabSpecies];
+const ghostPlantSpecies = ghostPlantManifest ? ['meshtint-ghost', 'meshtint-potted-plant'] : [];
+const reviewSpecies = [...beeBatSpecies, ...snakeCrabSpecies, ...ghostPlantSpecies];
 const evaluationSpecies = evaluationManifest ? [...new Set(evaluationManifest.appearance_bindings.stages.map(({ species_slug }) => species_slug))] : [];
 const expansionSpecies = ['meshtint-dragon', 'meshtint-mushroom', ...reviewSpecies];
 const allSpecies = ['chick', 'meshtint-wolf', ...expansionSpecies];
-const elementalManifests = [manifest, expansionManifest, beeBatManifest, snakeCrabManifest].filter(Boolean);
+const elementalManifests = [manifest, expansionManifest, beeBatManifest, snakeCrabManifest, ghostPlantManifest].filter(Boolean);
 const releaseBySpecies = new Map(elementalManifests.flatMap((release) => [...new Set(release.appearance_bindings.stages.map(({ species_slug }) => species_slug))]
   .map((species) => [species, release])));
 const releaseFor = (species) => releaseBySpecies.get(species);
 const uiImageIds = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
   'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
   ...(beeBatManifest ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : []),
-  ...(snakeCrabManifest ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : [])];
+  ...(snakeCrabManifest ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : []),
+  ...(ghostPlantManifest ? ['review-ghost-fire-acquisition-icon', 'review-ghost-ice-acquisition-icon', 'review-potted-plant-fire-acquisition-icon', 'review-potted-plant-ice-acquisition-icon'] : [])];
 const stages = ['baby', 'middle', 'grown'];
 const fullMotions = process.env.ABBY_ELEMENTAL_FULL_MOTIONS === '1';
 let server, origin;
@@ -166,6 +169,23 @@ for (const species of allSpecies) {
         await resting(page, stage);
         await page.getByText('More motions', { exact: true }).click();
         const bindings = release.appearance_bindings.stages.filter((binding) => binding.species_slug === species && binding.potion_slug === potion && binding.lifecycle_stage === stage);
+        if (ghostPlantSpecies.includes(species)) {
+          const expected = species === 'meshtint-ghost' ? { baby: 12, middle: 12, grown: 12 } : { baby: 11, middle: 12, grown: 10 };
+          expect(bindings).toHaveLength(expected[stage]);
+          expect(new Set(bindings.map(({ variant_id }) => variant_id)).size).toBe(expected[stage]);
+          expect(stageBinding(release, species, potion, stage)).toMatchObject({ variant_id: 'source-idle', action: 'idle' });
+          expect(nativeVariant(release, stageBinding(release, species, potion, stage)).animations.actions.idle).toBe('Idle');
+          if (species === 'meshtint-potted-plant' && stage === 'middle') {
+            const extraIdle = bindings.find(({ motion }) => motion === 'idle-02');
+            expect(extraIdle).toMatchObject({ variant_id: 'source-idle-02', action: 'idle-02' });
+            expect(nativeVariant(release, extraIdle).animations.actions['idle-02']).toBe('Idle 02');
+          }
+          if (species === 'meshtint-ghost' && stage !== 'baby') {
+            const prefix = stage === 'middle' ? 'slash-left-attack' : 'left-slash-attack';
+            expect(bindings.find(({ motion }) => motion === prefix)).toMatchObject({ variant_id: `source-${prefix}`, action: prefix });
+          }
+          expect(release.appearance_bindings.transitions.filter(({ species_slug }) => species_slug === species)).toEqual([]);
+        }
         const control = page.getByRole('combobox', { name: 'Companion motion' });
         await control.click({ timeout: 6_000 });
         const listbox = page.locator(`[id=${JSON.stringify(await control.getAttribute('aria-controls'))}]`);

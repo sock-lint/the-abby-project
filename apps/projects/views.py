@@ -316,6 +316,33 @@ class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
             return User.objects.none()
         return User.objects.filter(role="child", family=family)
 
+    @action(detail=True, methods=["get"])
+    def overview(self, request, pk=None):
+        """A bounded, read-only child profile for the Family workspace."""
+        from apps.achievements.models import SkillProgress, UserBadge
+        from apps.achievements.serializers import SkillProgressSerializer, UserBadgeSerializer
+        from apps.pets.models import UserPet, UserMount
+        from apps.pets.serializers import UserPetSerializer, UserMountSerializer
+        from apps.rewards.services import CoinService
+        from apps.rpg.models import CharacterProfile
+
+        child = self.get_object()
+        profile = CharacterProfile.objects.filter(user=child).first()
+        skills = SkillProgress.objects.filter(user=child).select_related("skill__category", "skill__subject")
+        badges = UserBadge.objects.filter(user=child).select_related("badge").order_by("-earned_at", "pk")
+        pets = UserPet.objects.filter(user=child).select_related("species", "potion").order_by("pk")
+        mounts = UserMount.objects.filter(user=child).select_related("species", "potion").order_by("pk")
+        return Response({
+            "child": {"id": child.pk, "display_name": child.display_label},
+            "level": profile.level if profile else None,
+            "coin_balance": CoinService.get_balance(child),
+            "skills": SkillProgressSerializer(skills.order_by("pk")[:100], many=True).data,
+            "badges": UserBadgeSerializer(badges[:100], many=True).data,
+            "pets": UserPetSerializer(pets[:100], many=True).data,
+            "mounts": UserMountSerializer(mounts[:100], many=True).data,
+            "counts": {"skills": skills.count(), "badges": badges.count(), "pets": pets.count(), "mounts": mounts.count()},
+        })
+
     @transaction.atomic
     def perform_create(self, serializer):
         # ``password`` flows through validated_data; ChildSerializer.create
@@ -396,9 +423,12 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         from django.db.models import Count, Q
+        from config.participation import is_personal_space
 
         qs = super().get_queryset()
-        if self.request.user.role == "parent":
+        if is_personal_space(self.request):
+            qs = qs.filter(assigned_to=self.request.user)
+        elif self.request.user.role == "parent":
             qs = filter_projects_accessible_to(self.request.user, qs)
         else:
             qs = self.get_role_filtered_queryset(qs)
@@ -440,7 +470,20 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         return ProjectDetailSerializer
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        from config.participation import is_personal_space
+        extras = {"created_by": self.request.user}
+        if is_personal_space(self.request):
+            extras.update(assigned_to=self.request.user, bonus_amount=0, hourly_rate_override=0,
+                          hourly_rate_is_personal_default=True)
+        serializer.save(**extras)
+
+    def perform_update(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {}
+        if is_personal_space(self.request):
+            extras.update(assigned_to=self.request.user, bonus_amount=0)
+        serializer.save(**extras)
 
     def get_permissions(self):
         # activate / approve / request_changes declare permission_classes=
@@ -543,12 +586,27 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    @transaction.atomic
     def approve(self, request, pk=None):
+        from config.participation import is_personal_space
+
         project = self.get_object()
+        personal = is_personal_space(request)
+        if personal:
+            from apps.achievements.services import _lock_award_user
+
+            _lock_award_user(request.user)
+            project = get_object_or_404(self.get_queryset().select_for_update(of=("self",)), pk=project.pk)
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         previous_status = project.status
         project.status = "completed"
+        if personal:
+            from .assignment import personal_rate_defaults
+
+            project.bonus_amount = 0
+            for field, value in personal_rate_defaults(project).items():
+                setattr(project, field, value)
         project.save()
         if previous_status != "completed":
             record_action(
@@ -601,10 +659,30 @@ class ProjectMilestoneViewSet(
     serializer_class = ProjectMilestoneSerializer
     queryset = ProjectMilestone.objects.all()
 
+    def perform_create(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {"project": self.get_project()}
+        if is_personal_space(self.request):
+            extras["bonus_amount"] = 0
+        serializer.save(**extras)
+
+    def perform_update(self, serializer):
+        from config.participation import is_personal_space
+
+        extras = {"bonus_amount": 0} if is_personal_space(self.request) else {}
+        serializer.save(**extras)
+
     @action(detail=True, methods=["post"])
     def complete(self, request, project_pk=None, pk=None):
+        from config.participation import is_personal_space
+
         milestone = self.get_object()
         milestone.is_completed = True
+        if is_personal_space(request):
+            # Existing Family-authored bonuses must not pay cash when the
+            # parent completes their own milestone in My space.
+            milestone.bonus_amount = 0
         milestone.save()
         return Response(ProjectMilestoneSerializer(milestone).data)
 

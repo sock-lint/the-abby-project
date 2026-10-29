@@ -67,7 +67,7 @@ class SnakeHermitCrabActivationBoundaryTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
 
     def test_default_load_registers_only_four_more_pairs_and_preserves_natural_eggs(self):
-        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(len(available_pet_pairs()), 35)
         self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
         before = list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata"))
         for species_slug in SPECIES:
@@ -82,7 +82,7 @@ class SnakeHermitCrabActivationBoundaryTests(TestCase):
 
     def test_active_policy_records_exact_source_and_retains_all_previous_families(self):
         policy = json.loads(POLICY_PATH.read_text())
-        elemental = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", *SPECIES}
+        elemental = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-ghost", "meshtint-potted-plant", *SPECIES}
         self.assertEqual(len(policy["pets"]), 15)
         for row in policy["pets"]:
             self.assertEqual(set(row["potion_slugs"]), {"base", "fire", "ice"} if row["species_slug"] in elemental else {"base"})
@@ -98,7 +98,7 @@ class SnakeHermitCrabActivationBoundaryTests(TestCase):
         items_before = list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata"))
         with override_settings(RPG_ASSET_SUPPORT_POLICY=PREACTIVATION_POLICY):
             call_command("loadrpgcontent", stdout=StringIO())
-            self.assertEqual(len(available_pet_pairs()), 27)
+            self.assertEqual(len(available_pet_pairs()), 31)
             for definition in QuestDefinition.objects.filter(name__in=PATHS):
                 self.assertFalse(definition_is_available(definition))
         self.assertEqual(list(ItemDefinition.objects.order_by("pk").values("pk", "slug", "name", "item_type", "pet_species_id", "potion_type_id", "rarity", "coin_value", "metadata")), items_before)
@@ -107,7 +107,7 @@ class SnakeHermitCrabActivationBoundaryTests(TestCase):
     @override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY)
     def test_scoped_full_policy_allows_explicit_pack_without_registering_it(self):
         call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(len(available_pet_pairs()), 35)
         self.assertEqual(set(QuestDefinition.objects.filter(name__in=PATHS).values_list("name", flat=True)), set(PATHS))
 
     @override_settings(RPG_ASSET_SUPPORT_POLICY=FUTURE_POLICY)
@@ -128,7 +128,7 @@ class SnakeHermitCrabActivationBoundaryTests(TestCase):
                 self.assertEqual(list(PetSpecies.available_potions.through.objects.order_by("pk").values()), before)
         with override_settings(RPG_ASSET_SUPPORT_POLICY=future_policy(("meshtint-snake", "fire"))):
             call_command("loadrpgcontent", pack=PACK, stdout=StringIO())
-            self.assertEqual(len(available_pet_pairs()), 28)
+            self.assertEqual(len(available_pet_pairs()), 32)
             self.assertEqual({row.name for row in QuestDefinition.objects.filter(name__in=PATHS) if definition_is_available(row)}, {"Ember Coil"})
 
     def test_descriptor_handles_bind_only_system_collection_definitions(self):
@@ -188,7 +188,7 @@ class ApprovedSnakeHermitCrabPathTests(TestCase):
         return definitions
 
     def test_prepared_authored_rules_preserve_typed_existing_ingredients_and_rarity(self):
-        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(len(available_pet_pairs()), 35)
         definitions = self.definitions()
         for name, (species_slug, potion, image) in PATHS.items():
             with self.subTest(name=name):

@@ -11,7 +11,23 @@ plus legacy owned pets/mounts; saved pets can still evolve. Potion-shelf goals
 include already owned typed potions, and named sets include already owned
 items. A full four-slot cosmetic goal needs an existing active accessory,
 because new accessories and accessory equip are unavailable. Other criteria,
-including independent badge and consumable collections, stay available.
+including independent badge and consumable collections, stay available when
+their skill-level requirements fit the installed XP curve.
+
+New content validation bounds badge `level`/`min_level` requirements by that
+curve (currently maximum 6), preserving strict whole numbers and the positive
+minimum. Legacy visibility instead follows the native checkers' integer
+coercion: saved numeric strings, fractions, zero and booleans remain available
+when their effective threshold is reachable. The three count-based skill goals
+also retain native zero/negative-count eligibility above the curve, after the
+level has been successfully converted. This exception does not apply to mastery.
+Unusable values and genuinely unreachable requirements hide unearned goals;
+earned rows remain in history
+with `catalog_available=false`, without rewriting criteria or rewards. The MCP
+catalog applies the same level compatibility, then still strictly validates
+every other criterion field. It can report a legacy row unavailable when another
+field fails authoring validation, even if the native checker can award it. Its
+strict content audit also reports the saved authoring errors.
 
 Unreachable unearned goals are omitted by `visible_badges` from child catalog
 and summary surfaces. Earned badges remain visible, counted and eligible for
@@ -27,9 +43,21 @@ Badge catalog, earned-list and summary reads share lazy availability inputs
 within one request, including supported companion pairs and that account's
 saved collections. `available_pet_pairs` batches authored compatibility reads;
 an empty compatibility relation keeps its existing unrestricted meaning.
-Standalone service checks and later requests recompute availability after
+Named category goals batch distinct selectors in groups of 100 within that
+read, preserving database exact/case-insensitive matching and the native
+1,001-source overflow check before filtering malformed or dangling sources.
+Catalog and earned/summary serializers share those results. Standalone service
+checks resolve only their requested selector and later requests recompute after
 ownership or catalog changes. Query-growth and account-isolation regressions
-live in `tests/test_badge_availability_queries.py`.
+live in `tests/test_badge_availability_queries.py` and
+`tests/test_named_goal_availability_queries.py`.
+
+MCP catalog, audit and workbench pages share a separate availability context
+for their selected rows, including quest prerequisite badges. Lab snapshots
+prime only modeled badges after applying their 512-row limit. Both reuse the
+same literal selector batches without reading player state; each later page
+or snapshot resolves fresh inputs. Coverage is in MCP's
+`test_named_goal_catalog_queries` and RPG's `test_progression_named_goal_queries`.
 
 ## Models
 - `SkillCategory → Subject → Skill → Badge` — full hierarchy.
@@ -47,6 +75,30 @@ Retained matches require exact version-1 MCP authoring provenance in
 canonical rows remain supported. Retirement preserves these installed routes,
 and normal unlock eligibility still controls credit. Labels never redirect saved
 receipts or cause past awards to be replayed.
+
+Named `category_mastery` and single-category `category_projects` criteria also
+retain the original category identity after MCP renames. Mastery keeps exact
+name matching. Project criteria preserve the legacy union of current categories
+whose names match case-insensitively, including current MCP-authored rows with
+their own source overrides. An omitted or null project-category selector counts
+uncategorized completed projects. Exact versioned MCP provenance may retain an
+original name after a rename; distinct renamed identities, or a renamed identity
+competing with another current category, fail closed. Retirement preserves
+eligibility and earned badge history; plural project-category counts keep their
+existing behavior. Named goals blocked by those identity ties are hidden from
+new goal choices and Lab snapshots. Earned badges remain in history with
+`catalog_available=false`. Resolving the tie restores goal availability on the
+next read; it does not replay awards. This ambiguity check preserves the older
+missing-name policy and uncategorized, plural-category and zero-count rules.
+
+Direct category authoring rejects a rename that would newly turn a current
+case-variant union into a competing retained/current identity. New category names
+also cannot reuse a genuinely renamed retained source with different casing.
+Current-only unions and case-only renames remain supported. The new guards leave
+unrelated metadata edits and explicit repairs under their existing validation
+and ownership rules; saved awards are intact.
+The shared source-name guard also applies to reviewed pack loads, while ordinary
+keyed YAML updates do not invent direct-edit provenance.
 
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be

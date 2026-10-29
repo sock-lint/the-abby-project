@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from config.viewsets import WriteReadSerializerMixin
 
 from .models import Habit, HabitSkillTag
@@ -70,6 +71,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         qs = Habit.objects.prefetch_related("skill_tags__skill").filter(
             user__family=family,
         )
+        if is_personal_space(self.request):
+            qs = qs.filter(user=user)
         pending_filter = self.request.query_params.get("pending") == "true"
         if user.role == "child":
             qs = qs.filter(user=user)
@@ -169,6 +172,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 about_user=user,
             )
         else:
+            if is_personal_space(self.request):
+                serializer.validated_data["user"] = user
             habit = serializer.save(created_by=user)
             if tags is not None:
                 _apply_skill_tags(habit, tags)
@@ -249,7 +254,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
 
         try:
             result = HabitService.log_tap(
-                request.user, habit, direction, usage_actor=request.user,
+                request.user, habit, direction, usage_actor=request.user, include_source=True,
             )
         except ValueError as exc:
             return Response(
@@ -257,6 +262,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        habit_log_id = result.pop("habit_log_id")
         game_event = None
         if direction == 1:
             # Imported lazily to avoid a static dep from habits → rpg at
@@ -265,7 +271,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.rpg.services import GameLoopService
 
             game_event = GameLoopService.on_task_completed(
-                request.user, TriggerType.HABIT_LOG, {"habit_id": habit.pk},
+                request.user, TriggerType.HABIT_LOG, {"habit_id": habit.pk, "habit_log_id": habit_log_id},
             )
 
         return Response({**result, "game_event": game_event})

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent, IsStaffParent
+from config.participation import is_personal_space
 from config.viewsets import child_not_found_response, get_child_or_404
 from .goal_serializers import GoalWriteSerializer
 from .goals import (
@@ -18,15 +19,18 @@ class ChallengesView(APIView):
     def get(self, request):
         user = request.user
         if "user_id" in request.query_params:
-            if request.user.role != "parent":
-                return child_not_found_response()
-            raw_id = request.query_params["user_id"]
             try:
-                user_id = int(raw_id)
+                user_id = int(request.query_params["user_id"])
             except (ValueError, TypeError):
                 return child_not_found_response()
-            user = get_child_or_404(user_id, requesting_user=request.user)
-            if not user:
+            if is_personal_space(request):
+                if user_id != request.user.pk:
+                    return child_not_found_response()
+            elif request.user.role == "parent":
+                user = get_child_or_404(user_id, requesting_user=request.user)
+                if not user:
+                    return child_not_found_response()
+            else:
                 return child_not_found_response()
         payload = list_goals(user)
         from .daily_bonus import get_daily_bonus_payload
@@ -41,11 +45,19 @@ class CreateGoalView(APIView):
     def post(self, request):
         serializer = GoalWriteSerializer(data=request.data, context={"request": request, "defer_current_eligibility": True})
         serializer.is_valid(raise_exception=True)
-        child = get_child_or_404(serializer.validated_data["user_id"], requesting_user=request.user)
+        if is_personal_space(request):
+            if serializer.validated_data["user_id"] != request.user.pk:
+                return child_not_found_response()
+            child = request.user
+        else:
+            child = get_child_or_404(serializer.validated_data["user_id"], requesting_user=request.user)
         if not child:
             return child_not_found_response()
         try:
-            occurrence = create_goal(request.user, child, serializer.validated_data, validate_current=True)
+            occurrence = create_goal(
+                request.user, child, serializer.validated_data, validate_current=True,
+                allow_self=is_personal_space(request),
+            )
         except GoalParentUnavailable as error:
             return Response({"error": str(error)}, status=status.HTTP_403_FORBIDDEN)
         except GoalChildUnavailable:
@@ -78,7 +90,7 @@ class ChallengeOpenedView(APIView):
         from .discovery import record_details_opened
         if request.query_params or not isinstance(request.data, dict) or request.data:
             return Response({"error": "Supply an empty object without query parameters."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(record_details_opened(request.user, goal_id))
+        return Response(record_details_opened(request.user, goal_id, allow_parent=is_personal_space(request)))
 
 
 class ChallengeDiscoveryView(APIView):
@@ -107,7 +119,7 @@ class ChallengeRetryView(APIView):
         except (ValueError, AttributeError):
             raise NotFound("Challenge not found")
         try:
-            occurrence, created = retry_challenge(request.user, identifier)
+            occurrence, created = retry_challenge(request.user, identifier, self_only=is_personal_space(request))
         except ValueError as error:
             return Response({"error": str(error)}, status=409)
         from .goals import _pin_id
@@ -127,7 +139,8 @@ class GoalScheduleView(APIView):
         serializer = GoalScheduleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            result = update_schedule(request.user, goal_definition_id, serializer.validated_data)
+            result = update_schedule(request.user, goal_definition_id, serializer.validated_data,
+                                     self_only=is_personal_space(request))
         except ValueError as error:
             return Response({"error": str(error)}, status=409)
         return Response(result)

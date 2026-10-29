@@ -362,12 +362,26 @@ class CatalogReconciliationTests(TestCase):
             self.preview()
         self.assertFalse(ContentPackPublication.objects.exists())
 
-    def test_reward_only_legacy_offer_is_not_rejected_as_unsupported_automatic_activity(self):
+    def test_reward_only_reconciliation_preserves_history_but_cannot_start_a_new_campaign(self):
         QuestDefinition.objects.filter(pk__in=[self.source.pk, self.canonical.pk]).update(
             trigger_filter={"allowed_triggers": ["perfect_day"]})
+        # This accepted legacy history predates new-start reachability checks.
+        legacy = Quest.objects.create(
+            definition=self.source, status="completed", start_date=self.at,
+            end_date=self.at + timedelta(days=7), current_progress=3,
+        )
+        QuestParticipant.objects.create(quest=legacy, user=self.child, contribution=3)
+        before = Quest.objects.filter(pk=legacy.pk).values().get()
+        participants = list(QuestParticipant.objects.filter(quest=legacy).values())
         self.publish()
-        quest = QuestService.start_quest(self.child, self.canonical.pk)
-        self.assertEqual(quest.definition_id, self.canonical.pk)
+        with self.assertRaisesMessage(ValueError, "saved-work activity"):
+            QuestService.start_quest(self.sibling, self.canonical.pk)
+        self.assertEqual(Quest.objects.count(), 1)
+        self.assertEqual(Quest.objects.filter(pk=legacy.pk).values().get(), before)
+        self.assertEqual(list(QuestParticipant.objects.filter(quest=legacy).values()), participants)
+        list_goals(self.child)
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child).exists())
+        self.assertFalse(CoinLedger.objects.exists())
 
     def test_bundled_reload_targets_only_canonical_and_retains_old_owned_row(self):
         self.publish()

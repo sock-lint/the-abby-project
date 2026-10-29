@@ -1,0 +1,369 @@
+"""Late conflict pulses settle without rejecting native-valid content cycles."""
+from contextlib import contextmanager
+from copy import deepcopy
+from dataclasses import fields
+from datetime import timedelta
+from io import StringIO
+from pathlib import Path
+import sys
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+import yaml
+from django.core.management import call_command
+from django.db import transaction
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from apps.achievements import criteria
+from apps.achievements.models import Badge, SkillCategory
+from apps.quests.models import Quest, QuestDefinition, QuestParticipant
+from apps.rpg.content.loader import StartupDeferrals
+from apps.rpg.models import ItemDefinition, RPGContentOverride
+from config.tests.factories import make_family
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class StartupPolicyCycleTests(TestCase):
+    def setUp(self):
+        self.actor = make_family(parents=[{"username": "policy-parent", "is_staff": True}]).parents[0]
+        SkillCategory.objects.create(name="Archive", is_retired=True)
+        retained = SkillCategory.objects.create(name="Mechatronics")
+        RPGContentOverride.objects.create(model_label="achievements.skillcategory", object_id=retained.pk,
+            family=self.actor.family, source_lookup={"name": "robotics"},
+            values={"_authoring": {"version": 1, "source": "mcp"}})
+
+    @staticmethod
+    def quest(name, **values):
+        if values.get("prerequisite_quest"):
+            values.setdefault("trigger_filter", {"allowed_triggers": ["reading_logged"]})
+        return {"name": name, "description": "Source edit", "quest_type": "collection", "target_value": 2, **values}
+
+    @staticmethod
+    def badge(name, names, count=None):
+        rule = {"quest_names": names}
+        if count is not None:
+            rule["count"] = count
+        return {"name": name, "criteria_type": "quest_completed", "criteria_value": rule}
+
+    @contextmanager
+    def isolated_case(self):
+        sid = transaction.savepoint()
+        try:
+            yield
+        finally:
+            transaction.savepoint_rollback(sid)
+
+    def sources(self, quests, badges, layout):
+        tree = {"categories": [{"name": "Archive"}, {"name": "Robotics"}],
+            "skills": [{"name": "Fresh", "category": "Archive"}, {"name": "Servo", "category": "Robotics"}]}
+        marker = {"items": [{"name": "Unaffected food", "slug": "policy-cycle-food", "item_type": "food"}]}
+        if layout == "split":
+            return [{"skill_tree": tree, "badges": {"badges": badges}, "items": marker}, {"quests": {"quests": quests}}]
+        return [{"skill_tree": tree, "badges": {"badges": badges}, "items": marker,
+            "quests": {"quests": quests if layout == "forward" else list(reversed(quests))}}]
+
+    def snapshot(self):
+        return {model: list(model.objects.order_by("pk").values(*[
+            field.attname for field in model._meta.concrete_fields if field.name not in {"created_at", "updated_at"}]))
+            for model in (Badge, QuestDefinition, ItemDefinition)}
+
+    def load(self, sources, *, dry_run=False):
+        state, output = StartupDeferrals(), StringIO()
+        count, previous = [0], sys.getprofile()
+        node_count = sum(len(pack.get("quests", {}).get("quests", [])) + len(pack.get("badges", {}).get("badges", [])) for pack in sources)
+        budget = (len(sources) + 1) * (2 * node_count + 1)
+
+        def observe(frame, event, _arg):
+            if event == "call" and frame.f_code.co_name == "cycle_roots":
+                count[0] += 1
+                if count[0] > budget:
+                    raise AssertionError("Cycle policy repeated without making bounded progress")
+
+        with TemporaryDirectory() as directory:
+            selections = []
+            for index, source in enumerate(sources):
+                path = Path(directory) / str(index)
+                path.mkdir()
+                selections.append((str(path), ""))
+                for section, value in source.items():
+                    (path / f"{section}.yaml").write_text(yaml.safe_dump(value))
+            try:
+                sys.setprofile(observe)
+                with patch("apps.rpg.management.commands.loadrpgcontent.BUNDLED_PACKS", tuple(selections)), patch(
+                        "apps.rpg.management.commands.loadrpgcontent.StartupDeferrals", return_value=state), patch(
+                        "apps.rpg.management.commands.loadrpgcontent.retire_unused_catalog_once", return_value=None):
+                    call_command("loadrpgcontent", stdout=output, dry_run=dry_run)
+            except Exception as exc:
+                self.fail(f"Native-valid startup must settle: {type(exc).__name__}: {exc}")
+            finally:
+                sys.setprofile(previous)
+            self.assertTrue(all(not getattr(state, field.name) for field in fields(state)))
+        return output.getvalue()
+
+    def pulse(self, shape, *, conflict=False):
+        saved = QuestDefinition.objects.create(name="C", description="Saved repeatable", quest_type="collection",
+            target_value=2, is_system=True, is_repeatable=True)
+        roots = [self.quest("P", skill_tags=["Archive::Fresh"]), self.quest("K", skill_tags=["Robotics::Servo"])]
+        conditional = self.quest("C", prerequisite_quest="D", is_repeatable=False,
+            **({"skill_tags": ["Robotics::Servo"]} if conflict else {}))
+        badges = [self.badge("Z", ["K", "C"], 2)]
+        if shape == "self":
+            roots.extend([self.quest("E"), self.quest("D0", prerequisite_quest="P"),
+                self.quest("D", prerequisite_quest="D0", required_badge="W"), conditional,
+                self.quest("I", required_badge="Z"), self.quest("X", prerequisite_quest="I", required_badge="V0")])
+            badges.extend([self.badge("V0", ["X"]), self.badge("W", ["X", "E"])])
+            expected = {"Z", "V0", "W"}
+        elif shape == "multi":
+            roots.extend([self.quest("E"), self.quest("D", prerequisite_quest="P", required_badge="W"), conditional,
+                self.quest("X2", required_badge="Vy"), self.quest("X", prerequisite_quest="X2", required_badge="Z"),
+                self.quest("Y", required_badge="Vx")])
+            badges.extend([self.badge("Vx", ["X"]), self.badge("Vy", ["Y"]), self.badge("W", ["Y", "E"])])
+            expected = {"Z", "Vx", "Vy", "W"}
+        else:
+            roots.extend([self.quest("D", prerequisite_quest="P", required_badge="Vx"), conditional,
+                self.quest("X2", required_badge="Vx"), self.quest("X", prerequisite_quest="X2", required_badge="Z")])
+            badges.append(self.badge("Vx", ["X"]))
+            expected = {"Z", "Vx"}
+        return saved, roots, badges, expected
+
+    def test_delayed_conflict_pulses_settle_self_and_multigate_cycles(self):
+        for shape in ("self", "multi", "no-alternative"):
+            for layout in ("forward", "reverse", "split"):
+                with self.subTest(shape=shape, layout=layout), self.isolated_case():
+                    saved, quests, badges, expected = self.pulse(shape)
+                    before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                    sources, snapshot = self.sources(quests, badges, layout), self.snapshot()
+                    self.load(sources, dry_run=True)
+                    self.assertEqual(self.snapshot(), snapshot)
+                    previous = None
+                    for _reload in range(2):
+                        self.load(sources)
+                        self.assertEqual(set(Badge.objects.values_list("name", flat=True)), expected)
+                        self.assertTrue(QuestDefinition.objects.filter(name="X").exists())
+                        self.assertFalse(QuestDefinition.objects.filter(name__in=["P", "K", "D"]).exists())
+                        self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                        self.assertTrue(ItemDefinition.objects.filter(slug="policy-cycle-food").exists())
+                        after = self.snapshot()
+                        if previous is not None:
+                            self.assertEqual(after, previous)
+                        previous = deepcopy(after)
+
+    def test_policy_pins_can_yield_to_an_independently_supported_saved_capacity(self):
+        for layout in ("forward", "reverse", "split"):
+            with self.subTest(layout=layout), self.isolated_case():
+                saved = [QuestDefinition.objects.create(name=name, description="Saved repeatable", quest_type="collection",
+                    target_value=2, is_system=True, is_repeatable=True) for name in ("Q3", "Q6")]
+                before = QuestDefinition.objects.filter(pk=saved[1].pk).values().get()
+                for _completion in range(3):
+                    completed = Quest.objects.create(definition=saved[1], status="completed", reward_items_snapshot=[],
+                        end_date=timezone.now() + timedelta(days=1))
+                    QuestParticipant.objects.create(quest=completed, user=self.actor)
+                history = {model: list(model.objects.order_by("pk").values()) for model in (Quest, QuestParticipant)}
+                quests = [self.quest("Q0", skill_tags=["Archive::Fresh"]), self.quest("Q1", skill_tags=["Robotics::Servo"]),
+                    self.quest("Q8", prerequisite_quest="Q0", required_badge="B3"), self.quest("Q6", prerequisite_quest="Q8"),
+                    self.quest("Q3", is_repeatable=False, required_badge="B3"), self.quest("E")]
+                sources = self.sources(quests, [self.badge("B3", ["Q6", "Q3", "Q1"], 3)], layout)
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                for _reload in range(2):
+                    output = self.load(sources)
+                    self.assertTrue(Badge.objects.filter(name="B3").exists())
+                    self.assertTrue(criteria.check(self.actor, Badge.objects.get(name="B3")))
+                    self.assertEqual({model: list(model.objects.order_by("pk").values()) for model in history}, history)
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved[1].pk).values().get(), before)
+                    edited = QuestDefinition.objects.get(name="Q3")
+                    self.assertFalse(edited.is_repeatable)
+                    self.assertEqual(edited.required_badge.name, "B3")
+                    self.assertNotIn("Left badge 'B3' unchanged", output)
+                    self.assertNotIn("Left quest 'Q3' unchanged", output)
+
+    def test_actual_conflict_seeds_remain_strict_during_policy_reconsideration(self):
+        for layout in ("forward", "split"):
+            with self.subTest(layout=layout), self.isolated_case():
+                saved, quests, badges, _expected = self.pulse("self", conflict=True)
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                self.load(self.sources(quests, badges, layout))
+                self.assertFalse(Badge.objects.filter(name="Z").exists())
+                self.assertFalse(QuestDefinition.objects.filter(name__in=["I", "X", "K"]).exists())
+                self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+
+    def cycle_sources(self, quests, badges, layout, *, quest_cut, badge_cut):
+        if layout != "split":
+            return self.sources(quests, badges if layout == "forward" else list(reversed(badges)), layout)
+        whole = self.sources(quests, badges, "forward")[0]
+        return [{"skill_tree": whole["skill_tree"], "items": whole["items"],
+                 "badges": {"badges": badges[:badge_cut]}, "quests": {"quests": quests[:quest_cut]}},
+                {"badges": {"badges": badges[badge_cut:]}, "quests": {"quests": quests[quest_cut:]}}]
+
+    def test_rotating_conflict_with_a_saved_badge_and_quest_settles(self):
+        for layout in ("forward", "reverse", "split"):
+            with self.subTest(layout=layout), self.isolated_case():
+                saved = QuestDefinition.objects.create(name="C0", description="Saved repeatable", quest_type="collection",
+                    target_value=2, is_system=True, is_repeatable=True)
+                Badge.objects.create(name="B2", description="Saved B2", criteria_type="quest_completed",
+                    criteria_value={"quest_names": ["C0"]})
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                quests = [self.quest("K", skill_tags=["Robotics::Servo"]), self.quest("P", skill_tags=["Archive::Fresh"]),
+                    self.quest("C1", prerequisite_quest="P", required_badge="B2"), self.quest("C0", prerequisite_quest="C1")]
+                badges = [{**self.badge("B2", ["C0", "K"], 2), "description": "Applied B2 edit"}]
+                sources = self.cycle_sources(quests, badges, layout, quest_cut=2, badge_cut=0)
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                previous = None
+                for _reload in range(2):
+                    self.load(sources)
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                    self.assertFalse(QuestDefinition.objects.filter(name__in=["P", "K", "C1"]).exists())
+                    edited = Badge.objects.get(name="B2")
+                    self.assertEqual(edited.description, "Applied B2 edit")
+                    self.assertEqual(edited.criteria_value, {"quest_names": ["C0", "K"], "count": 2})
+                    after = self.snapshot()
+                    if previous is not None:
+                        self.assertEqual(after, previous)
+                    previous = deepcopy(after)
+
+    def test_downstream_cycle_with_a_constant_saved_backedge_keeps_reachable_goals(self):
+        for retired_alternative in (False, True):
+            for layout in ("forward", "reverse", "split"):
+                with self.subTest(layout=layout, retired_alternative=retired_alternative), self.isolated_case():
+                    saved = {name: QuestDefinition.objects.create(name=name, description="Saved repeatable", quest_type="collection",
+                        target_value=2, is_system=True, is_repeatable=True) for name in ("C", "C2")}
+                    before = QuestDefinition.objects.filter(pk=saved["C"].pk).values().get()
+                    if retired_alternative:
+                        free = QuestDefinition.objects.create(name="Free", description="Saved alternative",
+                            quest_type="collection", target_value=2, is_system=True)
+                        free_before = QuestDefinition.objects.filter(pk=free.pk).values().get()
+                    Badge.objects.create(name="B2", description="Saved B2", criteria_type="quest_completed",
+                        criteria_value={"quest_names": ["C2", "Q2"], "count": 1})
+                    for _completion in range(3):
+                        completed = Quest.objects.create(definition=saved["C"], status="completed", reward_items_snapshot=[],
+                            end_date=timezone.now() + timedelta(days=1))
+                        QuestParticipant.objects.create(quest=completed, user=self.actor)
+                    history = {model: list(model.objects.order_by("pk").values()) for model in (Quest, QuestParticipant)}
+                    quests = [self.quest("P", skill_tags=["Archive::Fresh"]), self.quest("K", skill_tags=["Robotics::Servo"]),
+                        self.quest("Free", **({"skill_tags": ["Archive::Fresh"]} if retired_alternative else {})),
+                        self.quest("Q2", required_badge="Bk"), self.quest("D", required_badge="B2"),
+                        self.quest("C", is_repeatable=False, required_badge="B", prerequisite_quest="D"),
+                        self.quest("C2", description="Applied downstream edit", is_repeatable=False, required_badge="B3"),
+                        self.quest("G3", required_badge="B3")]
+                    badges = [self.badge("Bk", ["K", "Free"]), self.badge("B2", ["C2", "Q2"], 1),
+                        self.badge("B", ["P", "C"], 2), self.badge("B3", ["P", "C", "C2"], 3)]
+                    sources = self.cycle_sources(quests, badges, layout, quest_cut=5, badge_cut=2)
+                    initial = self.snapshot()
+                    self.load(sources, dry_run=True)
+                    self.assertEqual(self.snapshot(), initial)
+                    previous = None
+                    for _reload in range(2):
+                        self.load(sources)
+                        self.assertEqual(set(Badge.objects.values_list("name", flat=True)), {"Bk", "B2", "B3"})
+                        self.assertTrue(criteria.check(self.actor, Badge.objects.get(name="B3")))
+                        self.assertTrue(QuestDefinition.objects.filter(name="G3", required_badge__name="B3").exists())
+                        edited = QuestDefinition.objects.get(name="C2")
+                        self.assertFalse(edited.is_repeatable)
+                        self.assertEqual(edited.description, "Applied downstream edit")
+                        self.assertEqual(QuestDefinition.objects.filter(pk=saved["C"].pk).values().get(), before)
+                        if retired_alternative:
+                            self.assertEqual(QuestDefinition.objects.filter(pk=free.pk).values().get(), free_before)
+                        self.assertEqual({model: list(model.objects.order_by("pk").values()) for model in history}, history)
+                        after = self.snapshot()
+                        if previous is not None:
+                            self.assertEqual(after, previous)
+                        previous = deepcopy(after)
+
+    def test_constant_admission_requires_every_selected_duplicate_definition(self):
+        for kind in ("quest", "badge"):
+            for unsafe_first in (False, True):
+                with self.subTest(kind=kind, unsafe_first=unsafe_first), self.isolated_case():
+                    quests = [self.quest("K", skill_tags=["Robotics::Servo"])]
+                    if kind == "quest":
+                        versions = [self.quest("Free"), self.quest("Free", required_badge="A conflict")]
+                        quests.extend(reversed(versions) if unsafe_first else versions)
+                        badges = [self.badge("A conflict", ["K"]), self.badge("Z result", ["Free"])]
+                    else:
+                        quests.extend([self.quest("Free"), self.quest("Gate", required_badge="B bridge")])
+                        versions = [self.badge("B bridge", ["Free"]), self.badge("B bridge", ["K"])]
+                        badges = list(reversed(versions) if unsafe_first else versions) + [self.badge("Z result", ["Gate"])]
+                    sources = self.sources(quests, badges, "forward")
+                    previous = None
+                    for _reload in range(2):
+                        self.load(sources)
+                        self.assertFalse(Badge.objects.filter(name="Z result").exists())
+                        self.assertFalse(Badge.objects.filter(name__in=["A conflict", "B bridge"]).exists())
+                        self.assertFalse(QuestDefinition.objects.filter(name__in=["K", "Gate"]).exists())
+                        self.assertEqual(QuestDefinition.objects.filter(name="Free").exists(), kind == "badge")
+                        self.assertTrue(ItemDefinition.objects.filter(slug="policy-cycle-food").exists())
+                        after = self.snapshot()
+                        if previous is not None:
+                            self.assertEqual(after, previous)
+                        previous = deepcopy(after)
+
+    def test_equal_conflict_sets_prefer_fewer_refused_source_edits(self):
+        for layout in ("forward", "reverse", "split"):
+            with self.subTest(layout=layout), self.isolated_case():
+                saved = {name: QuestDefinition.objects.create(name=name, description="Saved repeatable",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                    for name in ("C0", "C1")}
+                before = QuestDefinition.objects.filter(pk=saved["C0"].pk).values().get()
+                sources = self.sources([
+                    self.quest("R0", skill_tags=["Archive::Fresh"]),
+                    self.quest("C0", required_badge="B0", is_repeatable=False),
+                    self.quest("C1", required_badge="B1", is_repeatable=False),
+                    self.quest("G0", required_badge="B0")], [
+                    self.badge("B0", ["R0", "C1"], 2), self.badge("B1", ["R0", "C0"], 2)], layout)
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                previous = None
+                for _reload in range(2):
+                    output = self.load(sources)
+                    self.assertEqual(set(Badge.objects.values_list("name", flat=True)), {"B1"})
+                    self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)), {"C0", "C1"})
+                    edited = QuestDefinition.objects.get(pk=saved["C1"].pk)
+                    self.assertEqual(edited.description, "Source edit")
+                    self.assertFalse(edited.is_repeatable)
+                    self.assertEqual(edited.required_badge.name, "B1")
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved["C0"].pk).values().get(), before)
+                    self.assertNotIn("Left badge 'B1' unchanged", output)
+                    self.assertNotIn("Left quest 'C1' unchanged", output)
+                    after = self.snapshot()
+                    if previous is not None:
+                        self.assertEqual(after, previous)
+                    previous = deepcopy(after)
+
+    def test_in_component_prerequisite_keeps_supported_retained_capacity(self):
+        for reverse in (False, True):
+            with self.subTest(reverse=reverse), self.isolated_case():
+                saved = QuestDefinition.objects.create(name="Q2", description="Saved repeatable",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                quests = [self.quest("Q0", skill_tags=["Archive::Fresh"]),
+                    self.quest("Q1", skill_tags=["Robotics::Servo"]),
+                    self.quest("Q2", prerequisite_quest="Q3", required_badge="B3"),
+                    self.quest("Q3", prerequisite_quest="Q0", required_badge="B3"), self.quest("E")]
+                first = [self.badge("B0", ["Q3"], 2), self.badge("B1", ["Q3"]),
+                    self.badge("B2", ["E", "Q0"]), self.badge("B3", ["Q2", "Q1", "Q3"], 3),
+                    self.badge("B4", ["Q1", "Q0", "Q2"])]
+                second = [self.badge("B0", ["Q1", "E"], 2), self.badge("B2", ["Q3", "E"]),
+                    self.badge("B3", ["Q2", "Q1", "Q3"], 2)]
+                if reverse:
+                    quests.reverse()
+                    first, second = list(reversed(second)), list(reversed(first))
+                sources = self.sources(quests, first, "forward") + [{"badges": {"badges": second}}]
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                previous = None
+                for _reload in range(2):
+                    output = self.load(sources)
+                    self.assertEqual(set(Badge.objects.values_list("name", flat=True)), {"B2", "B3", "B4"})
+                    self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)), {"Q2", "E"})
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                    self.assertNotIn("Left badge 'B3' unchanged", output)
+                    self.assertNotIn("Left badge 'B4' unchanged", output)
+                    after = self.snapshot()
+                    if previous is not None:
+                        self.assertEqual(after, previous)
+                    previous = deepcopy(after)

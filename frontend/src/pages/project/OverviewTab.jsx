@@ -4,7 +4,7 @@ import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 import { ResourcePill } from './ProjectPlanItems';
 
-export default function OverviewTab({ project, isParent }) {
+export default function OverviewTab({ project, isParent, personal = false }) {
   const isHomeworkPlan = project.is_homework_plan;
   return (
     <div className="space-y-4">
@@ -29,7 +29,7 @@ export default function OverviewTab({ project, isParent }) {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {!isHomeworkPlan && <StatTile
+        {!isHomeworkPlan && !personal && <StatTile
           label={project.payment_kind === 'bounty' ? 'Cash reward' : 'Bonus'}
           value={`$${project.bonus_amount}`}
           tone={project.payment_kind === 'bounty' ? 'royal' : 'moss'}
@@ -57,7 +57,7 @@ export default function OverviewTab({ project, isParent }) {
           <div className="font-body text-base font-medium text-ink-primary">
             {project.assigned_to.display_name || project.assigned_to.username}
           </div>
-          {!isHomeworkPlan && project.hourly_rate_override && (
+          {!isHomeworkPlan && !personal && project.hourly_rate_override && (
             <div className="font-script text-xs text-ink-whisper mt-1">
               rate override: ${project.hourly_rate_override}/hr
             </div>
@@ -65,7 +65,7 @@ export default function OverviewTab({ project, isParent }) {
         </ParchmentCard>
       )}
 
-      {!isHomeworkPlan && !project.assigned_to && project.payment_kind === 'bounty' && (
+      {!isHomeworkPlan && !personal && !project.assigned_to && project.payment_kind === 'bounty' && (
         <ParchmentCard className="border-royal/50 bg-royal/5">
           <div className="font-script text-sm text-royal font-semibold uppercase tracking-wider">
             Available to claim

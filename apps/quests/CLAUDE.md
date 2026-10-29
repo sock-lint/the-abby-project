@@ -1,6 +1,12 @@
 # apps/quests/
 
-Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
+Automatic challenges track every relevant goal independently of its pin.
+Parents participate with their own account, saved evidence, progression and
+server-owned payouts. Parent requests carrying `X-Abby-Space: personal` are
+self-scoped for challenge reads, goal creation, retries, future schedules and
+legacy assignments; Family requests retain same-family child supervision.
+A parent's catalog detail openings belong to that parent's own goals and remain
+outside child-only discovery and Voyager observation cohorts. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
 Saved legacy participant IDs and contributions survive household moves. API,
 pulse and MCP projections pass the observer's family to participant serializers;
@@ -15,6 +21,46 @@ definition INSERT has acquired its catalog-table write lock. PostgreSQL
 deletion's table/row lock order. Missing IDs roll back the definition and any MCP
 receipt; identical UUID replay retains its original response. Regression coverage
 is in `tests/test_category_reference_safety.py`.
+
+Owner-approved Ghost/Potted Plant Wisp/Sprout guarantees load from ordinary
+initial content: 20/5 qualifying actions, 180 days, once, natural egg + matching
+global Fire/Ice potion, zero authored Coins/XP. The positive policy and authored
+compatibility activate the four exact pairs together, bringing the elemental
+catalog to twenty guarantees. The historical preparation pack stays unregistered
+to avoid duplicate offers; synthetic positive-policy overrides grant no
+application acquisition authority. See
+[the receiving and activation boundary](../../docs/operations/elemental-ghost-potted-plant.md).
+
+New manual solo/co-op starts, private authoring, rerolls and automatic offers
+share `progress_sources.has_progress_source`: at least one actual saved-work
+trigger must satisfy every active filter, and bosses need positive damage from
+that same trigger. Category filters require saved skill-tag category evidence;
+on-time filters require an approved homework submission. A combination whose
+filters require different activities cannot start a new campaign. Reward
+awards do not replay the game loop. Keep this gate outside saved progress,
+history and UUID recovery; new-start rejection consumes no scroll or reward.
+Private MCP authoring checks inside its create callback, after saved replay.
+Shared filter validation rejects malformed selector values before new saves:
+non-null IDs are positive exact integers, chore IDs form a list, on-time is a
+boolean, and trigger entries are strings. Null/empty controls keep their prior
+meaning. MCP shape validation stays inside the create callback so a saved UUID
+can recover its original receipt even if its old filters are now invalid.
+Unavailable retained definitions expose `catalog_available: false`.
+Workbench availability and new item/companion acquisition hints use the same
+admission check. Saved promises retain their existing fulfillment paths.
+
+Source resolution freezes each skill tag's category identity. Both legacy and
+automatic category restrictions use that saved evidence, retaining older scalar
+category context without resolving historical tags against today's taxonomy.
+REST/MCP habit handlers pass the exact new log identity internally; no source ID
+is added to the tap's top-level fields. Its `game_event` can return the source's
+saved challenge progress and receipt, including an already processed receipt
+without another award. Deferred co-op progress carries the already
+frozen evidence. Do not backfill old facts or replay campaign progress.
+Milestone category evidence uses its own fixed-XP skill tags, falling back to
+project tags only when none are assigned. New facts store this separately as
+`category_skill_tags`, preserving the existing bonus-XP tag context. Older facts
+keep their original evidence.
 
 ## Supported rewards and reachable prerequisites (October 2026)
 
@@ -53,13 +99,13 @@ System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
 legacy starts. The art policy enables Ember/Frost Nest, Trail, Grove, Summit,
-Hive, Cave, Coil and Shore for exact Chick/Wolf/Mushroom/Dragon/Bee/Bat/Snake/
-Hermit Crab Fire/Ice pairs. Previously adopted canonical releases remain
-verified; the owner-accepted Snake/Hermit Crab runtime has also passed canonical
-publication/readback, with ordinary MAIN rollout gates still required.
-All sixteen are one-time with zero authored Coins/XP: Nest and
-Hive target 5 actions, Trail 20, Grove, Cave, Coil and Shore 10 within 180 days; Summit
-targets 50 within 365 days.
+Hive, Cave, Coil, Shore, Wisp and Sprout for exact Chick/Wolf/Mushroom/Dragon/
+Bee/Bat/Snake/Hermit Crab/Ghost/Potted Plant Fire/Ice pairs. Previously adopted
+canonical releases remain intact; the new owner-approved runtime has passed
+canonical application readback, with ordinary MAIN rollout gates still required.
+All twenty are one-time with zero authored Coins/XP: Nest, Hive and Sprout
+target 5 actions, Trail and Wisp 20, Grove, Cave, Coil and Shore 10 within
+180 days; Summit targets 50 within 365 days.
 Approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
 Saved elemental promises survive retirement. Bundle egg salvage checks every
@@ -214,7 +260,7 @@ React exposes this assignment under Family challenges and retains server errors.
 - `ChallengeGoal` stores a personal catalog or parent-authored goal. Its private `is_catalog` origin survives a deleted template; the optional `catalog_definition` uses `SET_NULL`. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise, including catalog name/type metadata for saved catalog history.
 - `ChallengeActivity` records a durable source identity and safe context; `ChallengeContribution` credits a source once per occurrence. Private journal prose never belongs in this context.
 - `ChallengePin` points to one new occurrence or an existing legacy quest for Today presentation.
-- `DailyBonus` records one automatically awarded receipt per child per family-local day. The old `DailyChallenge` rows and their claim state are preserved.
+- `DailyBonus` records one automatically awarded receipt per participant per family-local day. The old `DailyChallenge` rows and their claim state are preserved.
 - `goals.py` owns automatic enrollment, matching, recurrence, contribution processing, payout, retry and pinning. Locks begin with the account row, matching `AwardService`; hold that lock while changing contribution/completion state.
 - Source services acquire that account gate before saving the accepted timestamp used by first enrollment. Untimed internal facts sample their fallback clock under the same gate. Explicit source timestamps, cutover exclusions and saved window boundaries remain unchanged; a concurrent initial catalog read cannot cut off a newly accepted action.
 - Every saved qualifying action advances eligible goals independently of the pin. Catalog goals retain the source limits of one planned homework assignment and two logged creations per local day. The service-owned counter freezes a private boolean `ChallengeActivity.context.catalog_eligible`; incoming client context cannot grant eligibility, and retries/deletions cannot promote an over-limit fact.
@@ -311,18 +357,19 @@ return the accepted occurrence; a pure pause can still stop legacy rules with a
 missing skill. `test_goal_skill_reference_safety` covers stale validation and
 both real PostgreSQL writer/deletion races.
 
-New parent goal writes recheck the actor and child under the family and account
-locks before recovering a saved UUID or creating rewards. REST returns 404 for
+New parent goal writes recheck the actor and target under the family and account
+locks before recovering a saved UUID or creating rewards. Family and MCP writes
+retain the active-child target requirement; personal REST explicitly enables
+only the parent's own active account through `allow_self`. REST returns 404 for
 an unavailable child and 403 when the actor loses parent authority; 409 remains
 the response for conflicting saved-request details. Deferred eligibility errors
-keep the usual field-to-message-list shape. The creation form offers active
+keep the usual field-to-message-list shape. The Family creation form offers active
 children only, while fresh server checks still handle changes after it opens.
 
-Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
+Endpoints: `GET /api/challenges/` (self; Family parents may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
 Catalog detail discovery records presentation separately from progress.
-`POST /api/challenges/<goal_id>/opened/` accepts an empty object for the active
-child's own catalog occurrence and saves only its first details-opening time.
+`POST /api/challenges/<goal_id>/opened/` accepts an empty object for an active child's own catalog occurrence or a parent's own occurrence in My space and saves only its first details-opening time.
 It accepts active or saved history windows that have started, never a parent
 view, sibling, legacy ID or future window. Retries retain the first timestamp;
 the action never materializes goals, processes activities, pins or awards.
@@ -489,9 +536,9 @@ Celery names are retained: `expire_quests_task` (00:10 local) and `apply_boss_ra
 
 ## Gotchas
 
-- **Quests**: Two types — `boss` (damage-based HP pool) and `collection` (item-count target). `Quest` has a time-boxed `end_date` and tracks `current_progress` and `rage_shield` (extra damage required after an idle day). One active quest per user at a time (`Quest.status=="active"`). **Damage formula** per trigger in `TRIGGER_DAMAGE`: clock_out 10/hr, chore 15, homework_complete 25, homework_created 5, milestone 50, badge 30, project_complete 75, habit_log 5. Collection quests count 1 per qualifying trigger. **Trigger filtering** via `QuestDefinition.trigger_filter` JSONField: `allowed_triggers` (whitelist of `TriggerType` values), `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `on_time` (boolean — when true, only counts homework contexts with `on_time=True`) — empty filter = all triggers count. Validated via `apps/quests/validators.py::validate_trigger_filter` — wired into `QuestDefinition.clean()`, `QuestWriteSerializer`, and MCP `create_quest_definition`; unknown keys or trigger values raise `ValidationError` before any write. The 2026-04-23 review removed `streak_target` and `perfect_day_target` from the allowlist — they were validated but never read, producing silently-broken quests. Re-add only when a reader lands in `QuestService.record_progress`. **Badge gating:** `QuestDefinition.required_badge` blocks start until earned. **Rage shield:** `apply_boss_rage_task` (Celery, 00:15 local) ticks every active boss quest: idle day climbs by `RAGE_SHIELD_CLIMB_STEP` (15) capped at `RAGE_SHIELD_CAP` (100); active day decays by `RAGE_SHIELD_DECAY_STEP` (25) toward 0. The decay-on-return path preserves the gentle-nudge doctrine — absence costs progress, but return clears the penalty. Returns `{"raged": int, "decayed": int}`. **Expiration:** `expire_quests_task` (Celery, 00:10 local) marks past-due active quests as expired. On completion: `_complete_quest` awards `coin_reward` (via `CoinService`), `xp_reward` (via `AwardService.grant`), and any `QuestRewardItem` entries (to `UserInventory`), then notifies. **Egg salvage** (2026-04-23, N1; appearance-aware since Fire/Ice): when a `QuestRewardItem` is an `EGG` whose bundle's promised grown appearances (species + each typed potion in the bundle) are all already in the user's `UserMount` table — or, for an egg promised without a typed potion, any mount of its `pet_species` — the egg auto-salvages to `coin_value × quantity` instead of stacking dead eggs in inventory — same logic as cosmetic-dupe salvage in `DropService`. The `rewards["items"]` entry carries a `salvaged_to_coins` field so frontends can render the salvage path differently. Pinned by `QuestEggSalvageTest` in [`tests/test_services.py`](tests/test_services.py). `QuestParticipant` preserves per-user contributions to existing co-op quests. The legacy **`POST /api/quests/{definition_id}/co-op/`** endpoint (parent-only, family-scoped) wraps `QuestService.start_co_op_quest`; it must reject a duplicate campaign for a catalog goal already tracked automatically. The new parent goal form assigns one child, while saved co-op data and the older components remain retained. `QuestWriteSerializer` accepts a `coop_user_ids` array (≥2) and a `skill_tags` array of `{skill_id, xp_weight}`; `CreateQuestView` consumes both atomically so untagged custom quests no longer silently award 0 skill XP. The retained legacy form's **Advanced details** panel exposes `allowed_triggers` and `on_time_only` (`trigger_filter.on_time`); it is not mounted by the current Challenges page. **Reward rubric for new authors:** see the comment block at the top of [`content/rpg/initial/quests.yaml`](/content/rpg/initial/quests.yaml) for the Easy/Standard/Epic tier conventions; the 2026-04-23 review rebalanced Dragon Slayer (Standard tier), Focus Master, and Midnight Oil to align with the rubric.
+- **Quests**: Two types — `boss` (damage-based HP pool) and `collection` (item-count target). `Quest` has a time-boxed `end_date` and tracks `current_progress` and `rage_shield` (extra damage required after an idle day). One active quest per user at a time (`Quest.status=="active"`). **Damage formula** per trigger in `TRIGGER_DAMAGE`: clock_out 10/hr, chore 15, homework_complete 25, homework_created 5, milestone 50, badge 30, project_complete 75, habit_log 5. Collection quests count 1 per qualifying trigger. **Trigger filtering** via `QuestDefinition.trigger_filter` JSONField: `allowed_triggers` (whitelist of `TriggerType` values), `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `on_time` (boolean — when true, only counts homework contexts with `on_time=True`) — empty filter = all triggers count. Validated via `apps/quests/validators.py::validate_trigger_filter` — wired into `QuestDefinition.clean()`, `QuestWriteSerializer`, and MCP `create_quest_definition`; unknown keys or trigger values raise `ValidationError` before any write. The 2026-04-23 review removed `streak_target` and `perfect_day_target` from the allowlist — they were validated but never read, producing silently-broken quests. Re-add only when a reader lands in `QuestService.record_progress`. **Badge gating:** `QuestDefinition.required_badge` blocks start until earned. **Rage shield:** `apply_boss_rage_task` (Celery, 00:15 local) ticks every active boss quest: idle day climbs by `RAGE_SHIELD_CLIMB_STEP` (15) capped at `RAGE_SHIELD_CAP` (100); active day decays by `RAGE_SHIELD_DECAY_STEP` (25) toward 0. The decay-on-return path preserves the gentle-nudge doctrine — absence costs progress, but return clears the penalty. Returns `{"raged": int, "decayed": int}`. **Expiration:** `expire_quests_task` (Celery, 00:10 local) marks past-due active quests as expired. On completion: `_complete_quest` awards `coin_reward` (via `CoinService`), `xp_reward` (via `AwardService.grant`), and any `QuestRewardItem` entries (to `UserInventory`), then notifies. **Egg salvage** (2026-04-23, N1; appearance-aware since Fire/Ice): when a `QuestRewardItem` is an `EGG` whose bundle's promised grown appearances (species + each typed potion in the bundle) are all already in the user's `UserMount` table — or, for an egg promised without a typed potion, any mount of its `pet_species` — the egg auto-salvages to `coin_value × quantity` instead of stacking dead eggs in inventory — same logic as cosmetic-dupe salvage in `DropService`. The `rewards["items"]` entry carries a `salvaged_to_coins` field so frontends can render the salvage path differently. Pinned by `QuestEggSalvageTest` in [`tests/test_services.py`](tests/test_services.py). `QuestParticipant` preserves per-user contributions to existing co-op quests. The legacy **`POST /api/quests/{definition_id}/co-op/`** endpoint (parent-only, family-scoped) wraps `QuestService.start_co_op_quest`; it must reject a duplicate campaign for a catalog goal already tracked automatically. The parent goal form assigns one child in Family or the parent themselves in My space, while saved co-op data and the older components remain retained. `QuestWriteSerializer` accepts a `coop_user_ids` array (≥2) and a `skill_tags` array of `{skill_id, xp_weight}`; `CreateQuestView` consumes both atomically so untagged custom quests no longer silently award 0 skill XP. The retained legacy form's **Advanced details** panel exposes `allowed_triggers` and `on_time_only` (`trigger_filter.on_time`); it is not mounted by the current Challenges page. **Reward rubric for new authors:** see the comment block at the top of [`content/rpg/initial/quests.yaml`](/content/rpg/initial/quests.yaml) for the Easy/Standard/Epic tier conventions; the 2026-04-23 review rebalanced Dragon Slayer (Standard tier), Focus Master, and Midnight Oil to align with the rubric.
 
-- **Historical daily challenges**: `DailyChallenge` retains its unique `(user, date)` row, five challenge types, target/progress and original reward promise. The old clock-hour rule floors each session separately, and the legacy `claim_reward` marker zeros both reward fields after paying once. New daily bonuses use accumulated minutes instead. A paid new bonus bridges subsequent legacy get/claim calls to an already-paid row, preventing a second payout. The bounded settlement task pays genuinely completed old bonuses once, preserving their original amount and zeroing the legacy marker; schema migrations and reads never settle them. Legacy services and serializer shapes remain compatibility surfaces, while the new UI reads automatic bonus receipts from the challenge list.
+- **Historical daily challenges**: `DailyChallenge` retains its unique `(user, date)` row, five challenge types, target/progress and original reward promise. The old clock-hour rule floors each session separately, and the legacy `claim_reward` marker zeros both reward fields after paying once. New daily bonuses use accumulated minutes instead. A paid new bonus bridges subsequent legacy get/claim calls to an already-paid row, preventing a second payout. The bounded settlement task pays genuinely completed old child bonuses once, preserving their original amount and zeroing the legacy marker; old parent rows remain unpaid, and schema migrations and reads never settle them. Current saved parent activities remain eligible for the automatic daily bonus. Legacy services and serializer shapes remain compatibility surfaces, while the new UI reads automatic bonus receipts from the challenge list.
 
 ## Tunables (constants in `apps/quests/services.py`)
 - `TRIGGER_DAMAGE` — per-`TriggerType` boss damage table; clock_out multiplied by hours. Only explicitly listed positive values count as legacy boss activity. Creations are intentionally absent (no boss damage), as are QUEST_COMPLETE and PERFECT_DAY (they're rewards, not damage sources). An excluded trigger leaves boss progress, participant activity timestamps and completion rewards untouched; matching collection quests still count one step.

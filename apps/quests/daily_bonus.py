@@ -58,7 +58,7 @@ def _payload(user, day, bonus=None, legacy=None):
 
 def get_daily_bonus_payload(user):
     """Reading the screen never earns or settles a reward."""
-    if user.role != "child":
+    if user.role not in {"child", "parent"}:
         return None
     day = timezone.localdate(timezone.now(), timezone=household_timezone(user))
     return _payload(user, day, DailyBonus.objects.filter(user=user, date=day).first(),
@@ -67,7 +67,7 @@ def get_daily_bonus_payload(user):
 
 @transaction.atomic
 def process_daily_bonus(user, activity):
-    if activity.voided or user.role != "child":
+    if activity.voided or user.role not in {"child", "parent"}:
         return None
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
@@ -130,7 +130,7 @@ def process_daily_bonus(user, activity):
 
 
 def settle_legacy_bonuses(limit=100):
-    """Pay genuinely completed old bonuses once, outside schema migrations."""
+    """Pay children's genuinely completed old bonuses once, outside migrations."""
     from django.db.models import F, Q
     rows = DailyChallenge.objects.filter(
         current_progress__gte=F("target_value"), user__role="child", user__is_active=True,

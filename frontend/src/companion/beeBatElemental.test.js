@@ -103,12 +103,12 @@ describe('canonical Bee/Bat elemental presentation', () => {
 
   it('preserves the exact accepted Bee/Bat pin alongside the other canonical releases', () => {
     const { pin } = evaluationMaps();
-    expect(activeLock.releases).toHaveLength(14);
+    expect(activeLock.releases).toHaveLength(15);
     expect(activeLock.releases.find(({ family_id }) => family_id === BEE_BAT_FAMILY)).toEqual(pin);
   });
 
   it('activates only the four approved receiving pairs while preserving natural eggs and Base names', () => {
-    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(31);
+    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(35);
     for (const species of Object.keys(BEE_BAT_MOTIONS)) {
       expect(support.pets.find(({ species_slug }) => species_slug === species)).toMatchObject({
         potion_slugs: ['base', 'fire', 'ice'], potion_sources: { fire: BEE_BAT_FAMILY, ice: BEE_BAT_FAMILY },

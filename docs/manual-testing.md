@@ -29,9 +29,9 @@ ways that "looks fine on the dashboard" doesn't catch.
 
 | Surface | Precondition | How to trigger | Verify |
 |---|---|---|---|
-| `CelebrationModal` (streak milestone) <!-- id:force-celebration --> | Unread `STREAK_MILESTONE` notification at one of {3, 7, 14, 30, 60, 100} days | `force_celebration --user X --type streak_milestone --days 30` | Full-screen at App boot. Flame icon. "30 day streak!" Reload-once dismiss. Auto-marks notification read on close. |
-| `CelebrationModal` (perfect day) | Unread `PERFECT_DAY` notification | `force_celebration --user X --type perfect_day` | Full-screen. Sun icon. "Perfect day" copy. Same dismiss flow. |
-| `BirthdayCelebrationModal` | Unread `BIRTHDAY` chronicle entry with `metadata.gift_coins > 0` | `force_celebration --user X --type birthday` (or `tick_chronicle_birthday --user X --as-of <DOB>`) | Animated age numeral burst (unless reduced-motion). Gift-coins line. Confetti. `mark-viewed` on dismiss. |
+| `CelebrationModal` (streak milestone) <!-- id:force-celebration --> | Unread `STREAK_MILESTONE` notification at one of {3, 7, 14, 30, 60, 100} days | `force_celebration --user X --type streak_milestone --days 30` | Full-screen in a child's space or a parent's My space, after any birthday celebration. Family leaves it unread until My space opens. Flame icon. "30 day streak!" Reload-once dismiss. Auto-marks notification read on close. |
+| `CelebrationModal` (perfect day) | Unread `PERFECT_DAY` notification | `force_celebration --user X --type perfect_day` | Full-screen in a child's space or a parent's My space. Sun icon. "Perfect day" copy. Same dismiss flow and Family isolation as streak milestones. |
+| `BirthdayCelebrationModal` | Unread `BIRTHDAY` chronicle entry with `metadata.gift_coins > 0` | `force_celebration --user X --type birthday` (or `tick_chronicle_birthday --user X --as-of <DOB>`) | Shown in a child's space or a parent's My space; Family leaves it pending. Animated age numeral burst (unless reduced-motion). Gift-coins line. Confetti. `mark-viewed` on dismiss. |
 | `RareDropReveal` (rare) <!-- id:force-drop --> | Drop with `item_rarity=rare` enters the queue | `force_drop --user X --rarity rare` | Center card. **Blue** border + 60px glow. "RARE DROP" label. 96px sprite. Continue → button. |
 | `RareDropReveal` (epic) | `item_rarity=epic` | `force_drop --user X --rarity epic` | **Purple** border + 70px glow. |
 | `RareDropReveal` (legendary) | `item_rarity=legendary` | `force_drop --user X --rarity legendary` | **Amber** border + 70px glow. |
@@ -51,7 +51,7 @@ multiple can show simultaneously.
 |---|---|---|---|
 | `DropToastStack` (common/uncommon) | Drop with rarity NOT in {rare, epic, legendary} | `force_drop --user X --rarity common` | Top-right (top-4). Rarity-bordered. Package icon + sprite + name. Auto-dismiss 6s. |
 | `DropToastStack` (salvage) | Cosmetic dupe drops | `force_drop --user X --slug <owned-cosmetic>` | Toast text reads "Salvaged" (NOT "You got"). Coin value reflects `item.coin_value`. |
-| `ApprovalToastStack` | Pending approval gets approved/rejected (child-side) | (manual: parent approves a chore) | Top-36 (below DropToastStack). CheckCircle2 (green) for approve, XCircle (rose) for reject. 2-line message clamp. |
+| `ApprovalToastStack` | A new approval decision arrives in a child's space or a parent's My space | (manual: parent approves a pending chore; use an own decision receipt for the parent case) | Top-36 (below DropToastStack). CheckCircle2 (green) for approve, XCircle (rose) for reject. 2-line message clamp. A parent's Family view keeps its review UI without personal decision toasts. |
 | `ApprovalToastStack` (reject with note) | Reject with non-empty note | (manual: parent reject sheet with note) | Toast body includes the note text. Pinned by approval-flow regression — silent rejects pre-`307e6aa` are how this surface broke. |
 | `QuestProgressToastStack` | Active quest's `current_progress` increments | (manual: contribute to active quest) | Top-52. Sword icon. "+10 toward Dragon Slayer 62%". Auto-dismiss 4s. |
 | `SavingsToastStack` | Savings goal completion | `force_savings_complete --user X --goal Y` | Top-20. Trophy icon + amber. "Hoard complete!" + bonus coin amount. |

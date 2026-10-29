@@ -264,6 +264,7 @@ function JournalBody({
 }
 
 function JournalEntryCard({ entry }) {
+  const { user } = useRole();
   const isDailyNote = entry.kind === 'daily_note';
   const isPrivate = isDailyNote || entry.is_private !== false;
   const dateLabel = useMemo(() => formatDate(entry.occurred_on), [entry.occurred_on]);
@@ -286,7 +287,7 @@ function JournalEntryCard({ entry }) {
             </h3>
           </div>
           <RuneBadge tone="ink" size="sm" icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}>
-            {isPrivate ? 'Only me' : 'Shared with parents'}
+            {isPrivate ? 'Only me' : user?.role === 'parent' && entry.user === user.id ? 'Shared with co-parents' : 'Shared with parents'}
           </RuneBadge>
         </header>
         {entry.summary && (

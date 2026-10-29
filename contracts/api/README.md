@@ -1,5 +1,61 @@
 # Shared API response fixtures
 
+`badges-retained-category-tie.json` retains an actually earned mastery badge
+after its current and retained category identities compete. The producer checks
+native failure on the tie, hides an unearned copy, preserves raw criteria and
+history, and proves reads change no awards. Its React consumer preserves the
+server's availability flags and the independent reachable goal.
+
+`badges-reachable-legacy-levels.json` preserves native-reachable legacy level
+values in a real child badge response, including numeric strings, fractions,
+zero and false. The producer checks native eligibility, excludes a genuinely
+unreachable fractional threshold, proves reads award nothing, then confirms
+once-only native earning. The catalog producer and React transport consumer
+share this response. New authoring retains strict validation; read compatibility
+does not rewrite saved criteria.
+
+`badges-retained-unreachable-level.json` is a real child-authenticated
+`GET /api/badges/` response. Its producer earns a valid level-6 badge through
+native services before simulating legacy level-7 criteria. The earned badge
+remains with `catalog_available: false`, a separate unearned level-7 goal is
+omitted, and a valid level-6 goal stays available. Assertions before fixture
+comparison preserve the original award, XP and Coin state. The existing
+`config.tests.test_catalog_api_contract_fixtures` producer and
+`frontend/src/api/catalogContractFixtures.test.js` consumer check the response.
+
+`parent-personal-dashboard.json` is a real parent-authenticated dashboard with
+`X-Abby-Space: personal`: its role remains `parent`, its Coins and habits belong
+to that parent, and household review/overview fields are absent. The header
+selects a self-scoped workspace without changing permissions.
+`family-child-overview.json` is the bounded, read-only parent-family child
+profile response, with saved skills, badges, companion collections and total
+counts. It exposes no journal bodies and awards nothing on read. The existing
+parent fixture producer and React consumer verify both raw responses and the
+client's explicit Family override when reading a child profile from My space.
+`parent-personal-pet-notification.json` and
+`parent-child-pet-notification.json` are raw authenticated notification detail
+responses after real parent and child evolutions. The former identifies the
+owner's personal Pets destination; the latter identifies the child's Family
+overview. The same parent producer and React consumer verify both destinations.
+`parent-{family,personal}-journal-notification.json`,
+`parent-{family,personal}-savings-notification.json`, and
+`parent-personal-{chore,project}-notification.json` extend that pair with raw
+notification details after real replies, savings completions, and a parent's
+own chore or project completion. Child replies retain the child and Family
+destination; parent receipts select their own My space view. A child's savings
+notification opens their Family overview. Detail reads award nothing, and another family member
+cannot fetch the recipient's notification.
+`parent-personal-project-rate-default.json` and
+`parent-family-project-explicit-zero.json` are raw project detail responses
+after actual personal and Family creation. Both rates are `0.00`; the
+read-only `hourly_rate_is_personal_default` distinguishes an inherited personal
+default from a deliberately unpaid Family rate. Clients cannot set that flag.
+Untouched inherited rates are omitted on edits so locked REST/MCP rules resolve
+assignment defaults; explicit rates remain authoritative. Existing project
+detail fixtures include this additive read-only field. The personal dashboard
+fixture also contains two actual clocked hours whose native timecard and API
+earnings both remain zero.
+
 `authoring-{content,editorial,experiment}-{archived,history}.json` are real
 native archive receipts and bounded retained-history responses. The experiment
 restore and archive-replay fixtures distinguish the record's current restored
@@ -116,7 +172,7 @@ consumer: `frontend/src/api/catalogContractFixtures.test.js`.
 `pets-hatchery-discovery.json` is a child-authenticated `GET /api/pets/codex/`
 response from a four-species synthetic catalog, with exact typed egg/potion
 reward bundles for its eight Fire/Ice challenges and an untimed Base Reading
-Companion. The separate elemental-art fixture covers all sixteen guarantees.
+Companion. The separate elemental-art fixture covers all twenty guarantees.
 Each species's
 `available_potions` preserves `id`, `slug`, `name`, `color_hex` and `rarity`, and
 adds `acquisition_challenges`. Each challenge contains integer `definition_id`,
@@ -213,6 +269,22 @@ value. Producers live in `config/tests/test_progression_api_contract_fixtures.py
 React transport and report checks live in
 `frontend/src/api/progressionLabContractFixtures.test.js` and the Progression Lab
 page tests.
+
+`progression-lab-renamed-taxonomy-report.json` is a real staff-parent simulation
+after registered MCP renames of Reading, Language Arts and Life Skills. The
+producer asserts 450 Reading XP, 100 explicit challenge-tag XP and one mastery
+badge before comparing the fixture; it rejects household queries and award
+writes. The existing Lab React consumer verifies that same response and request.
+
+`progression-lab-renamed-fixed-routes-report.json` combines journal writing with
+untagged movement after registered category and skill renames. Reading is
+disabled and the modeled Endurance destination is absent, so activity tags
+cannot mask the installed daily-bonus fallback. Before fixture comparison, the
+producer verifies 450 journal XP and 600 daily-bonus XP over 30 days, the native
+journal's original 10/5 skill split and the native 20-XP Persistence destination.
+It compares those exact original skill IDs with a detached one-day trial and
+rejects household queries or award writes during the anonymous REST forecast.
+The existing Lab React consumer transports the same real response and scenario.
 
 `progression-lab-reward-budget-report.json` adds a synthetic shared daily
 expedition/pouch Coin allowance to the same endpoint. Its normalized scenario
@@ -1019,6 +1091,13 @@ Clients show the rule, target and saved period beneath themed titles instead of
 inferring requirements from a name. Deadline filters use the last included date
 in the saved timezone; they do not change server eligibility.
 
+`quest-create-invalid-filter.json` is a real parent-authenticated rejection from
+`POST /api/quests/`. New custom filters reject malformed selector values with
+HTTP 400 and a `trigger_filter` field error, before saving a definition. The
+shared React API consumer retains that error for `fieldErrors` without retrying
+the write. The producer covers a text project ID; the endpoint and registered
+MCP regressions additionally cover the other selector types and saved UUID replay.
+
 `challenge-retried.json` and `challenges-retry-completed.json` exercise explicit
 retry through `POST /api/challenges/<occurrence_id>/retry/` with `{}`. An eligible
 unpaid expired one-time personal catalog challenge receives a new window, zero
@@ -1221,6 +1300,17 @@ and a rejected nonrepeatable restart cannot repay the campaign. The React
 consumer preserves that ordinary habit response and the restart error through
 `logHabitTap` and `startQuest`.
 
+That co-op producer restricts the campaign to the saved habit tag's category,
+verifying the ordinary tap still completes and pays each participant once.
+REST and MCP habit taps retain their top-level fields. Their
+`game_event.challenge_goals` and `game_event.challenge_receipts` can now contain
+the saved result of the exact habit action where earlier responses returned
+empty arrays. Returning an already processed source's original receipt does not
+award it again. Each additional tap remains a separate activity.
+`quest-unreachable-start.json` is the real HTTP 400 rejection for a reward-only
+campaign, produced before any accepted quest or payout. The same React consumer
+preserves its error through `startQuest`.
+
 ## Guide copy under the child surprise rule
 
 `config.tests.test_lorebook_api_contract_fixtures` produces
@@ -1377,15 +1467,18 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all sixteen exact system
+`catalog-icons-elemental-challenges.json` exposes all twenty exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon, Mushroom, Bee, Bat, Snake and Hermit Crab. Hive guarantees the natural Bee egg and
-selected global potion after five qualifying accomplishments; Cave guarantees
-the natural Bat egg and potion after ten. Coil and Shore guarantee the natural
-Snake or Hermit Crab egg and matching potion after ten. All are one-time 180-day challenges,
-with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
+Wolf, Dragon, Mushroom, Bee, Bat, Snake, Hermit Crab, Ghost and Potted Plant,
+within the 35-pair policy. Hive guarantees the natural Bee egg and selected
+global potion after five qualifying accomplishments; Cave guarantees the natural
+Bat egg and potion after ten. Coil/Shore guarantee Snake/Hermit Crab bundles
+after ten; Wisp guarantees Ghost after twenty and Sprout Potted Plant after five.
+These are one-time 180-day challenges with zero authored Coins/XP. The earlier
+Dragon Summit retains its 50-action/365-day target. Their exact
+`review-...-acquisition-icon` handles
 remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw

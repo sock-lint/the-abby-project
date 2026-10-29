@@ -13,8 +13,8 @@ class HabitService:
 
     @staticmethod
     @transaction.atomic
-    def log_tap(user, habit, direction, *, usage_actor=None):
-        """Log a +1 or -1 tap on a habit, update strength, return rewards."""
+    def log_tap(user, habit, direction, *, usage_actor=None, include_source=False):
+        """Log a tap and return rewards; adapters may request its internal source ID."""
         if direction not in (1, -1):
             raise ValueError(f"direction must be +1 or -1, got {direction}")
 
@@ -24,6 +24,9 @@ class HabitService:
         User.objects.select_for_update(no_key=True).get(pk=user.pk)
         Habit.objects.select_for_update().get(pk=habit.pk)
         habit.refresh_from_db()
+
+        if habit.user_id != user.pk:
+            raise ValueError("You can only check in to your own habits.")
 
         if not habit.is_active:
             raise ValueError("This habit is paused. Ask a parent to resume it before tapping.")
@@ -125,6 +128,7 @@ class HabitService:
             "direction": direction,
             "xp_reward": habit.xp_reward if direction == 1 else 0,
             "new_strength": habit.strength,
+            **({"habit_log_id": log.pk} if include_source else {}),
         }
 
     @staticmethod

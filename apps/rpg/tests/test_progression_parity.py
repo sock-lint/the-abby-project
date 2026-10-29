@@ -11,8 +11,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.apps import apps
 from django.db import connection, transaction
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from apps.achievements.models import Badge, Skill, SkillProgress, UserBadge
@@ -58,6 +59,72 @@ CONFIG = {
 }
 
 
+PRIVATE_CATALOG_MODELS = (
+    "accounts.User", "rpg.CharacterProfile", "rpg.UserInventory",
+    "pets.UserPet", "pets.UserMount", "achievements.SkillProgress",
+    "achievements.UserBadge", "rewards.CoinLedger", "activity.ActivityEvent",
+    "quests.ChallengeActivity", "quests.ChallengeOccurrence",
+)
+
+
+def _assert_global_catalog_read(test_case, sql):
+    # PostgreSQL wraps each SELECT in a compound query; SQLite does not.
+    # Strip only opening grouping/whitespace, retaining the statement verb.
+    normalized = sql.lstrip(" \t\r\n\f\v(").lower()
+    test_case.assertRegex(normalized, r"^select\b", sql)
+    private_tables = {apps.get_model(label)._meta.db_table for label in PRIVATE_CATALOG_MODELS}
+    private_tables.update(("accounts_user", "projects_skillprogress", "projects_userbadge"))
+    for table in private_tables:
+        test_case.assertNotIn(f'"{table}"', normalized)
+
+
+class ProgressionCatalogReadGuardTests(SimpleTestCase):
+    def test_plain_and_parenthesized_global_selects_are_allowed(self):
+        for sql in (
+            'SELECT "id" FROM "achievements_badge"',
+            '(SELECT "id" FROM "achievements_badge") UNION ALL (SELECT "id" FROM "achievements_badge")',
+            ' \n ( ( SELECT "id" FROM "projects_skillcategory" ) )',
+        ):
+            with self.subTest(sql=sql):
+                _assert_global_catalog_read(self, sql)
+
+    def test_parenthesized_writes_are_rejected(self):
+        for sql in (
+            'INSERT INTO "achievements_badge" ("name") VALUES (%s)',
+            'UPDATE "achievements_badge" SET "name" = %s',
+            'DELETE FROM "achievements_badge"',
+        ):
+            for opening, closing in (("", ""), ("(", ")"), (" \n ( ( \t", ") )")):
+                with self.subTest(sql=sql, opening=opening), self.assertRaises(AssertionError):
+                    _assert_global_catalog_read(self, opening + sql + closing)
+
+    def test_select_bearing_and_data_modifying_cte_writes_are_rejected(self):
+        for sql in (
+            'UPDATE "achievements_badge" SET "name" = %s WHERE "id" IN (SELECT "id" FROM "achievements_badge")',
+            'INSERT INTO "achievements_badge" ("name") SELECT "name" FROM "achievements_badge"',
+            'WITH changed AS (DELETE FROM "achievements_badge" RETURNING "id") SELECT "id" FROM changed',
+        ):
+            for opening, closing in (("", ""), ("(", ")"), (" \n ( ( \t", ") )")):
+                with self.subTest(sql=sql, opening=opening), self.assertRaises(AssertionError):
+                    _assert_global_catalog_read(self, opening + sql + closing)
+
+    def test_real_player_models_and_independent_private_tables_are_rejected(self):
+        statements = [str(apps.get_model(label).objects.values("pk").query) for label in PRIVATE_CATALOG_MODELS]
+        # Independent of the guard's model list: dropping a protected model
+        # must not simultaneously remove the matching negative control.
+        statements += [f'SELECT "id" FROM "{table}"' for table in (
+            "projects_user", "rpg_characterprofile", "rpg_userinventory",
+            "pets_userpet", "pets_usermount", "achievements_skillprogress",
+            "achievements_userbadge", "rewards_coinledger", "activity_activityevent",
+            "quests_challengeactivity", "quests_challengeoccurrence",
+            "accounts_user", "projects_skillprogress", "projects_userbadge",
+        )]
+        for sql in statements:
+            for statement in (sql, f"({sql})", f'(SELECT "id" FROM "achievements_badge") UNION ALL ({sql})'):
+                with self.subTest(sql=statement), self.assertRaises(AssertionError):
+                    _assert_global_catalog_read(self, statement)
+
+
 @override_settings(
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
     RPG_ASSET_SUPPORT_POLICY=None,
@@ -75,11 +142,11 @@ class ProgressionCatalogParityTests(TestCase):
             ) if item_is_available(item)
         }
         self.assertEqual(set(catalog.items), expected)
-        self.assertEqual(len(catalog.pairs), 31)
+        self.assertEqual(len(catalog.pairs), 35)
         self.assertEqual({(species.slug, potion.slug) for species, potion in catalog.pairs.values()
                           if potion.slug != "base"}, {
             (species, potion) for species in ("chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
-                                             "meshtint-snake", "meshtint-hermit-crab")
+                                             "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant")
             for potion in ("fire", "ice")
         })
         self.assertFalse(any(item.item_type == "cosmetic_pet_accessory" for item in catalog.items.values()))
@@ -97,20 +164,10 @@ class ProgressionCatalogParityTests(TestCase):
     def test_simulation_reads_only_global_catalog_and_cannot_write(self):
         from apps.rpg.progression import simulate_progression
 
-        private_tables = (
-            "projects_user", "accounts_user", "rpg_characterprofile",
-            "rpg_userinventory", "pets_userpet", "pets_usermount",
-            "achievements_skillprogress", "achievements_userbadge",
-            "rewards_coinledger", "activity_activityevent",
-            "quests_challengeactivity", "quests_challengeoccurrence",
-        )
         statements = []
 
         def only_global_reads(execute, sql, params, many, context):
-            normalized = sql.lstrip().lower()
-            self.assertTrue(normalized.startswith("select"), sql)
-            for table in private_tables:
-                self.assertNotIn(f'"{table}"', normalized)
+            _assert_global_catalog_read(self, sql)
             statements.append(sql)
             return execute(sql, params, many, context)
 

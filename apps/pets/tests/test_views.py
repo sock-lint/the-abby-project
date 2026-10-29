@@ -56,6 +56,26 @@ class StableViewTests(_Fixture):
         self.assertEqual(resp.json()["total_pets"], 1)
         self.assertIsNone(resp.json()["pets"][0]["species"]["slug"])
 
+    def test_parent_cares_for_own_pet_without_access_to_child_inventory(self):
+        own = UserPet.objects.create(user=self.parent, species=self.species, potion=self.potion)
+        child_pet = UserPet.objects.create(user=self.child, species=self.species, potion=self.potion)
+        UserInventory.objects.create(user=self.parent, item=self.food_item, quantity=2)
+        child_food = UserInventory.objects.create(user=self.child, item=self.food_item, quantity=5)
+        self.client.force_authenticate(self.parent)
+        self.client.credentials(HTTP_X_ABBY_SPACE="personal")
+        stable = self.client.get("/api/pets/stable/", {"user_id": self.child.pk}).data
+        self.assertEqual([pet["id"] for pet in stable["pets"]], [own.pk])
+        response = self.client.post(f"/api/pets/{own.pk}/feed/", {"food_item_id": self.food_item.pk}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        own.refresh_from_db()
+        self.assertGreater(own.growth_points, 0)
+        denied = self.client.post(f"/api/pets/{child_pet.pk}/feed/", {"food_item_id": self.food_item.pk}, format="json")
+        self.assertEqual(denied.status_code, 400)
+        child_pet.refresh_from_db()
+        child_food.refresh_from_db()
+        self.assertEqual(child_pet.growth_points, 0)
+        self.assertEqual(child_food.quantity, 5)
+
 
 class HatchPetTests(_Fixture):
     def test_instant_hatch_is_retired_without_spending_owned_ingredients(self):

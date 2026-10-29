@@ -18,6 +18,7 @@ import Loader from '../components/Loader';
 import PageShell from '../components/layout/PageShell';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import SectionHeader from '../components/SectionHeader';
+import { useSpace } from '../hooks/useSpace';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
 import useChildContext from '../hooks/useChildContext';
@@ -44,6 +45,8 @@ export default function Rewards() {
 
 function RewardsView({ context }) {
   const { isParent, selectedChild, targetUserId } = context;
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const childName = selectedChild?.display_name || selectedChild?.first_name || selectedChild?.username;
   // Every fetch here surfaces its own error + retry. A swallowed balance
   // fetch used to paint a confident gold "0" over the kid's real coins, and
@@ -63,7 +66,7 @@ function RewardsView({ context }) {
   const {
     data: exchangeData, loading: loadingExchanges, error: exchangesError,
     reload: reloadExchanges,
-  } = useApi(getExchangeRequests);
+  } = useApi(() => personalParent ? Promise.resolve([]) : getExchangeRequests(), [personalParent]);
   const {
     data: pendingRedemptionsData, loading: loadingPendingRedemptions,
     error: pendingRedemptionsError, reload: reloadPendingRedemptions,
@@ -75,7 +78,7 @@ function RewardsView({ context }) {
   const {
     data: awaitingData, loading: loadingAwaiting, error: awaitingError, reload: reloadAwaiting,
   } = useApi(() => isParent ? getAwaitingRedemptions() : Promise.resolve([]), [isParent]);
-  const { data: rateData, error: rateError, reload: reloadRate } = useApi(getExchangeRate);
+  const { data: rateData, error: rateError, reload: reloadRate } = useApi(() => personalParent ? Promise.resolve(null) : getExchangeRate(), [personalParent]);
 
   const [error, setError] = useState('');
   const [pendingId, setPendingId] = useState(null);
@@ -344,6 +347,7 @@ function RewardsView({ context }) {
         <CoinBalanceCard
           coinBalance={coinBalance}
           isParent={isParent}
+          canExchange={!isParentAccount}
           ownerName={isParent ? childName : undefined}
           onOpenExchange={() => setShowExchange(true)}
         />
@@ -475,7 +479,7 @@ function RewardsView({ context }) {
         </AccordionSection>
       )}
 
-      {!loadingExchanges && exchanges.length > 0 && (
+      {!personalParent && !loadingExchanges && exchanges.length > 0 && (
         <AccordionSection index={isParent ? 4 : 2} title="Exchange history" count={exchanges.length}>
           {exchangeData?.count > exchanges.length && (
             <p className="font-script text-caption text-ink-whisper">
@@ -486,7 +490,7 @@ function RewardsView({ context }) {
         </AccordionSection>
       )}
 
-      {showRewardForm && (
+      {isParent && showRewardForm && (
         <RewardFormModal
           reward={editingReward}
           onClose={() => setShowRewardForm(false)}
@@ -514,7 +518,7 @@ function RewardsView({ context }) {
         </BottomSheet>
       )}
 
-      {showCoinAdjust && (
+      {isParent && showCoinAdjust && (
         <CoinAdjustModal
           initialChildId={targetUserId}
           childOptions={context.children}
@@ -523,7 +527,7 @@ function RewardsView({ context }) {
         />
       )}
 
-      {showExchange && (
+      {!isParentAccount && showExchange && (
         <CoinExchangeModal
           exchangeRate={exchangeRate}
           rateError={rateError}

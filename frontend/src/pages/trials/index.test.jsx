@@ -9,6 +9,7 @@ import { buildParent, buildUser } from '../../test/factories';
 import { buildChallengeGoal, buildDailyBonus } from '../../test/challenges';
 import { CHALLENGES_CHANGED } from '../../hooks/useChallenges';
 import Trials from './index';
+import SpaceProvider from '../../providers/SpaceProvider';
 import { useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -25,6 +26,33 @@ function renderGoals({ goals = [buildChallengeGoal()], lockedCatalog = [], pin =
 }
 
 describe('Automatic challenges', () => {
+  it.each([false, true])('lets a parent manage a personal weekly schedule directly from its card (paused: %s)', async (paused) => {
+    const next = { starts_at: '2026-10-26T07:00:00Z', paused, name: 'My weekly running', description: '', metric: 'distance', target: '2', unit: 'mi', trigger_type: 'movement_session', movement_type_id: 3, coin_reward: 10, xp_reward: 0, skill_tags: [] };
+    const goal = buildChallengeGoal({ name: next.name, repeat_weekly: true, goal_definition_id: 21, schedule: { revision: 1, paused, next_week: next } });
+    const scopes = [];
+    const save = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, ({ request }) => {
+      scopes.push(request.headers.get('X-Abby-Space'));
+      goal.schedule = { ...goal.schedule, revision: 2, paused: !paused, next_week: { ...next, paused: !paused } };
+      return { goal_definition_id: 21, schedule: goal.schedule };
+    });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/challenges/', () => HttpResponse.json({ results: [goal], pin: null, daily_bonus: null })),
+      save.handler,
+    );
+    const { user } = renderWithProviders(<SpaceProvider><Trials /></SpaceProvider>, { route: '/quests?tab=trials&space=personal' });
+    const card = await screen.findByRole('article', { name: goal.name });
+    expect(within(card).getByText('Your goal')).toBeInTheDocument();
+    expect(within(card).getByText(paused ? 'Future weeks paused' : 'Future weeks scheduled')).toBeInTheDocument();
+    await user.click(within(card).getByRole('button', { name: 'Manage future weeks' }));
+    const detail = screen.getByRole('dialog', { name: goal.name });
+    expect(save.calls).toHaveLength(0);
+    await user.click(within(detail).getByRole('button', { name: paused ? 'Resume future weeks' : 'Pause future weeks' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ expected_revision: 1, paused: !paused });
+    expect(scopes).toEqual(['personal']);
+    expect(within(card).getByText(paused ? 'Future weeks scheduled' : 'Future weeks paused')).toBeInTheDocument();
+  });
   it('keeps a conflicting future-settings draft until a failed refresh can be retried successfully', async () => {
     const next = { starts_at: '2026-10-26T07:00:00Z', paused: false, name: 'Weekly running', description: '', metric: 'distance', target: '2', unit: 'mi', trigger_type: 'movement_session', movement_type_id: 3, coin_reward: 10, xp_reward: 0, skill_tags: [] };
     const goal = buildChallengeGoal({ name: 'Weekly running', goal_definition_id: 21, repeat_weekly: true, timezone: 'America/Phoenix', schedule: { revision: 0, paused: false, next_week: next } });

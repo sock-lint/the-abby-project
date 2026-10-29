@@ -6,6 +6,8 @@ import Habits from '../Habits';
 import Movement from '../Movement';
 import Reading from '../reading';
 import Trials from '../trials';
+import { useSpace } from '../../hooks/useSpace';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 /**
  * Tasks brings everyday activities, projects and challenges into one hub.
@@ -18,12 +20,18 @@ export default function QuestsHub() {
   if (params.get('tab') === 'forge') {
     return <Navigate replace to={`/treasury?tab=forge${params.get('new') === '1' ? '&new=1' : ''}`} />;
   }
+  return <TasksHub />;
+}
+
+function TasksHub() {
+  const { isParentAccount, isPersonalSpace, isFamilySpace } = useSpace();
+  const adultPersonal = isParentAccount && isPersonalSpace;
   return (
     <ChapterHub
       title="Tasks"
-      kicker="Plan your day and track your progress"
+      kicker={isFamilySpace ? 'Assign and plan work across your family' : 'Plan your day and track your progress'}
       glyph="sheikah-eye"
-      defaultTabId="study"
+      defaultTabId={adultPersonal ? 'rituals' : 'study'}
       tabs={[
         { id: 'study',    label: 'Homework',    render: () => <Homework /> },
         { id: 'duties',   label: 'Chores',      render: () => <Chores /> },
@@ -32,8 +40,7 @@ export default function QuestsHub() {
         { id: 'reading',  label: 'Reading',     render: () => <Reading /> },
         { id: 'ventures', label: 'Projects',    render: () => <Projects /> },
         { id: 'trials',   label: 'Challenges',  render: () => <Trials /> },
-      ]}
+      ].filter(tab => !adultPersonal || tab.id !== 'study')}
     />
   );
 }
-import { Navigate, useSearchParams } from 'react-router-dom';

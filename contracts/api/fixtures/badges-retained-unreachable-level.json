@@ -1,0 +1,41 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 953,
+      "name": "Reachable next level badge",
+      "description": "Supported maximum-level goal",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": 6,
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": true,
+      "coin_bonus": 0
+    },
+    {
+      "id": 951,
+      "name": "Retained earned level badge",
+      "description": "Previously earned recognition",
+      "icon": "",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "skill_level_reached",
+      "criteria_value": {
+        "level": 7,
+        "count": 1
+      },
+      "xp_bonus": 0,
+      "rarity": "common",
+      "catalog_available": false,
+      "coin_bonus": 0
+    }
+  ]
+}

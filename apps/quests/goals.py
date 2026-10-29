@@ -31,7 +31,7 @@ FACT_TRIGGERS = {
 EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned", "reading_logged"}
 CONTEXT_KEYS = {
     "project_id", "skill_category_id", "chore_id", "savings_goal_id", "on_time",
-    "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags",
+    "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags", "category_skill_tags",
 }
 ACTION_PATHS = {
     "clock_out": ("Track project work", "/quests?tab=ventures"),
@@ -172,7 +172,9 @@ def _first_pending_catalog_fact(user, definition, cutoff, offered_at):
         user=user, processed_at__isnull=True, voided=False, trigger_type__in=allowed,
         occurred_at__gte=cutoff, occurred_at__lte=offered_at,
     ).filter(~Q(trigger_type__in=["homework_created", "creation_logged"]) | Q(context__catalog_eligible=True))
-    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+    # Category evidence can be frozen on several source tags; _amount applies
+    # that predicate after the bounded source/window query.
+    for key in ("project_id", "savings_goal_id"):
         if filters.get(key):
             query = query.filter(**{f"context__{key}": filters[key]})
     if filters.get("chore_ids"):
@@ -206,7 +208,7 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if legacy:
             pin.legacy_quest = legacy
             pin.save(update_fields=["legacy_quest", "updated_at"])
-    if user.role != "child":
+    if user.role not in {"child", "parent"}:
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
     existing_ids.update(QuestDefinition.objects.filter(pk__in=existing_ids).exclude(
@@ -253,8 +255,8 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             continue
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
-        allowed = (definition.trigger_filter or {}).get("allowed_triggers")
-        if allowed and not any(trigger in FACT_TRIGGERS for trigger in allowed):
+        from .progress_sources import has_progress_source, require_current_progress_source
+        if not has_progress_source(definition.quest_type, definition.trigger_filter):
             continue
         if not definition.is_repeatable and any(
             (definition.pk, status) in legacy_statuses for status in ("active", "completed")
@@ -264,6 +266,7 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         try:
             admit_definition_choices(definition)
             admit_definition_identity(definition)
+            require_current_progress_source(definition)
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy
             # windows and existing goals retain their reward references.
@@ -423,9 +426,12 @@ def _amount(snapshot, activity):
         return Decimal(0)
     if not allowed and trigger not in EFFORT_TRIGGERS:
         return Decimal(0)
-    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+    for key in ("project_id", "savings_goal_id"):
         if filters.get(key) and filters[key] != context.get(key):
             return Decimal(0)
+    from .category_matching import matches_category
+    if filters.get("skill_category_id") and not matches_category(context, filters["skill_category_id"]):
+        return Decimal(0)
     if filters.get("chore_ids") and context.get("chore_id") not in filters["chore_ids"]:
         return Decimal(0)
     if filters.get("on_time") and not context.get("on_time"):
@@ -448,6 +454,13 @@ def _amount(snapshot, activity):
 
 
 def _award(occurrence, user):
+    from apps.activity.services import personal_challenge_scope
+
+    with personal_challenge_scope(user, occurrence):
+        return _award_in_scope(occurrence, user)
+
+
+def _award_in_scope(occurrence, user):
     if occurrence.awarded_at:
         return occurrence.reward_receipt
     from .controls import close_unpaid_attempts, lifetime_context, lifetime_paid
@@ -629,7 +642,7 @@ def _lock_reward_skills(tags, *, retained_ids=()):
     admit_references(Skill, ids, retained_ids=retained_ids)
 
 
-def _lock_parent_goal_members(parent, child):
+def _lock_parent_goal_members(parent, child, *, allow_self=False):
     """Native callers share Family -> sorted account admission with MCP."""
     from apps.families.models import Family
 
@@ -641,15 +654,17 @@ def _lock_parent_goal_members(parent, child):
     fresh_parent, fresh_child = members.get(parent.pk), members.get(child.pk)
     if fresh_parent is None or not fresh_parent.is_active or fresh_parent.role != "parent":
         raise GoalParentUnavailable("You can no longer create challenges for this family.")
-    if fresh_child is None or not fresh_child.is_active or fresh_child.role != "child":
+    self_participant = allow_self and fresh_child is not None and fresh_child.pk == fresh_parent.pk
+    if (fresh_child is None or not fresh_child.is_active
+            or (fresh_child.role != "child" and not self_participant)):
         raise GoalChildUnavailable("Child not found")
     fresh_parent.family = fresh_child.family = family
     return fresh_parent, fresh_child
 
 
 @transaction.atomic
-def create_goal(parent, child, data, *, validate_current=False):
-    parent, child = _lock_parent_goal_members(parent, child)
+def create_goal(parent, child, data, *, validate_current=False, allow_self=False):
+    parent, child = _lock_parent_goal_members(parent, child, allow_self=allow_self)
     fingerprint = hashlib.sha256(json.dumps(
         {key: value for key, value in data.items() if key != "request_id"}, sort_keys=True, default=str,
     ).encode()).hexdigest()
@@ -959,7 +974,7 @@ def list_goals(user):
     ).values_list("superseded_by_id", flat=True))
     locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
         "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
-    ).order_by("quest_type", "name", "pk") if user.role == "child" else []
+    ).order_by("quest_type", "name", "pk") if user.role in {"child", "parent"} else []
     # A retryable ended prerequisite can still unlock this offer. Omit only
     # paths with no accepted completion, current window or eligible retry.
     locked = [definition for definition in locked if definition_is_available(definition) and not (
