@@ -269,15 +269,25 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             admit_definition_identity(definition)
             if definition_uses_egg_discovery(definition, current=True):
                 continue
-            if gated and eligibility.get("prerequisite_hatch_pairs"):
-                from .milestone_eligibility import admit_discovery_prerequisite
-                # A catalog writer can replace the prerequisite while target
-                # admission waits. Freeze only its freshly fenced exact pairs.
-                definition.refresh_from_db()
-                admit_discovery_prerequisite(definition)
+            # Identity admission may have waited behind a writer that changed
+            # a normal prerequisite into an egg prerequisite, or added a gate.
+            # Its preliminary eligibility must never become a saved promise.
+            definition.refresh_from_db()
+            gated = has_milestone_gate(definition)
+            if (definition.is_cooperative or (gated_only and not gated)
+                    or (gated and gate_activity is None) or not definition_is_available(definition)
+                    or (definition.required_badge_id and definition.required_badge_id not in earned)):
+                continue
+            if gated:
                 eligibility = milestone_eligibility(user, definition)
                 if not eligibility["unlocked"]:
                     continue
+                if eligibility.get("prerequisite_hatch_pairs"):
+                    from .milestone_eligibility import admit_discovery_prerequisite
+                    admit_discovery_prerequisite(definition)
+                    eligibility = milestone_eligibility(user, definition)
+                    if not eligibility["unlocked"]:
+                        continue
             require_current_progress_source(definition)
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy

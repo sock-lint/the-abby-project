@@ -70,7 +70,7 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "91342bbf21629850593418efac065a1dba3d8f17bc53400c4c30a436db21f644",
+  "rules_fingerprint": "cdaecdc191f48e1450648abcf7361aa376cfaffb22a0d37c9cd42d92917fcefd",
   "engine_version": "2026-10-29.1",
   "source_commit": "unavailable",
   "coverage": {
@@ -4012,11 +4012,11 @@
     "eligible_challenges": 1,
     "finite_breakdown": {
       "quest": 1,
-      "cosmetic": 1,
-      "middle": 1,
       "mount": 1,
-      "pet": 1,
-      "badge": 1
+      "badge": 1,
+      "middle": 1,
+      "cosmetic": 1,
+      "pet": 1
     },
     "level_p50": 4,
     "inventory_units_p50": 8,

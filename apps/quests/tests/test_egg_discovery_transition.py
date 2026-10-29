@@ -452,6 +452,67 @@ class EggDiscoveryChallengeTransitionTests(TestCase):
             ingest_activity(self.child, "bridge-reading", "changed-at-admission", "reading_logged", fresh_milestone=True)
         self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=target).exists())
 
+    def test_newly_replaced_egg_prerequisite_cannot_use_stale_completed_gate(self):
+        from apps.quests.reference_locks import admit_definition_identity
+
+        original = self.definition("Completed original prerequisite", egg=False)
+        self.fact("original-one")
+        self.fact("original-two")
+        replacement = self.definition("Current egg prerequisite", elemental=True)
+        target = self.milestone(original)
+
+        def replace_prerequisite_before_target_fence(candidate):
+            if candidate.pk == target.pk:
+                QuestDefinition.objects.filter(pk=target.pk).update(prerequisite_quest=replacement)
+            admit_definition_identity(candidate)
+
+        with override_settings(EGG_DISCOVERY_ENABLED=True), patch(
+            "apps.quests.reference_locks.admit_definition_identity", side_effect=replace_prerequisite_before_target_fence,
+        ):
+            ingest_activity(self.child, "bridge-reading", "replacement-unowned", "reading_logged", fresh_milestone=True)
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=target).exists())
+
+    def test_newly_replaced_owned_egg_prerequisite_freezes_current_pair_alternative(self):
+        from apps.quests.reference_locks import admit_definition_identity
+
+        original = self.definition("Completed original prerequisite", egg=False)
+        self.fact("original-one")
+        self.fact("original-two")
+        replacement = self.definition("Current owned egg prerequisite", elemental=True)
+        target = self.milestone(original)
+        UserPet.objects.create(user=self.child, species=self.species, potion=self.fire)
+
+        def replace_prerequisite_before_target_fence(candidate):
+            if candidate.pk == target.pk:
+                QuestDefinition.objects.filter(pk=target.pk).update(prerequisite_quest=replacement)
+            admit_definition_identity(candidate)
+
+        with override_settings(EGG_DISCOVERY_ENABLED=True), patch(
+            "apps.quests.reference_locks.admit_definition_identity", side_effect=replace_prerequisite_before_target_fence,
+        ):
+            ingest_activity(self.child, "bridge-reading", "replacement-owned", "reading_logged", fresh_milestone=True)
+        goal = ChallengeGoal.objects.get(user=self.child, catalog_definition=target)
+        self.assertEqual(goal.catalog_gate_snapshot["prerequisite_quest_id"], replacement.pk)
+        self.assertEqual(goal.catalog_gate_snapshot["version"], 2)
+        self.assertEqual(goal.catalog_gate_snapshot["prerequisite_hatch_pairs"][0]["potion_id"], self.fire.pk)
+
+    @override_settings(EGG_DISCOVERY_ENABLED=True)
+    def test_newly_gated_offer_cannot_begin_on_read_after_identity_wait(self):
+        from apps.quests.reference_locks import admit_definition_identity
+
+        replacement = self.definition("New egg prerequisite", elemental=True)
+        target = self.definition("Initially ordinary reading title", egg=False,
+                                 trigger_filter={"allowed_triggers": ["reading_logged"]})
+
+        def add_prerequisite_before_target_fence(candidate):
+            if candidate.pk == target.pk:
+                QuestDefinition.objects.filter(pk=target.pk).update(prerequisite_quest=replacement)
+            admit_definition_identity(candidate)
+
+        with patch("apps.quests.reference_locks.admit_definition_identity", side_effect=add_prerequisite_before_target_fence):
+            list_goals(self.child)
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=target).exists())
+
 
 @skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL NOWAIT prerequisite admission")
 @override_settings(EGG_DISCOVERY_ENABLED=True,
