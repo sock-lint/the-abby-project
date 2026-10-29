@@ -332,3 +332,38 @@ class StartupPolicyCycleTests(TestCase):
                     if previous is not None:
                         self.assertEqual(after, previous)
                     previous = deepcopy(after)
+
+    def test_in_component_prerequisite_keeps_supported_retained_capacity(self):
+        for reverse in (False, True):
+            with self.subTest(reverse=reverse), self.isolated_case():
+                saved = QuestDefinition.objects.create(name="Q2", description="Saved repeatable",
+                    quest_type="collection", target_value=2, is_system=True, is_repeatable=True)
+                before = QuestDefinition.objects.filter(pk=saved.pk).values().get()
+                quests = [self.quest("Q0", skill_tags=["Archive::Fresh"]),
+                    self.quest("Q1", skill_tags=["Robotics::Servo"]),
+                    self.quest("Q2", prerequisite_quest="Q3", required_badge="B3"),
+                    self.quest("Q3", prerequisite_quest="Q0", required_badge="B3"), self.quest("E")]
+                first = [self.badge("B0", ["Q3"], 2), self.badge("B1", ["Q3"]),
+                    self.badge("B2", ["E", "Q0"]), self.badge("B3", ["Q2", "Q1", "Q3"], 3),
+                    self.badge("B4", ["Q1", "Q0", "Q2"])]
+                second = [self.badge("B0", ["Q1", "E"], 2), self.badge("B2", ["Q3", "E"]),
+                    self.badge("B3", ["Q2", "Q1", "Q3"], 2)]
+                if reverse:
+                    quests.reverse()
+                    first, second = list(reversed(second)), list(reversed(first))
+                sources = self.sources(quests, first, "forward") + [{"badges": {"badges": second}}]
+                initial = self.snapshot()
+                self.load(sources, dry_run=True)
+                self.assertEqual(self.snapshot(), initial)
+                previous = None
+                for _reload in range(2):
+                    output = self.load(sources)
+                    self.assertEqual(set(Badge.objects.values_list("name", flat=True)), {"B2", "B3", "B4"})
+                    self.assertEqual(set(QuestDefinition.objects.values_list("name", flat=True)), {"Q2", "E"})
+                    self.assertEqual(QuestDefinition.objects.filter(pk=saved.pk).values().get(), before)
+                    self.assertNotIn("Left badge 'B3' unchanged", output)
+                    self.assertNotIn("Left badge 'B4' unchanged", output)
+                    after = self.snapshot()
+                    if previous is not None:
+                        self.assertEqual(after, previous)
+                    previous = deepcopy(after)
