@@ -276,3 +276,34 @@
     max-width: 8rem;
   }
 }
+
+@media (max-width: 1023px) {
+  .identity-header--spaces .identity-header__account > .identity-chips {
+    display: none;
+  }
+
+  .identity-header--spaces .identity-summary--compact .identity-summary__copy {
+    display: none;
+  }
+}
+
+/* The current space stays readable when text grows. The compact track grows
+   with the label while retaining the same generous tap target. */
+.identity-space-dropdown [data-dropdown-trigger] > span {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1023px) {
+  .identity-header--spaces .identity-header__account {
+    flex-shrink: 0;
+  }
+
+  .identity-header--spaces .identity-header__status {
+    flex: 1;
+    min-width: min(5.2em, 100%);
+    font-size: var(--text-body);
+  }
+}
