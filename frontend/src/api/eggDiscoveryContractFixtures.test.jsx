@@ -7,6 +7,7 @@ import guaranteed from '../../../contracts/api/fixtures/egg-discovery-rare-guara
 import seasonal from '../../../contracts/api/fixtures/egg-discovery-season-retained.json';
 import paused from '../../../contracts/api/fixtures/egg-discovery-paused.json';
 import disabled from '../../../contracts/api/fixtures/egg-discovery-disabled.json';
+import deliveryPending from '../../../contracts/api/fixtures/egg-discovery-delivery-pending.json';
 import { renderWithProviders, screen, within, waitFor } from '../test/render';
 import { buildUser } from '../test/factories';
 import { server } from '../test/server';
@@ -66,6 +67,21 @@ describe('Real egg discovery API projections in React', () => {
     expect(earned).toHaveTextContent('Egg found — guaranteed discovery');
     for (const item of discovery.receipt.items) expect(earned).toHaveTextContent(`${item.item_name} × ${item.quantity}`);
     expect(within(earned).getByRole('link', { name: 'Take your egg to the Hatchery' })).toHaveAttribute('href', '/bestiary?tab=hatchery');
+    expect(requests).toEqual(['GET']);
+  });
+
+  it('shows a saved winning search awaiting delivery without granting through a read', async () => {
+    const { requests } = mount(deliveryPending);
+    const discovery = deliveryPending.discoveries[0];
+    const active = await screen.findByRole('region', { name: 'Your active egg discovery' });
+    expect(discovery.delivery_pending).toBe(true);
+    expect(discovery.receipt).toBeNull();
+    expect(active).toHaveTextContent('Activity saved. Your discovery is complete, but its egg and supplies have not been delivered yet.');
+    expect(active).toHaveTextContent('Search 1: Discovery complete — delivery pending');
+    expect(within(active).getByRole('button', { name: 'Try delivery again' })).toBeEnabled();
+    expect(active).not.toHaveTextContent('Egg earned');
+    expect(active).not.toHaveTextContent('Egg found');
+    expect(screen.queryByRole('link', { name: 'Take your egg to the Hatchery' })).toBeNull();
     expect(requests).toEqual(['GET']);
   });
 

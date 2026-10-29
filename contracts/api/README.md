@@ -1,10 +1,12 @@
 # Shared API response fixtures
 
-`egg-discovery-{catalog,ordinary-active,rare-missed,rare-guaranteed,paused,season-retained,disabled}.json`
+`egg-discovery-{catalog,ordinary-active,rare-missed,rare-guaranteed,delivery-pending,paused,season-retained,disabled}.json`
 are real authenticated self-scoped discovery preview responses. They preserve
 server requirements, cumulative category minutes, immutable search outcomes,
 the fifth-search guarantee and its exact granted ingredient receipt. The
-seasonal example remains resumable after its start window. Disabled responses
+pending-delivery example retains its winning search without claiming a grant;
+an explicit retry delivers once without another roll. The seasonal example
+remains resumable after its start window. Disabled responses
 are empty and reads award nothing. Producer:
 `config.tests.test_egg_discovery_api_contract_fixtures`; React consumer:
 `src/api/eggDiscoveryContractFixtures.test.jsx`. Both run in required PR checks.

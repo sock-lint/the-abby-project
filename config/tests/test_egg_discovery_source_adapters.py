@@ -205,6 +205,36 @@ class EggDiscoverySourceAdapterTests(APITestCase):
         discovery.refresh_from_db()
         self.assertEqual(sum(discovery.minutes.values()), 0)
 
+    def test_rebound_egg_does_not_rollback_movement_logs_or_their_normal_rewards(self):
+        from apps.rpg.models import ItemDefinition
+
+        discovery = self._select_ordinary()
+        self._read(70, 150)
+        ItemDefinition.objects.filter(pk=discovery.egg_item_id).update(metadata={"species": "changed-binding"})
+        sessions = [self._move(71, 90), self._move(72, 30)]
+        self.assertEqual([session.xp_awarded for session in sessions], [45, 15])
+        self.assertEqual(MovementDailyCounter.objects.get(user=self.child).count, 2)
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "active")
+        self.assertIsNone(discovery.reward_receipt)
+        self.assertEqual(discovery.minutes, {"reading": 150, "movement": 120, "practice": 0})
+
+    def test_busy_discovery_catalog_does_not_rollback_reading_or_its_daily_reward(self):
+        from apps.quests.availability import RetryCatalogBusy
+
+        discovery = self._select_ordinary()
+        self._move(73, 90)
+        with patch("apps.egg_discoveries.services.lock_retry_reward_catalog",
+                   side_effect=RetryCatalogBusy("Synthetic catalog contention")):
+            self._read(74, 150)
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "active")
+        self.assertIsNone(discovery.reward_receipt)
+        self.assertEqual(discovery.minutes, {"reading": 150, "movement": 90, "practice": 0})
+        daily = ReadingDailyReward.objects.get(user=self.child)
+        self.assertEqual((daily.minutes_credited, daily.coins_awarded), (10, 5))
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.reading_skill).xp_points, 15)
+
     @override_settings(EGG_DISCOVERY_ENABLED=False)
     def test_feature_off_preserves_ordinary_reading_and_movement_rewards(self):
         from apps.egg_discoveries.models import DiscoveryActivityCredit, EggDiscovery

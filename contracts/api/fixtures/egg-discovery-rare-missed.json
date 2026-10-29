@@ -119,6 +119,7 @@
         }
       ],
       "receipt": null,
+      "delivery_pending": false,
       "remaining_searches": 4,
       "can_resume": false,
       "unavailable_reason": null

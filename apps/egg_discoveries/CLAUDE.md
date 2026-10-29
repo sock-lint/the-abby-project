@@ -22,7 +22,13 @@ New acceptance uses the existing bounded ingredient catalog SHARE/NOWAIT fence
 and freezes requirements, item IDs, display labels and seasonal dates. Species,
 potion and reward-item references are protected. Completion takes that fence
 again, reloads bindings and refuses changed identities without substituting
-rewards. Availability withdrawal does not revoke an accepted promise. Seasons
+rewards. A known catalog conflict isolates inventory work in a savepoint while
+retaining source activity and its normal rewards. The saved discovery exposes
+`delivery_pending` until its exact supplies can be delivered; an already saved
+winning search never rerolls. New activity or an explicit fresh selection/resume
+can retry delivery. GET projections and request/source UUID replays stay inert.
+Unexpected failures retain the strict transaction rollback behavior.
+Availability withdrawal does not revoke an accepted promise. Seasons
 gate only initial selection using inclusive family-local dates; pause/resume
 never resets progress or introduces a completion deadline.
 

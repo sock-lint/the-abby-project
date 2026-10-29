@@ -20,9 +20,13 @@ export default function DiscoveryProgress({ discovery, compact = false }) {
   const rare = requirements.guaranteed_search != null;
   const total = TYPES.reduce((sum, [type]) => sum + (discovery.minutes?.[type] || 0), 0);
   const searches = discovery.searches || [];
-  const completed = discovery.status === 'completed';
+  const pending = discovery.delivery_pending === true;
+  const completed = discovery.status === 'completed' && !pending;
   return <div className="space-y-3">
-    {completed ? <p className="font-semibold text-body text-moss-deep">Egg earned</p> : rare ? <>
+    {pending ? <div className="space-y-1" role="status">
+      <p className="font-semibold text-body text-ink-primary">Activity saved. Your discovery is complete, but its egg and supplies have not been delivered yet.</p>
+      <p className="text-caption text-ink-secondary">No more activity is needed for this egg. Your result stays saved.</p>
+    </div> : completed ? <p className="font-semibold text-body text-moss-deep">Egg earned</p> : rare ? <>
       <p className="text-body text-ink-primary">{searches.length} of {requirements.guaranteed_search} searches completed</p>
       <ProgressBar value={searches.length} max={requirements.guaranteed_search} aria-label={`${discovery.name} searches`} />
       <p className="text-caption text-ink-secondary">At most {discovery.remaining_searches} more {discovery.remaining_searches === 1 ? 'search' : 'searches'} until you find this egg.</p>
@@ -39,7 +43,7 @@ export default function DiscoveryProgress({ discovery, compact = false }) {
     </>}
     {!compact && <DiscoveryRequirements requirements={requirements} />}
     {!compact && searches.length > 0 && <ol className="space-y-1 text-caption text-ink-secondary" aria-label="Saved search results">
-      {searches.map((search) => <li key={search.number}>Search {search.number}: {search.found ? search.guaranteed ? 'Egg found — guaranteed discovery' : 'Egg found' : 'No egg found — counts toward your guarantee'}</li>)}
+      {searches.map((search) => <li key={search.number}>Search {search.number}: {search.found ? pending ? 'Discovery complete — delivery pending' : search.guaranteed ? 'Egg found — guaranteed discovery' : 'Egg found' : 'No egg found — counts toward your guarantee'}</li>)}
     </ol>}
   </div>;
 }

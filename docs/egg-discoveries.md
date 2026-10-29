@@ -81,6 +81,11 @@ The completion receipt shows the actual egg, compatible potion and starter
 food granted. Follow **Hatchery** to start the normal incubation and hatch
 when ready. Discovery itself does not hatch a creature or shorten incubation.
 
+If supplies cannot be delivered yet, your activity and any successful search
+stay saved. Use **Try delivery again** when available. This retries the same
+earned egg without another search or additional activity; viewing the page
+does not retry delivery.
+
 The preview does not remove previously accepted challenges or other existing
 egg sources. Those need a separate transition before discoveries become the
 normal collection system.

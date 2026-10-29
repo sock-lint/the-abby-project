@@ -60,6 +60,11 @@ in the progress transaction. Do not call quest completion or its accomplishment
 loot pipeline. Existing inventory badge rules remain authoritative; their
 indirect rewards must be included in the later economy audit.
 
+If the saved supplies cannot be delivered, retain the activity and any winning
+search without blocking normal source rewards. Expose pending delivery and an
+explicit retry through selecting the saved target. Reads and duplicate request
+replays do not retry delivery, and a saved winning search never rolls again.
+
 ### Activity credit
 
 - Reading: credit a genuinely new session's full recorded minutes, independently

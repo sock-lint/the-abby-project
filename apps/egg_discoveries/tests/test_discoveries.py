@@ -314,18 +314,96 @@ class DiscoveryTests(TestCase):
         with self.assertRaises(DiscoveryConflict):
             self.select()
 
-    def test_changed_reward_binding_fails_closed_and_rolls_back_source(self):
+    def test_changed_reward_binding_defers_delivery_without_losing_source_progress(self):
         discovery = self.select()
         self.credit("reading", 150)
         self.catalog.ordinary.egg.pet_species = self.catalog.other.species
         self.catalog.ordinary.egg.save(update_fields=["pet_species"])
-        with self.assertRaises(DiscoveryConflict):
-            self.credit("practice", 90, key="rebound")
+        self.credit("practice", 90, key="rebound")
         discovery.refresh_from_db()
         self.assertEqual(discovery.status, "active")
-        self.assertEqual(discovery.minutes["practice"], 0)
-        self.assertFalse(DiscoveryActivityCredit.objects.filter(source_key="rebound").exists())
+        self.assertEqual(discovery.minutes["practice"], 90)
+        self.assertTrue(DiscoveryActivityCredit.objects.filter(source_key="rebound").exists())
+        self.assertTrue(envelope(self.child)["discoveries"][0]["delivery_pending"])
         self.assertFalse(UserInventory.objects.exists())
+
+    def test_pending_ordinary_delivery_only_retries_on_new_activity_or_explicit_selection(self):
+        discovery = self.select()
+        self.credit("reading", 150)
+        with patch("apps.egg_discoveries.services._catalog_fence", side_effect=DiscoveryConflict("Catalog busy")) as fence:
+            self.credit("practice", 90, key="earned-but-pending")
+            self.assertEqual(fence.call_count, 1)
+            # Replaying the original source is not a request for delivery.
+            self.credit("practice", 90, key="earned-but-pending")
+            self.assertEqual(fence.call_count, 1)
+            # GET projections neither retry nor roll. The pending state is
+            # derived from the already saved completion requirements.
+            first, second = envelope(self.child), envelope(self.child)
+            self.assertEqual(first, second)
+            self.assertTrue(first["discoveries"][0]["delivery_pending"])
+            self.assertEqual(fence.call_count, 1)
+            self.credit("practice", 30)
+            self.assertEqual(fence.call_count, 2)
+        self.assertFalse(UserInventory.objects.exists())
+        request_id = uuid4()
+        self.assertTrue(select_discovery(self.child, offer_key=self.catalog.ordinary.key, client_request_id=request_id))
+        self.assertFalse(select_discovery(self.child, offer_key=self.catalog.ordinary.key, client_request_id=request_id))
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "completed")
+        self.assertEqual(discovery.minutes["practice"], 120)
+        self.assertFalse(envelope(self.child)["discoveries"][0]["delivery_pending"])
+        self.assertEqual(self.quantities()[self.catalog.ordinary.egg.pk], 1)
+
+    def test_saved_rare_winner_retries_delivery_without_another_roll_or_search(self):
+        self.unlock_rare()
+        discovery = self.select(self.catalog.rare)
+        self.credit("reading", 150)
+        with patch("apps.egg_discoveries.services._catalog_fence", side_effect=DiscoveryConflict("Catalog busy")), patch(
+            "apps.egg_discoveries.services.random.random", return_value=0,
+        ) as roll:
+            self.credit("practice", 150)
+            self.credit("movement", 60)
+            pause_discovery(self.child, discovery_id=discovery.pk, client_request_id=uuid4())
+            paused = envelope(self.child)["discoveries"][0]
+            self.assertEqual(paused["status"], "paused")
+            self.assertTrue(paused["delivery_pending"])
+            self.assertEqual(paused["remaining_searches"], 0)
+            self.assertIsNone(paused["receipt"])
+            self.assertEqual(paused["searches"], [{"number": 1, "found": True, "guaranteed": False}])
+            self.select(self.catalog.rare)
+            self.assertEqual(roll.call_count, 1)
+        self.assertFalse(UserInventory.objects.exists())
+        with patch("apps.egg_discoveries.services.random.random") as roll:
+            self.select(self.catalog.rare)
+        roll.assert_not_called()
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "completed")
+        self.assertEqual(discovery.searches.count(), 1)
+        self.assertEqual(self.quantities()[self.catalog.rare.egg.pk], 1)
+
+    def test_known_delivery_conflict_rolls_back_partial_inventory_but_retains_winning_search(self):
+        from apps.rpg.inventory import grant_item
+
+        self.unlock_rare()
+        discovery = self.select(self.catalog.rare)
+        self.credit("reading", 30)
+
+        def conflicted_grant(user, item, quantity):
+            grant_item(user, item, quantity)
+            if item.pk == self.catalog.potion.pk:
+                raise DiscoveryConflict("Synthetic delivery conflict after an item grant")
+
+        with patch("apps.egg_discoveries.services.grant_item", side_effect=conflicted_grant), patch(
+            "apps.egg_discoveries.services.random.random", return_value=0,
+        ):
+            self.credit("practice", 30)
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "active")
+        self.assertEqual(discovery.minutes["practice"], 30)
+        self.assertTrue(discovery.searches.get(number=1).found)
+        self.assertFalse(UserInventory.objects.exists())
+        self.select(self.catalog.rare)
+        self.assertEqual(self.quantities(), {self.catalog.rare.egg.pk: 1, self.catalog.potion.pk: 1, self.catalog.food.pk: 2})
 
     def test_failed_reward_rolls_back_search_credit_and_inventory_together(self):
         self.unlock_rare()

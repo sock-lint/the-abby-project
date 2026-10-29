@@ -99,18 +99,21 @@ function EggDiscoveryWorkspace({ refreshKey }) {
         <EggIdentity discovery={active} />
         <DiscoveryProgress discovery={active} />
         <Season season={active.season} accepted />
-        <p className="text-caption text-ink-secondary">Reading and movement logs dated today contribute when recorded. Short sessions accumulate. Search results happen automatically; there is nothing to claim.</p>
+        {!active.delivery_pending && <p className="text-caption text-ink-secondary">Reading and movement logs dated today contribute when recorded. Short sessions accumulate. Search results happen automatically; there is nothing to claim.</p>}
         <div className="flex flex-wrap gap-2">
+          {active.delivery_pending ? <Button variant="secondary" disabled={blocked} onClick={() => state.select(active.offer_key)}>Try delivery again</Button> : <>
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/quests?tab=reading">Log reading</Link>
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/quests?tab=movement&log=1">Log movement</Link>
           <Button variant="secondary" disabled={blocked} onClick={() => setPracticeOpen(true)}>Log making or practice</Button>
+          </>}
           <Button variant="ghost" disabled={blocked} onClick={() => state.pause(active.id)}>Pause discovery</Button>
         </div>
       </section> : state.enabled && <p className="text-body text-ink-secondary">Choose an egg below or resume a saved discovery. Only one discovery receives new activity at a time.</p>}
       {paused.length > 0 && <section aria-label="Paused egg discoveries" className="space-y-3">
         <h3 className="font-semibold text-body text-ink-primary">Saved for later</h3>
+        {active && <p className="text-caption text-ink-secondary">Resuming a saved discovery or trying its delivery pauses your current discovery and saves its progress.</p>}
         {paused.map((row) => <div key={row.id} className="rounded-xl border border-ink-page-shadow p-3 space-y-3"><EggIdentity discovery={row} /><DiscoveryProgress discovery={row} /><Season season={row.season} accepted />
-          <Button variant="secondary" disabled={blocked || row.can_resume === false} onClick={() => state.select(row.offer_key)}>Resume {row.name}</Button>
+          <Button variant="secondary" disabled={blocked || row.can_resume === false} onClick={() => state.select(row.offer_key)}>{row.delivery_pending ? 'Try delivery again' : `Resume ${row.name}`}</Button>
         </div>)}
       </section>}
       {completed.length > 0 && <details open={!active} className="space-y-3"><summary className="min-h-11 cursor-pointer font-semibold text-body text-ink-primary">Earned eggs · {completed.length}</summary>

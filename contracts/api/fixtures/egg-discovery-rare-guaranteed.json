@@ -166,6 +166,7 @@
           }
         ]
       },
+      "delivery_pending": false,
       "remaining_searches": 0,
       "can_resume": false,
       "unavailable_reason": null

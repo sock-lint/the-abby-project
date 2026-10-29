@@ -43,8 +43,8 @@ def _lock_user(user):
 def _catalog_fence():
     # Reuse the bounded PostgreSQL SHARE/NOWAIT fence protecting ingredient
     # identities and species/potion compatibility in explicit challenge retries.
-    # A busy catalog aborts the whole source transaction instead of waiting in
-    # a reversed lock order against a loader or taxonomy writer.
+    # New acceptance reports a busy catalog. Reward delivery isolates that
+    # conflict in a savepoint so ordinary source logging can still commit.
     try:
         lock_retry_reward_catalog()
     except RetryCatalogBusy as error:
@@ -81,12 +81,17 @@ def discovery_payload(discovery):
     snapshot = discovery.snapshot
     searches = [{"number": search.number, "found": search.found, "guaranteed": search.guaranteed} for search in discovery.searches.all()]
     guarantee = snapshot["requirements"]["guaranteed_search"]
+    found = any(search["found"] for search in searches)
+    delivery_pending = discovery.status in {"active", "paused"} and discovery.reward_receipt is None and (
+        ordinary_complete(discovery.minutes, snapshot["requirements"]) if snapshot["tier"] == "ordinary" else found
+    )
     return {
         "id": discovery.pk, "offer_key": discovery.offer_key,
         **{key: deepcopy(snapshot[key]) for key in ("name", "tier", "egg_item", "potion_name", "season", "requirements")},
         "status": discovery.status, "minutes": {category: discovery.minutes.get(category, 0) for category in CATEGORIES},
         "searches": searches, "receipt": deepcopy(discovery.reward_receipt),
-        "remaining_searches": (0 if discovery.status == "completed" else max(0, guarantee - len(searches))) if guarantee else None,
+        "delivery_pending": delivery_pending,
+        "remaining_searches": (0 if discovery.status == "completed" or found else max(0, guarantee - len(searches))) if guarantee else None,
         "can_resume": discovery.status == "paused", "unavailable_reason": None,
     }
 
@@ -119,6 +124,9 @@ def select_discovery(user, *, offer_key, client_request_id):
         EggDiscovery.objects.filter(user=user, status="active").exclude(pk=saved.pk).update(status="paused")
         saved.status = "active"
         saved.save(update_fields=["status", "updated_at"])
+        # An explicit selection/resume may retry an already earned delivery.
+        # UUID recovery above remains inert, as do ordinary catalog reads.
+        _advance(saved)
     else:
         _catalog_fence()
         offer = next((offer for offer in offers_for(user) if offer.key == offer_key), None)
@@ -179,11 +187,30 @@ def _complete(discovery):
     discovery.reward_receipt = {"items": deepcopy(discovery.snapshot["reward_items"])}
 
 
+def _try_complete(discovery):
+    """Keep earned progress when a known catalog conflict prevents delivery.
+
+    Inventory and any inventory-badge consequences stay inside this savepoint.
+    Unexpected failures keep their original strict rollback behavior; only the
+    domain conflict describing unavailable/changed catalog proof is deferred.
+    """
+    original = (discovery.status, discovery.completed_at, discovery.reward_receipt)
+    try:
+        with transaction.atomic():
+            _complete(discovery)
+    except DiscoveryConflict:
+        discovery.status, discovery.completed_at, discovery.reward_receipt = original
+
+
 def _advance(discovery):
     rules = discovery.snapshot["requirements"]
     if discovery.snapshot["tier"] == "ordinary":
         if ordinary_complete(discovery.minutes, rules):
-            _complete(discovery)
+            _try_complete(discovery)
+    elif discovery.searches.filter(found=True).exists():
+        # A saved winning roll is final even if its supplies could not yet be
+        # delivered. Later activity or explicit selection never rolls again.
+        _try_complete(discovery)
     else:
         capacity = min(rare_search_capacity(discovery.minutes, rules), rules["guaranteed_search"])
         count = discovery.searches.count()
@@ -193,7 +220,7 @@ def _advance(discovery):
             found = guaranteed or roll < rules["chance_percent"] / 100
             DiscoverySearch.objects.create(discovery=discovery, number=number, guaranteed=guaranteed, roll=roll, found=found)
             if found:
-                _complete(discovery)
+                _try_complete(discovery)
                 break
     discovery.save(update_fields=["minutes", "status", "completed_at", "reward_receipt", "updated_at"])
 

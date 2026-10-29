@@ -28,4 +28,14 @@ describe('Today egg discovery preview', () => {
     expect(await screen.findByRole('link', { name: 'Choose an egg' })).toHaveAttribute('href', '/quests?tab=trials');
     expect(screen.queryByRole('progressbar')).toBeNull();
   });
+
+  it('shows saved activity awaiting delivery without claiming an egg was granted', async () => {
+    server.use(http.get('*/api/egg-discoveries/', () => HttpResponse.json(buildEggEnvelope({ active_id: 1, discoveries: [buildEggDiscovery({ delivery_pending: true })] }))),
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    renderWithProviders(<EggDiscoveryCard />);
+    const card = await screen.findByRole('region', { name: 'Your egg discovery' });
+    expect(card).toHaveTextContent('Activity saved. Your discovery is complete, but its egg and supplies have not been delivered yet.');
+    expect(card).not.toHaveTextContent('Egg earned');
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
 });

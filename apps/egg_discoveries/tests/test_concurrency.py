@@ -164,6 +164,40 @@ class DiscoveryConcurrencyTests(TransactionTestCase):
         self.assertEqual(discovery.status, "active")
         self.assertEqual(EggDiscovery.objects.count(), 1)
 
+    def test_catalog_writer_defers_delivery_without_rolling_back_activity(self):
+        discovery = self.select(self.catalog.ordinary)
+        self.credit("reading", 150, "reading")
+        held, release = Event(), Event()
+
+        def writer():
+            with transaction.atomic():
+                # A real writer owns the ingredient table even if this update
+                # retains its old binding. Completion must not wait or discard
+                # the source fact while that writer holds admission.
+                ItemDefinition.objects.filter(pk=self.catalog.ordinary.egg.pk).update(metadata=self.catalog.ordinary.egg.metadata)
+                held.set()
+                if not release.wait(10):
+                    raise TimeoutError("Catalog writer was not released")
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(self.worker, writer, Event(), {}, "writer")
+            try:
+                self.assertTrue(held.wait(5))
+                self.credit("practice", 90, "earned-while-busy")
+                discovery.refresh_from_db()
+                self.assertEqual(discovery.minutes["practice"], 90)
+                self.assertEqual(discovery.status, "active")
+                self.assertIsNone(discovery.reward_receipt)
+                self.assertTrue(DiscoveryActivityCredit.objects.filter(source_key="earned-while-busy").exists())
+                self.assertFalse(UserInventory.objects.exists())
+            finally:
+                release.set()
+            future.result(timeout=15)
+        self.select(self.catalog.ordinary)
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "completed")
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.catalog.ordinary.egg).quantity, 1)
+
     def test_reward_fence_blocks_rebinding_until_the_exact_grant_commits(self):
         discovery = self.select(self.catalog.ordinary)
         self.credit("reading", 150, "reading")

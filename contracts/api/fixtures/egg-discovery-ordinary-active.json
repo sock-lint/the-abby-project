@@ -113,6 +113,7 @@
       },
       "searches": [],
       "receipt": null,
+      "delivery_pending": false,
       "remaining_searches": null,
       "can_resume": false,
       "unavailable_reason": null

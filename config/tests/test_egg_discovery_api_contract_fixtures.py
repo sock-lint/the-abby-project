@@ -12,6 +12,7 @@ from rest_framework.test import APITestCase
 from apps.egg_discoveries.models import (
     DiscoveryActivityCredit, DiscoveryRequest, DiscoverySearch, EggDiscovery, PracticeSession,
 )
+from apps.egg_discoveries.services import DiscoveryConflict
 from apps.egg_discoveries.tests.factories import ASSET_POLICY, make_catalog
 from apps.pets.models import PetSpecies, PotionType, UserPet
 from apps.rpg.models import ItemDefinition, UserInventory
@@ -145,3 +146,28 @@ class EggDiscoveryApiResponseFixtureTests(APITestCase):
                 self.assertEqual(retained["discoveries"][0]["status"], "active")
                 self.assertEqual(retained["discoveries"][0]["minutes"]["practice"], 45)
                 self.assertEqual(retained["discoveries"][0]["season"]["ends_on"], "2026-10-31")
+
+    def test_winning_search_is_retained_while_supplies_await_delivery(self):
+        for pair in (self.catalog.ordinary, self.catalog.other):
+            UserPet.objects.create(user=self.child, species=pair.species, potion=self.catalog.base)
+        self._select(self.catalog.rare.key)
+        self._read()
+        with patch("apps.egg_discoveries.services.random") as random_source:
+            random_source.random.return_value = 0.1
+            with patch("apps.egg_discoveries.services._catalog_fence", side_effect=DiscoveryConflict("Catalog busy.")):
+                pending = self.assert_response_fixture(
+                    self._practice(), "egg-discovery-delivery-pending.json", status=201,
+                )
+            saved = pending["discoveries"][0]
+            self.assertTrue(saved["delivery_pending"])
+            self.assertTrue(saved["searches"][0]["found"])
+            self.assertIsNone(saved["receipt"])
+            self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.catalog.rare.egg).exists())
+            with patch("apps.egg_discoveries.services._complete", side_effect=AssertionError("Reads cannot deliver rewards.")):
+                self.assertEqual(self.client.get("/api/egg-discoveries/").json(), pending)
+            delivered = self._select(self.catalog.rare.key).json()["discoveries"][0]
+            self.assertFalse(delivered["delivery_pending"])
+            self.assertEqual(delivered["status"], "completed")
+            self.assertEqual(delivered["searches"], saved["searches"])
+            self.assertEqual(random_source.random.call_count, 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.catalog.rare.egg).quantity, 1)

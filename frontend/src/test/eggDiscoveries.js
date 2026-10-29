@@ -18,6 +18,6 @@ export const buildEggOffer = (over = {}) => ({
 export const buildEggDiscovery = (over = {}) => ({
   ...buildEggOffer(), id: 1, offer_key: 'wolf-base', status: 'active', can_resume: false,
   minutes: { reading: 45, movement: 15, practice: 0 }, searches: [], receipt: null,
-  remaining_searches: null, ...over,
+  remaining_searches: null, delivery_pending: false, ...over,
 });
 export const buildEggEnvelope = (over = {}) => ({ enabled: true, offers: [buildEggOffer()], discoveries: [], active_id: null, ...over });

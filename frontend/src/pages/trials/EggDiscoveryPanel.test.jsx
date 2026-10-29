@@ -133,6 +133,72 @@ describe('Egg discovery preview', () => {
     expect(screen.queryByRole('button', { name: /claim/i })).toBeNull();
   });
 
+  it('keeps a winning result pending until an explicit delivery retry returns its supplies', async () => {
+    const pending = buildEggDiscovery({ tier: 'rare', requirements: rareRequirements, delivery_pending: true, remaining_searches: 0,
+      minutes: { reading: 30, movement: 0, practice: 30 }, searches: [{ number: 1, found: true, guaranteed: false }] });
+    const state = setup(buildEggEnvelope({ discoveries: [{ ...pending, delivery_pending: false, searches: [], remaining_searches: 5,
+      minutes: { reading: 30, movement: 0, practice: 0 } }], active_id: pending.id }));
+    const calls = [];
+    const activities = [];
+    server.use(http.post('*/api/egg-discoveries/practice/', async ({ request }) => {
+      activities.push(await request.json());
+      const next = buildEggEnvelope({ discoveries: [pending], active_id: pending.id });
+      state.set(next); return HttpResponse.json(next);
+    }), http.post('*/api/egg-discoveries/select/', async ({ request }) => {
+      calls.push(await request.json());
+      if (calls.length === 1) return HttpResponse.json(buildEggEnvelope({ discoveries: [pending], active_id: pending.id }));
+      const delivered = { ...pending, status: 'completed', delivery_pending: false,
+        receipt: { items: [{ item_id: 71, item_name: 'Wolf Egg', item_type: 'egg', quantity: 1 }] } };
+      const next = buildEggEnvelope({ discoveries: [delivered] });
+      state.set(next); return HttpResponse.json(next);
+    }));
+    const { user } = renderWithProviders(<EggDiscoveryPanel />);
+    await user.click(await screen.findByRole('button', { name: 'Log making or practice' }));
+    const activityForm = await screen.findByRole('dialog', { name: 'Log making or practice' });
+    await user.type(within(activityForm).getByLabelText('What did you make or practice?'), 'Drawing');
+    await user.type(within(activityForm).getByLabelText('Minutes'), '30');
+    await user.click(within(activityForm).getByRole('button', { name: 'Save activity' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const active = screen.getByRole('region', { name: 'Your active egg discovery' });
+    expect(active).toHaveTextContent('Activity saved. Your discovery is complete, but its egg and supplies have not been delivered yet.');
+    expect(active).toHaveTextContent('Search 1: Discovery complete — delivery pending');
+    expect(active).not.toHaveTextContent('Egg earned');
+    expect(active).not.toHaveTextContent('Egg found');
+    expect(active).not.toHaveTextContent('At most 0 more searches');
+    expect(screen.queryByRole('link', { name: 'Take your egg to the Hatchery' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Log making or practice' })).toBeNull();
+    const retry = within(active).getByRole('button', { name: 'Try delivery again' });
+    await waitFor(() => expect(retry).toBeEnabled());
+    const previousReads = state.requests.length;
+    await act(async () => window.dispatchEvent(new Event('abby:egg-discoveries-changed')));
+    await waitFor(() => expect(state.requests).toHaveLength(previousReads + 1));
+    expect(calls).toEqual([]);
+    expect(activities).toHaveLength(1);
+    await waitFor(() => expect(retry).toBeEnabled());
+    await user.click(retry);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await waitFor(() => expect(retry).toBeEnabled());
+    expect(active).toHaveTextContent('No more activity is needed for this egg. Your result stays saved.');
+    await user.click(retry);
+    const earned = await screen.findByRole('region', { name: 'Earned Wolf Egg' });
+    expect(earned).toHaveTextContent('Egg earned');
+    expect(earned).toHaveTextContent('Wolf Egg × 1');
+    expect(within(earned).getByRole('link', { name: 'Take your egg to the Hatchery' })).toBeInTheDocument();
+    expect(calls).toEqual([{ offer_key: pending.offer_key, client_request_id: expect.any(String) }, { offer_key: pending.offer_key, client_request_id: expect.any(String) }]);
+    expect(calls[1].client_request_id).not.toBe(calls[0].client_request_id);
+    expect(calls[0].client_request_id).not.toBe(activities[0].client_request_id);
+  });
+
+  it('offers an explicit delivery retry for a paused completed discovery', async () => {
+    setup(buildEggEnvelope({ discoveries: [buildEggDiscovery({ status: 'paused', can_resume: true, delivery_pending: true,
+      minutes: { reading: 90, movement: 0, practice: 150 } })] }));
+    renderWithProviders(<EggDiscoveryPanel />);
+    const paused = await screen.findByRole('region', { name: 'Paused egg discoveries' });
+    expect(within(paused).getByRole('button', { name: 'Try delivery again' })).toBeEnabled();
+    expect(paused).toHaveTextContent('No more activity is needed for this egg. Your result stays saved.');
+    expect(screen.queryByRole('button', { name: 'Resume Wolf Egg' })).toBeNull();
+  });
+
   it('logs practice with minutes only once across uncertain retries and shows guaranteed supplies', async () => {
     const state = setup(buildEggEnvelope({ discoveries: [buildEggDiscovery({ tier: 'rare', requirements: rareRequirements, remaining_searches: 1,
       searches: Array.from({ length: 4 }, (_, i) => ({ number: i + 1, found: false, guaranteed: false })) })], active_id: 1 }));
