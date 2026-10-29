@@ -1,14 +1,18 @@
 # Egg discoveries
 
-This is an opt-in preview. `EGG_DISCOVERY_ENABLED` defaults to false; disabled
+`EGG_DISCOVERY_ENABLED` defaults to false; disabled
 authenticated GETs return an empty envelope and discovery mutations are refused.
 Movement writes still retain a zero-credit source-identity tombstone while off,
 without changing activity rewards or creating targets, searches or egg progress.
 Reading has its own persistent request-credit identities; its adapter checks
 those native receipts before admitting discovery credit.
-Installing the schema does not turn off existing challenges, random eggs,
-shops or expedition rewards. A separate reviewed acquisition transition must
-preserve accepted legacy promises and audit the combined economy before enablement.
+Installing the schema does not change acquisition. Enabling the setting also
+stops new system egg challenges and future unaccepted recurring egg windows,
+random/box/expedition egg rolls, shop egg requests and development egg grants.
+Never put that prospective gate in `item_is_available` or `grant_item`:
+owned ingredients, accepted challenges/retries, paid requests, saved trip loot
+and discovery delivery keep their exact promises. Parent-authored goals remain
+separate. See the rollout and balance sections in the implementation plan.
 
 The API is self-scoped for children and parents' own accounts, including My
 space. It rejects `user_id` selectors. API operations recheck current active
@@ -42,7 +46,7 @@ Migration `0002` only preserves owner/UUID, saved date and minutes from survivin
 movement sessions with a UUID as zero-credit identities. It creates no target,
 progress, search or reward. Requests deleted before deployment have no surviving
 identity evidence to preserve; sessions without a UUID cannot recover a request
-identity. New movement UUIDs remain reserved even while the preview is disabled.
+identity. New movement UUIDs remain reserved even while the mode is disabled.
 
 Ordinary completion needs 240 total minutes and at least 90 minutes in each of
 two categories. Rare searches use cumulative totals from reading, movement and

@@ -1,5 +1,14 @@
 # apps/pets/
 
+Egg Discovery availability is prospective. New expedition rolls use the shared
+random acquisition policy, so they produce no eggs while Discovery is enabled;
+already saved egg loot still claims in full once. Owned egg/potion inventory
+continues to incubate and hatch normally. The read-only codex reports
+`egg_discovery_enabled` and each potion's nullable `acquisition_discovery`
+choice (key, path, name, tier, eligibility and reason). Accepted challenge
+windows/first cycles retain their acquisition hints; new or unsaved later egg
+cycles do not. These projections never enroll or award anything.
+
 Collectible pets + timed incubation + growth/evolution + offline expeditions. Every species has the lifecycle **Egg → Baby → Middle → Grown**. An owned egg + potion starts incubation; after its server deadline an explicit hatch creates a baby. 50 saved growth reaches middle, and confirmed evolution at 100 reaches grown (the existing mount). See [companion lifecycle](../../docs/operations/companion-lifecycle.md).
 
 ## Active asset policy (October 2026)

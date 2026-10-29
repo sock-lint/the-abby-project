@@ -73,6 +73,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
   const selectedEggSpecies = eggSpecies(selectedEggItem);
   const selectedCatalogSpecies = (catalogData?.species || []).find((species) => species.slug === selectedEggSpecies?.slug && isCatalogAvailable(species));
   const compatibleVariants = (selectedCatalogSpecies?.available_potions || []).filter(isCatalogAvailable);
+  const discoveryEnabled = catalogData ? catalogData.egg_discovery_enabled === true : null;
   const compatiblePotions = potions.filter((entry) => compatibleVariants.some((potion) => potion.slug === entry.item.metadata?.variant));
   const selectedPotionItem = compatiblePotions.find((entry) => String(entry.item.id) === hatchPotion)?.item;
   const selectedPotion = compatibleVariants.find((potion) => potion.slug === selectedPotionItem?.metadata?.variant);
@@ -225,7 +226,11 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
 
         {eggs.length === 0 ? (
           <EmptyState icon={<EggIcon size={28} />}>
-            {potions.length === 0
+            {discoveryEnabled === null
+              ? 'Open Challenges to check available egg rewards. Supplies you already own remain in your collection.'
+              : discoveryEnabled
+              ? 'Choose an egg discovery in Challenges. Its egg, compatible potion and starter food arrive together when you earn it.'
+              : potions.length === 0
               ? 'No eggs or potions for new hatching yet. You can earn them from project work, chores, homework, and challenges.'
               : 'No eggs for new hatching yet. You can earn them from challenges and project completions.'}
           </EmptyState>
@@ -276,7 +281,9 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
               </SelectField>
             </div>
             {(loadingCatalog || refreshingCatalog) && <p role="status" className="mt-3 text-body text-ink-secondary">Checking compatible potions…</p>}
-            {selectedEggItem && catalogReady && potions.length > 0 && compatiblePotions.length === 0 && <p className="mt-3 text-body text-ink-secondary">None of your potions can hatch this egg. Choose another egg or earn a compatible potion from challenges.</p>}
+            {selectedEggItem && catalogReady && potions.length > 0 && compatiblePotions.length === 0 && <p className="mt-3 text-body text-ink-secondary">{discoveryEnabled
+              ? 'None of your potions can hatch this egg. Choose a discovery for this family to earn a compatible egg and potion together, or use another egg.'
+              : 'None of your potions can hatch this egg. Choose another egg or earn a compatible potion from challenges.'}</p>}
             {potions.length === 0 && <p className="mt-3 text-body text-ink-secondary">No potions for new hatching yet. You can still explore your eggs and their growth stages.</p>}
             {selectedPotion && <p role="status" className="mt-3 text-body text-ink-primary">Selected appearance: {selectedPotion.name} {babyName}. The same appearance continues through every growth stage.</p>}
             {alreadyOwned && <div className="mt-3 space-y-1 text-body text-ink-secondary">
@@ -296,7 +303,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
           </div>
         )}
 
-        {(eggs.length === 0 || potions.length === 0) && <div className="mt-3"><PetSuppliesGuide /></div>}
+        {(eggs.length === 0 || potions.length === 0) && <div className="mt-3"><PetSuppliesGuide discoveryEnabled={discoveryEnabled} /></div>}
 
         {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
           <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>

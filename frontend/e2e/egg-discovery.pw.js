@@ -142,6 +142,8 @@ function safe(state) {
         await choose.focus(); await choose.press('Enter');
         const active = page.getByRole('region', { name: 'Your active egg discovery' });
         await expect(active).toContainText('0 of 5 searches completed');
+        await expect(page.getByText('Choose another egg', { exact: true })).toBeVisible();
+        await expect(page.getByRole('region', { name: 'Available egg discoveries' }).locator('details')).not.toHaveAttribute('open');
         await fits(page);
         await capture(page, info, `egg-discovery-${browserName}-${viewport.width}-chosen.png`);
         for (let search = 1; search <= 5; search += 1) {

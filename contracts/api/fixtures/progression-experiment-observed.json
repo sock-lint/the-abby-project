@@ -187,10 +187,10 @@
       "stale": false,
       "freshness": "current",
       "binding": {
-        "engine_version": "2026-10-23.1",
-        "rules_fingerprint": "6bb7d754de3ba331469dada44fbd1d6a3988d3289109f0b70be0307b44160973",
+        "engine_version": "2026-10-29.1",
+        "rules_fingerprint": "91342bbf21629850593418efac065a1dba3d8f17bc53400c4c30a436db21f644",
         "feedback_fingerprint": "6e569e9c0cdac9fc5c586430baafe2657d0cc974c8c3d55988ed5b3cf21f5229",
-        "catalog_fingerprint": "122ece774e5bcf4d922b3a89091f0e831ddc0bb56684687ef5e594a6f962c552",
+        "catalog_fingerprint": "a0d32483999a17dc579d943c3463d42e73f1dc083957a1e605d80fb48650dbbc",
         "source_commit": "unavailable"
       }
     }
@@ -273,7 +273,7 @@
       },
       "binding": {
         "source_commit": "unavailable",
-        "rules_fingerprint": "6bb7d754de3ba331469dada44fbd1d6a3988d3289109f0b70be0307b44160973",
+        "rules_fingerprint": "91342bbf21629850593418efac065a1dba3d8f17bc53400c4c30a436db21f644",
         "feedback_fingerprint": "6e569e9c0cdac9fc5c586430baafe2657d0cc974c8c3d55988ed5b3cf21f5229",
         "policy": "installed_uncapped",
         "scope": "own_family_recent_children"

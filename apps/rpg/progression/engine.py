@@ -17,6 +17,8 @@ from types import SimpleNamespace
 from types import MappingProxyType
 
 from django.conf import settings
+
+from apps.egg_discoveries import policy as egg_discovery_policy
 from apps.quests import activity as challenge_activity_rules
 from apps.quests import milestone_eligibility as milestone_rules
 
@@ -98,7 +100,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-23.1"
+ENGINE_VERSION = "2026-10-29.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -253,6 +255,8 @@ def rules_fingerprint(*, incubation_policy=None):
     # saved forecasts even when its constants stay the same.
     rules = {
         "engine": ENGINE_VERSION,
+        "egg_discovery_enabled": egg_discovery_policy.discovery_enabled(),
+        "egg_acquisition_policy": inspect.getsource(egg_discovery_policy),
         "milestone_goal_source": inspect.getsource(inspect.getmodule(_amount)),
         "milestone_source": inspect.getsource(milestone_rules),
         "milestone_activity_source": inspect.getsource(challenge_activity_rules),
@@ -382,6 +386,7 @@ def rules_fingerprint(*, incubation_policy=None):
 
 def coverage(catalog):
     return {
+        **({"companion_acquisition_mode": "discovery_unmodeled"} if catalog.egg_discovery_enabled else {}),
         "modeled": [
             "New child with zero XP, Coins and owned companions/inventory",
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
@@ -398,6 +403,7 @@ def coverage(catalog):
             "Shared optional per-child expedition launch and whole-item promise quotas, independent of the Coin policy",
         ],
         "excluded": [
+            *(["Selected egg discoveries, their search outcomes and supplies, and their indirect badge/Coin/XP/care effects. Companion, mount and collection timelines are unavailable in discovery mode."] if catalog.egg_discovery_enabled else []),
             "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
             "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
             "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
@@ -464,7 +470,12 @@ def audit_catalog(catalog):
         eggs = {item.pet_species_id for item in rewards if item.item_type == "egg"}
         potions = {item.potion_type_id for item in rewards if item.item_type == "potion"}
         guaranteed |= any(species in eggs and potion in potions for species, potion in catalog.pairs)
-    if guaranteed:
+    if catalog.egg_discovery_enabled:
+        messages.append({
+            "severity": "warning", "code": "discovery_forecast_unmodeled",
+            "message": "Egg discoveries are not included in this forecast. Companion, mount and collection timelines are unavailable for discovery mode. Other source forecasts exclude new random and system-challenge eggs; indirect discovery badge rewards are omitted.",
+        })
+    elif guaranteed:
         messages.append({
             "severity": "info", "code": "guaranteed_companion_paths",
             "message": "The catalog includes companion trails promising an egg and compatible potion. Their activity rules, prerequisites and deadlines must be met; other acquisitions can still depend on random draws.",

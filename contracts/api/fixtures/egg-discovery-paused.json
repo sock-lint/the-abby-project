@@ -4,6 +4,8 @@
     {
       "key": "discovery-ordinary-egg:base",
       "name": "Discovery Ordinary Egg · Base",
+      "species_slug": "discovery-ordinary",
+      "potion_slug": "base",
       "tier": "ordinary",
       "egg_item": {
         "id": 3,
@@ -30,6 +32,8 @@
     {
       "key": "discovery-other-egg:base",
       "name": "Discovery Other Egg · Base",
+      "species_slug": "discovery-other",
+      "potion_slug": "base",
       "tier": "ordinary",
       "egg_item": {
         "id": 4,
@@ -56,6 +60,8 @@
     {
       "key": "discovery-rare-egg:base",
       "name": "Discovery Rare Egg · Base",
+      "species_slug": "discovery-rare",
+      "potion_slug": "base",
       "tier": "rare",
       "egg_item": {
         "id": 5,
@@ -84,6 +90,8 @@
     {
       "id": 1,
       "offer_key": "discovery-ordinary-egg:base",
+      "species_slug": "discovery-ordinary",
+      "potion_slug": "base",
       "name": "Discovery Ordinary Egg · Base",
       "tier": "ordinary",
       "egg_item": {

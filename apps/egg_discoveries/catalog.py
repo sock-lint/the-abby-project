@@ -9,7 +9,7 @@ from apps.pets.models import PetIncubation, UserMount, UserPet
 from apps.pets.roster import prepared_family
 from apps.quests.activity import household_timezone
 from apps.rpg.catalog_support import available_pet_pairs, egg_species, item_is_available
-from apps.rpg.models import ItemDefinition, UserInventory
+from apps.rpg.models import ItemDefinition
 
 from .models import EggDiscovery
 
@@ -85,6 +85,7 @@ class Offer:
     def public(self):
         return {
             "key": self.key, "name": f"{egg_name(self.egg)} · {self.potion.potion_type.name}",
+            "species_slug": self.egg.pet_species.slug, "potion_slug": self.potion.potion_type.slug,
             "tier": self.tier,
             "egg_item": {"id": self.egg.pk, "name": egg_name(self.egg), "icon": self.egg.icon, "sprite_key": self.egg.sprite_key},
             "potion_name": self.potion.potion_type.name,
@@ -109,7 +110,7 @@ class Offer:
 
 
 def offers_for(user):
-    """Return current offers without creating progress or changing catalog rows."""
+    """Project current offers; ``None`` inspects global rollout readiness only."""
     pairs = available_pet_pairs()
     items = list(ItemDefinition.objects.filter(item_type__in=["egg", "potion", "food"]).select_related("pet_species", "potion_type"))
     eggs = [item for item in items if item.item_type == "egg" and item.slug and item.pet_species_id and isinstance(item.metadata, dict)
@@ -118,13 +119,14 @@ def offers_for(user):
                and isinstance(item.metadata, dict) and item_is_available(item)]
     foods = sorted((item for item in items if item.item_type == "food" and item.rarity == "common" and item_is_available(item)),
                    key=lambda item: (item.slug or "", item.pk))
-    accepted = set(EggDiscovery.objects.filter(user=user).values_list("species_id", "potion_type_id"))
-    owned = set(UserPet.objects.filter(user=user).values_list("species_id", "potion_id"))
-    owned.update(UserMount.objects.filter(user=user).values_list("species_id", "potion_id"))
-    pending = set(PetIncubation.objects.filter(user=user, hatched_at__isnull=True).values_list("species_id", "potion_type_id"))
-    held_eggs = set(UserInventory.objects.filter(user=user, quantity__gt=0, item__item_type="egg").values_list("item__pet_species_id", flat=True))
-    hatched = hatched_species_count(user)
-    today = timezone.localdate(timezone=household_timezone(user))
+    accepted, owned, pending = set(), set(), set()
+    if user is not None:
+        accepted = set(EggDiscovery.objects.filter(user=user).values_list("species_id", "potion_type_id"))
+        owned = set(UserPet.objects.filter(user=user).values_list("species_id", "potion_id"))
+        owned.update(UserMount.objects.filter(user=user).values_list("species_id", "potion_id"))
+        pending = set(PetIncubation.objects.filter(user=user, hatched_at__isnull=True).values_list("species_id", "potion_type_id"))
+    hatched = hatched_species_count(user) if user is not None else 2
+    today = timezone.localdate(timezone=household_timezone(user)) if user is not None else timezone.localdate()
     result = []
     for egg in eggs:
         for potion in potions:
@@ -141,8 +143,6 @@ def offers_for(user):
                 reason = "You have already hatched this companion."
             if not reason and pair in pending:
                 reason = "This companion is already in your Hatchery."
-            if not reason and egg.pet_species_id in held_eggs:
-                reason = "You already have an egg for this companion."
             if not reason and food is None:
                 reason = "The hatching supplies for this discovery are unavailable."
             if not reason and tier == "rare" and hatched < 2:

@@ -12,7 +12,7 @@ export default function EggDiscoveryCard({ refreshKey }) {
   const active = state.data.discoveries.find((row) => row.id === state.data.active_id && row.status === 'active');
   return <ParchmentCard>
     <section aria-label="Your egg discovery" className="space-y-3">
-      <p className="text-caption font-semibold text-sheikah-teal-deep">Egg discovery preview</p>
+      <p className="text-caption font-semibold text-sheikah-teal-deep">Your chosen egg</p>
       <ErrorAlert message={state.error} onRetry={state.reload} />
       {active ? <>
         <div className="flex items-center gap-3"><CatalogIcon spriteKey={active.egg_item?.sprite_key} icon={active.egg_item?.icon || '🥚'} size={40} alt="Egg" /><h2 className="font-semibold text-lede text-ink-primary break-words">{active.name}</h2></div>

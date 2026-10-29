@@ -19,6 +19,27 @@ function setup(initial = buildEggEnvelope(), account = buildUser({ family: { id:
 }
 
 describe('Egg discovery preview', () => {
+  it('keeps other eggs behind a deliberate switch and saves the previous discovery when choosing one', async () => {
+    const active = buildEggDiscovery();
+    const other = buildEggOffer({ key: 'bee-base', name: 'Bee Egg' });
+    const state = setup(buildEggEnvelope({ active_id: active.id, discoveries: [active], offers: [buildEggOffer(), other] }));
+    const selections = [];
+    server.use(http.post('*/api/egg-discoveries/select/', async ({ request }) => {
+      selections.push(await request.json());
+      const next = buildEggEnvelope({ active_id: 2, discoveries: [{ ...active, status: 'paused', can_resume: true }, buildEggDiscovery({ id: 2, offer_key: other.key, key: other.key, name: other.name })], offers: [other] });
+      state.set(next);
+      return HttpResponse.json(next);
+    }));
+    const { user } = renderWithProviders(<EggDiscoveryPanel />);
+    await screen.findByRole('region', { name: 'Your active egg discovery' });
+    expect(screen.getByRole('button', { name: 'Choose Bee Egg' })).not.toBeVisible();
+    await user.click(screen.getByText('Choose another egg'));
+    await user.click(screen.getByRole('button', { name: 'Choose Bee Egg' }));
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Your active egg discovery' })).toHaveTextContent('Bee Egg'));
+    expect(screen.getByRole('region', { name: 'Paused egg discoveries' })).toHaveTextContent('60 of 240 minutes recorded');
+    expect(selections).toEqual([{ offer_key: 'bee-base', client_request_id: expect.any(String) }]);
+  });
+
   it('stays hidden when disabled and makes no discovery requests in parent Family space', async () => {
     const state = setup({ enabled: false, offers: [], discoveries: [], active_id: null });
     const first = renderWithProviders(<EggDiscoveryPanel />);

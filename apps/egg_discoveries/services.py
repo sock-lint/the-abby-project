@@ -5,7 +5,6 @@ from datetime import date
 import random
 from uuid import UUID
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -20,15 +19,12 @@ from apps.rpg.models import ItemDefinition
 from .catalog import offers_for
 from .engine import CATEGORIES, ordinary_complete, rare_search_capacity
 from .models import DiscoveryActivityCredit, DiscoveryRequest, DiscoverySearch, EggDiscovery, PracticeSession
+from .policy import discovery_enabled as enabled
 
 
 class DiscoveryConflict(APIException):
     status_code = 409
     default_code = "egg_discovery_conflict"
-
-
-def enabled():
-    return getattr(settings, "EGG_DISCOVERY_ENABLED", False) is True
 
 
 def _require_enabled():
@@ -87,6 +83,10 @@ def discovery_payload(discovery):
     )
     return {
         "id": discovery.pk, "offer_key": discovery.offer_key,
+        # Earlier accepted preview snapshots did not have these optional
+        # navigation identities. Their protected FK bindings remain authoritative.
+        "species_slug": snapshot.get("species_slug") or discovery.species.slug,
+        "potion_slug": snapshot.get("potion_slug") or discovery.potion_type.slug,
         **{key: deepcopy(snapshot[key]) for key in ("name", "tier", "egg_item", "potion_name", "season", "requirements")},
         "status": discovery.status, "minutes": {category: discovery.minutes.get(category, 0) for category in CATEGORIES},
         "searches": searches, "receipt": deepcopy(discovery.reward_receipt),
@@ -100,7 +100,7 @@ def envelope(user):
     """A projection only: no acceptance, retries, rolls or reward processing."""
     if not enabled():
         return {"enabled": False, "offers": [], "discoveries": [], "active_id": None}
-    rows = list(EggDiscovery.objects.filter(user=user).prefetch_related("searches"))
+    rows = list(EggDiscovery.objects.filter(user=user).select_related("species", "potion_type").prefetch_related("searches"))
     return {
         "enabled": True, "offers": [offer.public() for offer in offers_for(user)],
         "discoveries": [discovery_payload(row) for row in rows],

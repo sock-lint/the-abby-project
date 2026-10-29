@@ -55,6 +55,20 @@ class DiscoveryTests(TestCase):
     def quantities(self):
         return dict(UserInventory.objects.filter(user=self.child).values_list("item_id", "quantity"))
 
+    def test_legacy_egg_without_potion_can_earn_a_complete_discovery_package(self):
+        pair = self.catalog.ordinary
+        UserInventory.objects.create(user=self.child, item=pair.egg, quantity=1)
+        self.assertTrue(next(row for row in envelope(self.child)["offers"] if row["key"] == pair.key)["eligible"])
+        discovery = self.select(pair)
+        self.credit("reading", 150)
+        self.credit("practice", 90)
+        discovery.refresh_from_db()
+        self.assertEqual(discovery.status, "completed")
+        self.assertEqual(self.quantities(), {pair.egg.pk: 2, self.catalog.potion.pk: 1, self.catalog.food.pk: 2})
+        self.assertEqual(discovery.snapshot["species_slug"], pair.species.slug)
+        self.assertEqual(discovery.snapshot["potion_slug"], "base")
+        self.assertFalse(next(row for row in envelope(self.child)["offers"] if row["key"] == pair.key)["eligible"])
+
     def test_disabled_flag_is_empty_authenticated_read_and_no_progress_or_mutation(self):
         with override_settings(EGG_DISCOVERY_ENABLED=False):
             response = self.client.get("/api/egg-discoveries/")
@@ -298,12 +312,8 @@ class DiscoveryTests(TestCase):
                     self.select()
         self.assertFalse(EggDiscovery.objects.exists())
 
-    def test_owned_pending_and_inventory_pairs_cannot_start_duplicate_discovery(self):
+    def test_owned_and_pending_pairs_cannot_start_duplicate_discovery(self):
         pair = self.catalog.ordinary
-        inventory = UserInventory.objects.create(user=self.child, item=pair.egg, quantity=1)
-        with self.assertRaises(DiscoveryConflict):
-            self.select()
-        inventory.delete()
         mount = UserMount.objects.create(user=self.child, species=pair.species, potion=self.catalog.base)
         with self.assertRaises(DiscoveryConflict):
             self.select()

@@ -21,6 +21,14 @@ backend's older omitted-price normalization stays compatible.
 
 ## Available offers and earlier promises (October 2026)
 
+With Egg Discovery enabled, new digital-item/combined egg offers are unavailable
+through the shared `reward_is_available` policy and active-offer validation.
+Child and parent My space shops, wishlists, suggestions and direct redemption
+requests cannot spend Coins or reserve stock for them. Family management keeps
+the existing offer for retirement. Earlier frozen paid egg promises still
+approve/deliver exactly once after the switch or an offer edit; no inventory,
+ledger or reserved stock is rewritten. Real-world-only rewards remain available.
+
 The owner-authorized prelaunch retirement is an exact, one-time exception to
 ordinary promise preservation. Before deleting matching obsolete redemptions,
 it refunds the net actually recorded Coin hold for pending/approved undelivered

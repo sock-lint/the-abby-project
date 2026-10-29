@@ -1,9 +1,10 @@
-# Egg discovery preview
+# Egg discoveries
 
 Egg discoveries let you choose one egg to work toward through reading or
-listening, movement, and making or practice. This is an optional preview; it
-is not yet the normal way to earn creatures. If the preview is unavailable,
-your existing challenges, inventory and Hatchery continue working as before.
+listening, movement, and making or practice. When discoveries are available,
+they replace new system egg challenges, random eggs, shop eggs and expedition
+egg rolls. Food, potions, Coins and other rewards keep their normal sources.
+If discoveries are unavailable, the earlier earning rules remain in place.
 
 ## Choose an egg
 
@@ -12,7 +13,7 @@ egg to see its requirements. Only one discovery is active at a time. Choosing
 another pauses the previous one and saves its progress. Resume a paused
 discovery whenever you want to continue it.
 
-An egg may be unavailable because you already have it or its companion, it is
+An egg may be unavailable because you already earned its discovery or companion, it is
 incubating, its seasonal start window is closed, or you have not yet unlocked
 rare discoveries. The page explains the reason. Rare discoveries require
 hatching two different companion species; two appearances of one species
@@ -30,7 +31,7 @@ earned; movement can advance an egg after its daily XP allowance is used.
 
 Use **Log making or practice** for activities such as drawing, building or
 music practice. Enter the activity name and minutes. You do not need to create
-a project or ask a parent to assign its reward. This preview log contributes
+a project or ask a parent to assign its reward. This activity log contributes
 egg progress; it does not add another Coin or XP reward.
 
 Short sessions add together. Longer sessions contribute more minutes. There
@@ -86,6 +87,21 @@ stay saved. Use **Try delivery again** when available. This retries the same
 earned egg without another search or additional activity; viewing the page
 does not retry delivery.
 
-The preview does not remove previously accepted challenges or other existing
-egg sources. Those need a separate transition before discoveries become the
-normal collection system.
+## Earlier rewards and supplies
+
+Open **Earlier egg rewards** in Challenges to continue an already accepted
+egg challenge or campaign. Its original terms and rewards remain saved; an
+eligible saved retry also keeps its earlier promise. New system egg challenges
+and later unaccepted recurring egg windows stop opening. Parent goals and
+other bonuses stay separate. Today keeps the chosen discovery as the egg focus.
+
+Eggs and potions you already own still work in the Hatchery. Paid shop requests
+and already rolled expedition loot keep their saved ingredients. Unopened
+Mystery Boxes keep their item effect but draw from the current non-egg pool;
+an empty eligible pool leaves the box unspent.
+
+Owning an older egg without its potion does not block discovery. You can earn
+the complete package once for an unhatched appearance, even if that leaves an
+extra egg. An appearance already incubating, hatched or discovered cannot start
+another discovery. There is no automatic starter gift: Chick is an ordinary
+choice, and rare discoveries unlock after two different species hatch.

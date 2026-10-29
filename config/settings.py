@@ -131,8 +131,9 @@ DEV_TOOLS_ENABLED = os.environ.get(
     "DEV_TOOLS_ENABLED", "False"
 ).lower() in ("true", "1", "yes")
 
-# The first discovery release is a reviewable preview. Keep the production
-# economy on its existing rules until prospective egg sources are transitioned.
+# Enables the prospective egg-source transition together with discoveries.
+# Owned ingredients and accepted challenge/trip/shop promises remain usable.
+# Deploy this revision to every writer before changing the release setting.
 EGG_DISCOVERY_ENABLED = os.environ.get("EGG_DISCOVERY_ENABLED", "False").lower() in ("true", "1", "yes")
 # Exact offer keys may receive reviewed inclusive family-local start windows.
 # Accepted discoveries freeze that window and have no completion deadline.

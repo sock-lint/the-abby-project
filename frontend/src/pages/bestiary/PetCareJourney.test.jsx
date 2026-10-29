@@ -41,6 +41,22 @@ function setup({ pets = [], inventory = [] } = {}) {
 }
 
 describe('Pet care journey', () => {
+  it.each([{ name: 'empty inventory', inventory: [] }, { name: 'earlier egg without potion', inventory: [egg] }])('guides an enabled child to discovery while preserving existing supplies: $name', async ({ inventory }) => {
+    setup({ inventory });
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({ egg_discovery_enabled: true, species: [{ ...species, available_potions: [potion] }] })));
+    const mutation = spyHandler('post', /\/api\/pets\//, {});
+    server.use(mutation.handler);
+    const { user } = renderWithProviders(<><Hatchery /><Location /></>, { withAuth: false });
+    const guide = await screen.findByRole('region', { name: 'Find hatching supplies' });
+    await waitFor(() => expect(within(guide).getByText(/Each discovery includes its egg, a compatible potion and starter food/)).toBeInTheDocument());
+    expect(guide).toHaveTextContent('Supplies you already own and saved earlier rewards still work here.');
+    expect(within(guide).queryByRole('link', { name: 'View challenge rewards' })).toBeNull();
+    if (inventory.length) expect(screen.getByRole('button', { name: 'Select Bat Egg' })).toBeInTheDocument();
+    await user.click(within(guide).getByRole('link', { name: 'Choose an egg discovery' }));
+    expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/quests?tab=trials');
+    expect(mutation.calls).toHaveLength(0);
+  });
+
   it.each([{ name: 'empty inventory', inventory: [] }, { name: 'egg without potion', inventory: [egg] }])('connects missing hatching supplies to challenge rewards without spending ingredients: $name', async ({ inventory }) => {
     setup({ inventory });
     const mutation = spyHandler('post', /\/api\/pets\//, {});

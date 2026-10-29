@@ -88,8 +88,7 @@ function EggDiscoveryWorkspace({ refreshKey }) {
   return <ParchmentCard>
     <section aria-labelledby="egg-discovery-heading" className="space-y-4">
       <div><h2 id="egg-discovery-heading" className="font-display font-bold text-lede text-ink-primary">Egg discoveries</h2>
-        <p className="text-caption font-semibold text-sheikah-teal-deep">Preview</p>
-        <p className="text-body text-ink-secondary">Choose one egg to work toward through reading, movement, and making or practice. Your existing challenges continue separately during this preview.</p>
+        <p className="text-body text-ink-secondary">Choose one egg to work toward through reading, movement, and making or practice. Each discovery includes a compatible potion and starter food. Your saved earlier egg rewards remain available below.</p>
       </div>
       <ErrorAlert message={state.error} onRetry={state.reload} />
       {!practiceOpen && <ErrorAlert message={state.actionError} />}
@@ -123,13 +122,15 @@ function EggDiscoveryWorkspace({ refreshKey }) {
         </section>)}
       </details>}
       {state.enabled && <section aria-label="Available egg discoveries" className="space-y-3">
-        <h3 className="font-semibold text-body text-ink-primary">Choose an egg</h3>
+        <details key={active?.id ?? 'choose'} open={active ? undefined : true} className="space-y-3">
+        <summary className="min-h-11 cursor-pointer font-semibold text-body text-ink-primary">{active ? 'Choose another egg' : 'Choose an egg'}</summary>
         {active && <p className="text-caption text-ink-secondary">Choosing another egg pauses your current discovery and saves its progress. Recorded minutes stay with the egg they helped.</p>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{offers.map((offer) => <div key={offer.key} className="rounded-xl border border-ink-page-shadow p-3 space-y-3"><EggIdentity discovery={offer} /><DiscoveryRequirements requirements={offer.requirements} /><Season season={offer.season} />
           {!offer.eligible && <p className="text-caption text-ink-secondary">{unavailableMessage(offer.unavailable_reason)}</p>}
           <Button variant="secondary" disabled={blocked || !offer.eligible} onClick={() => state.select(offer.key)}>Choose {offer.name}</Button>
         </div>)}</div>
         {!offers.length && <p className="text-caption text-ink-secondary">No other eggs are available to start right now.</p>}
+        </details>
       </section>}
       {practiceOpen && <PracticeForm state={state} onClose={() => setPracticeOpen(false)} />}
     </section>
