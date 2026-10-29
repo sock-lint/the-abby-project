@@ -7,6 +7,8 @@ import hashlib
 import json
 from types import MappingProxyType
 
+from django.db.models import Q
+
 from apps.achievements.availability import BadgeGoalAvailability
 from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies
@@ -28,8 +30,11 @@ def taxonomy_source_overrides():
     consumer needs an author's family, publication or replacement values.
     Database JSON equality also keeps boolean versions distinct from version 1.
     """
+    # Deleted targets retain their historical provenance, but no installed
+    # resolver can consume it. Exclude it before applying live catalog limits.
     return RPGContentOverride.objects.filter(
-        model_label__in=(SkillCategory._meta.label_lower, Skill._meta.label_lower),
+        Q(model_label=SkillCategory._meta.label_lower, object_id__in=SkillCategory.objects.values("pk"))
+        | Q(model_label=Skill._meta.label_lower, object_id__in=Skill.objects.values("pk")),
         values___authoring={"version": 1, "source": "mcp"},
     ).order_by("pk")
 
