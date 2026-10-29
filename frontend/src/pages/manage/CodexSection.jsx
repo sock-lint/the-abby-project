@@ -28,6 +28,13 @@ const SECTIONS = [
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 const ACTIVE_SECTION_KEY = 'manage:codex:active-section';
 
+// These payout versions remain valid rewards and owned inventory, but the
+// artwork catalog shows only the seven original pouch designs.
+const HIDDEN_POUCH_ARTWORK_SLUGS = new Set([
+  'pouch-small-v2', 'pouch-rupee-v2', 'pouch-medium-v2', 'pouch-large-v2',
+  'pouch-gold-v2', 'pouch-treasure-v2', 'pouch-mega-v2',
+]);
+
 const RARITY_ORDER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
 
 const ITEM_TYPE_LABELS = {
@@ -351,7 +358,9 @@ export default function CodexSection() {
   const { data: speciesData, loading: speciesLoading, error: speciesError } = useApi(getPetSpeciesCatalog);
   const { data: questsData, loading: questsLoading, error: questsError } = useApi(getQuestCatalog);
 
-  const items = normalizeList(itemsData);
+  const items = normalizeList(itemsData).filter((item) => (
+    item.item_type !== 'coin_pouch' || !HIDDEN_POUCH_ARTWORK_SLUGS.has(item.slug)
+  ));
   const species = normalizeList(speciesData);
   const quests = normalizeList(questsData);
 
@@ -395,9 +404,8 @@ export default function CodexSection() {
     <div className="space-y-6">
       <ParchmentCard>
         <p className="text-sm text-ink-secondary">
-          Behind-the-scenes audit of every RPG entry currently loaded from{' '}
-          <code className="text-xs px-1.5 py-0.5 bg-ink-page-aged rounded">content/rpg/</code>{' '}
-          YAML. The kids discover these organically — this page is for your reference only.
+          Browse RPG artwork and content for reference. Kids discover these items,
+          creatures and challenges as they use Abby.
         </p>
       </ParchmentCard>
 
