@@ -13,8 +13,8 @@ export default function useChallenges({ userId, refreshKey } = {}) {
   const { isFamilySpace: isParent, space } = useSpace();
   const { pulse } = usePulse();
   const scope = `${user?.id}:${getToken()}:${space}:${userId || 'self'}`;
-  const fetch = useCallback(async () => ({
-    ...(user && (!isParent || userId) ? await getChallenges(userId) : { results: [], pin: null, daily_bonus: null }),
+  const fetch = useCallback(async (signal) => ({
+    ...(user && (!isParent || userId) ? await getChallenges(userId, signal) : { results: [], pin: null, daily_bonus: null }),
     _challengeScope: scope,
   }), [user, isParent, userId, scope]);
   const result = useApi(fetch, [scope, isParent, refreshKey, pulse]);
