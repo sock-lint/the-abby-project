@@ -308,6 +308,48 @@ describe('PulseProvider', () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
+  it('does not let a beat that began before a successful one seed a new failure run', async () => {
+    const INTERVAL = 30000;
+    let requests = 0;
+    let healthy = true;
+    let releaseHeld;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests === 1) {
+        await new Promise((resolve) => { releaseHeld = resolve; });
+        return failedBeat('html');
+      }
+      return healthy ? HttpResponse.json(pulseBody(4)) : failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(INTERVAL);
+    await waitFor(() => expect(requests).toBe(1));
+    const start = Date.now();
+    const advanceTo = async (t) => {
+      await act(async () => { await vi.advanceTimersByTimeAsync(Math.max(0, start + t - Date.now())); });
+    };
+    // Beats at 30s and 55s succeed; the beat held since t=0 then fails, and the
+    // service really goes down just before the 60s beat.
+    await advanceTo(30000);
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:4'));
+    await advanceTo(55000);
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await waitFor(() => expect(requests).toBe(3));
+    healthy = false;
+    await advanceTo(56000);
+    await act(async () => { releaseHeld(); });
+    await runBeat();
+    await advanceTo(59000);
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await runBeat();
+    await advanceTo(61000);
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await runBeat();
+    await waitFor(() => expect(requests).toBeGreaterThanOrEqual(10));
+    // The outage is two seconds old; the t=0 failure predates the last success.
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
   it('restarts the outage count after a beat succeeds', async () => {
     let requests = 0;
     // Two failed beats (four requests), one good beat, then failures again.

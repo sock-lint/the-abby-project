@@ -31,6 +31,9 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   // been reported. `beat` also runs from `refresh()` and on tab focus, so a
   // count alone says nothing about how long the outage has lasted.
   const failureRunRef = useRef(null);
+  // When the newest successful beat began: a failure from a request that began
+  // before it is stale and says nothing about the service now.
+  const lastSuccessBeganAtRef = useRef(0);
 
   const beat = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -42,6 +45,7 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
       if (!cancelledRef.current && accountRef.current === requestedAccount) {
         // A late answer for a previous account must not reset this one's run.
         failureRunRef.current = null;
+        lastSuccessBeganAtRef.current = Math.max(lastSuccessBeganAtRef.current, beganAt);
         setSavedPulse({ account: requestedAccount, data });
       }
     } catch (err) {
@@ -50,7 +54,8 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
       // longer than one beat's retry, so a transient failure is reported only
       // when it persists across several beats over a real stretch of time,
       // i.e. a real outage.
-      if (err?.deferredReport && accountRef.current === requestedAccount) {
+      if (err?.deferredReport && accountRef.current === requestedAccount
+        && beganAt >= lastSuccessBeganAtRef.current) {
         let run = failureRunRef.current;
         // Beats skipped while the tab was hidden leave a gap; failures on
         // either side of it are not one continuous outage.
@@ -81,6 +86,7 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
     }
     cancelledRef.current = false;
     failureRunRef.current = null;
+    lastSuccessBeganAtRef.current = 0;
     beat();
     const interval = setInterval(beat, intervalMs);
     const onVisibility = () => {
