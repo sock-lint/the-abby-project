@@ -234,6 +234,44 @@ describe('PulseProvider', () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
+  it('reports one continuous outage once even when an older beat fails late', async () => {
+    const INTERVAL = 30000;
+    let requests = 0;
+    let releaseHeld;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests === 1) await new Promise((resolve) => { releaseHeld = resolve; });
+      return failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderProvider(INTERVAL);
+    await waitFor(() => expect(requests).toBe(1));
+    const start = Date.now();
+    const advanceTo = async (t) => {
+      await act(async () => { await vi.advanceTimersByTimeAsync(Math.max(0, start + t - Date.now())); });
+    };
+    // Beats at 30s, 60s and 90s fail (two requests each) and report once.
+    for (let beat = 1; beat <= 3; beat += 1) {
+      await advanceTo(beat * INTERVAL);
+      await waitFor(() => expect(requests).toBe(1 + (beat - 1) * 2 + 1));
+      await runBeat();
+      await waitFor(() => expect(requests).toBe(1 + beat * 2));
+    }
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    // The beat held since t=0 finally fails, then the outage simply continues.
+    await advanceTo(95000);
+    await act(async () => { releaseHeld(); });
+    await runBeat();
+    await waitFor(() => expect(requests).toBe(8));
+    for (let beat = 4; beat <= 6; beat += 1) {
+      await advanceTo(beat * INTERVAL);
+      await waitFor(() => expect(requests).toBe(8 + (beat - 4) * 2 + 1));
+      await runBeat();
+      await waitFor(() => expect(requests).toBe(8 + (beat - 3) * 2));
+    }
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
   it('restarts the outage count after a beat succeeds', async () => {
     let requests = 0;
     // Two failed beats (four requests), one good beat, then failures again.

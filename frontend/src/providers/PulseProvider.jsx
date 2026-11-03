@@ -58,7 +58,10 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
           run = { count: 0, firstBeganAt: beganAt, lastBeganAt: beganAt, reported: false };
         }
         run.count += 1;
-        run.lastBeganAt = beganAt;
+        // Beats overlap (refresh, focus), so an older one can fail after newer
+        // ones; it must not rewind the run or the next beat would restart it.
+        run.firstBeganAt = Math.min(run.firstBeganAt, beganAt);
+        run.lastBeganAt = Math.max(run.lastBeganAt, beganAt);
         failureRunRef.current = run;
         const spanMs = beganAt - run.firstBeganAt;
         if (!run.reported && run.count >= PULSE_OUTAGE_BEATS && spanMs >= (PULSE_OUTAGE_BEATS - 1) * intervalMs) {
