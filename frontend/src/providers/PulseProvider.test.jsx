@@ -12,9 +12,9 @@ import { GATEWAY_RETRY_DELAY_MS } from '../api/client';
 import { PULSE_OUTAGE_BEATS } from './pulseContext';
 
 function Probe() {
-  const { pulse } = usePulse();
+  const { pulse, refresh } = usePulse();
   const { setUser } = useAuth();
-  return <><div data-testid="probe">{pulse ? `coins:${pulse.header.coin_balance}` : 'no-beat'}</div><button onClick={() => setUser(buildUser({ id: 22 }))}>Switch child</button></>;
+  return <><div data-testid="probe">{pulse ? `coins:${pulse.header.coin_balance}` : 'no-beat'}</div><button onClick={() => setUser(buildUser({ id: 22 }))}>Switch child</button><button onClick={() => refresh()}>Refresh pulse</button></>;
 }
 
 const pulseBody = (coins) => ({
@@ -166,6 +166,72 @@ describe('PulseProvider', () => {
     expect(error.message).toBe(message);
     expect(extra).toMatchObject({ attempts: 2, consecutiveFailedBeats: PULSE_OUTAGE_BEATS });
     expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
+  });
+
+  // THE-ABBY-PROJECT-43: `refresh()` (after a write) and tab focus start extra
+  // beats, so three failures can arrive within seconds of one deploy window.
+  it.each(['html', 'gateway'])('does not report %s failures that pile up from refreshes within one beat interval', async (kind) => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return failedBeat(kind);
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(30000);
+    await waitFor(() => expect(requests).toBe(1));
+    await runBeat();
+    await waitFor(() => expect(requests).toBe(2));
+    for (let refresh = 1; refresh <= PULSE_OUTAGE_BEATS; refresh += 1) {
+      await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+      await waitFor(() => expect(requests).toBe(2 + (refresh - 1) * 2 + 1));
+      await runBeat();
+      await waitFor(() => expect(requests).toBe(2 + refresh * 2));
+    }
+    // Four failed beats, none more than a few seconds apart: still one deploy.
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports the outage once it has lasted the full span, even after early refreshes', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(BEAT_MS);
+    await waitFor(() => expect(requests).toBe(1));
+    await runBeat();
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await waitFor(() => expect(requests).toBe(3));
+    await runBeat();
+    // Three failed beats so far, but only a few seconds old.
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(BEAT_MS * 2); });
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+    expect(Sentry.captureException.mock.calls[0][1].extra.failingForMs).toBeGreaterThanOrEqual((PULSE_OUTAGE_BEATS - 1) * BEAT_MS);
+  });
+
+  it('does not join a failure from before a long hidden-tab gap to later ones', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(BEAT_MS);
+    await waitFor(() => expect(requests).toBe(1));
+    await runBeat();
+    // The tab is hidden for an hour (no beats), then two refreshes fail.
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60 * 60 * 1000); });
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    const before = requests;
+    for (let refresh = 0; refresh < 2; refresh += 1) {
+      await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+      await waitFor(() => expect(requests).toBe(before + refresh * 2 + 1));
+      await runBeat();
+    }
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it('restarts the outage count after a beat succeeds', async () => {
