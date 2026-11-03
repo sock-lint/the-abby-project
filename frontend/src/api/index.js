@@ -705,7 +705,10 @@ export const getDailyChallenge = () => api.get('/challenges/daily/');
 export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 
 // Automatic challenge goals and the child's saved focus.
-export const getChallenges = (userId) => api.get(`/challenges/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`);
+// retryGateway: a deploy window can answer this boot-time read with an HTML 200
+// (THE-ABBY-PROJECT-41); useApi reports it only if a delayed second try fails.
+export const getChallenges = (userId, signal) =>
+  api.get(`/challenges/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`, { retryGateway: true, signal });
 export const createChallengeGoal = (data) => withParentReviewRefresh(api.post('/challenges/goals/', data));
 export const retryChallenge = (id, options) => api.post(`/challenges/${encodeURIComponent(id)}/retry/`, {}, options);
 export const updateChallengeSchedule = (id, data, options) =>

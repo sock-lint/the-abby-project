@@ -62,7 +62,7 @@ describe('Automatic challenges', () => {
       http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7 })])),
       http.get('*/api/challenges/', () => ++reads === 1
         ? HttpResponse.json({ results: [goal], pin: null, daily_bonus: null })
-        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 503 })),
+        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 500 })),
     );
     const conflict = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => HttpResponse.json({ error: 'Saved revision changed.' }, { status: 409 }));
     server.use(conflict.handler);
@@ -106,7 +106,7 @@ describe('Automatic challenges', () => {
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/challenges/', () => ++reads === 1
         ? HttpResponse.json({ results: [expired], pin: expired.id, daily_bonus: null })
-        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 503 })),
+        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 500 })),
     );
     const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, fresh);
     server.use(retry.handler);
@@ -166,7 +166,7 @@ describe('Automatic challenges', () => {
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/challenges/', () => ++reads === 1
         ? HttpResponse.json({ results: [expired], pin: null, daily_bonus: null })
-        : HttpResponse.json({ error: 'Reward status refresh unavailable.' }, { status: 503 })),
+        : HttpResponse.json({ error: 'Reward status refresh unavailable.' }, { status: 500 })),
     );
     const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, () => HttpResponse.json(retryUnavailableError, { status: 409 }));
     server.use(retry.handler);
