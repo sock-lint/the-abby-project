@@ -57,6 +57,15 @@ def single_inspect(value):
     return value
 
 
+def _endpoint_ipam(value):
+    """Only the known absent-request null/empty-object representation varies."""
+    if value is None:
+        return {}
+    if type(value) is not dict or set(value) - {"IPv4Address", "IPv6Address", "LinkLocalIPs"}:
+        raise ValueError("unsupported requested endpoint IPAM")
+    return copy.deepcopy(value)
+
+
 def contract(value):
     """Keep all Config/HostConfig; omit only Engine-generated runtime identity.
 
@@ -91,6 +100,8 @@ def contract(value):
     for name, settings in value["NetworkSettings"]["Networks"].items():
         networks[name] = {key: copy.deepcopy(item) for key, item in settings.items()
                           if key not in generated_endpoint_fields}
+        if "IPAMConfig" in networks[name]:
+            networks[name]["IPAMConfig"] = _endpoint_ipam(networks[name]["IPAMConfig"])
     host_config = copy.deepcopy(value["HostConfig"])
     for field in ("Binds", "Mounts", "VolumesFrom", "CapAdd", "CapDrop", "SecurityOpt",
                   "GroupAdd", "Devices", "DeviceRequests", "Ulimits", "MaskedPaths", "ReadonlyPaths"):

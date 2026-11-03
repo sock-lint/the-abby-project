@@ -24,15 +24,18 @@ import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
 
 
 CHECKOUT_ROOT = Path(__file__).resolve().parents[3]
 HELPER_PATH = "scripts/operations/coolify_helper"
 SOURCE_FIELDS = {"head", "root_tree", "helper_subtree", "expected_base"}
 FINDINGS = {"H1", "H2", "M1", "M2", "M3", "M4", "M5",
-            "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5"}
+            "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1"}
 CHECKS = {"Frontend validation", "Backend validation", "API fixtures", "deployment-guards"}
 BUILD_INPUTS = {"Dockerfile", "apply_patch.php", "helper_retry.php"}
+OPERATOR_TOOLS = {"verify_reviewed_source.py", "verify_startup_graph.py", "capture_activation_contract.py",
+                  "compose_contract_projection.py", "verify_activation_contract.py", "trusted_operator_loader.py"}
 MAX_MANIFEST_BYTES = 1024 * 1024
 MAX_CONTEXT_BYTES = 64 * 1024 * 1024
 
@@ -84,14 +87,32 @@ def _unique_object(pairs):
     return result
 
 
+def _validate_operator_tools(value):
+    _object(value, OPERATOR_TOOLS, "invalid_operator_tools")
+    for digest in value.values():
+        _hex(digest, 64, "invalid_operator_tool_digest")
+    return value
+
+
+def validate_executed_tool_binding(operator_tools, entry_sha, loader_sha):
+    """Bind already captured executable bytes to this exact manifest."""
+    _validate_operator_tools(operator_tools)
+    _hex(entry_sha, 64, "invalid_executed_entry_digest")
+    _hex(loader_sha, 64, "invalid_executed_loader_digest")
+    if (entry_sha != operator_tools["verify_reviewed_source.py"] or
+            loader_sha != operator_tools["trusted_operator_loader.py"]):
+        raise VerificationError("executed_operator_tool_binding_mismatch")
+
+
 def _validate_manifest(manifest):
-    _object(manifest, {"schema_version", "source", "build_inputs", "canonical_tar_sha256", "independent_review", "main_review", "hosted_ci", "all_source_gates_clear"}, "invalid_manifest_schema")
-    if type(manifest["schema_version"]) is not int or manifest["schema_version"] != 3:
+    _object(manifest, {"schema_version", "source", "build_inputs", "operator_tools", "canonical_tar_sha256", "independent_review", "main_review", "hosted_ci", "all_source_gates_clear"}, "invalid_manifest_schema")
+    if type(manifest["schema_version"]) is not int or manifest["schema_version"] != 4:
         raise VerificationError("unsupported_manifest_version")
     source = _source(manifest["source"], "invalid_source_binding")
     _object(manifest["build_inputs"], BUILD_INPUTS, "invalid_build_inputs")
     for digest in manifest["build_inputs"].values():
         _hex(digest, 64, "invalid_build_input_digest")
+    _validate_operator_tools(manifest["operator_tools"])
     _hex(manifest["canonical_tar_sha256"], 64, "invalid_canonical_tar_digest")
     if manifest["all_source_gates_clear"] is not True:
         raise VerificationError("source_gates_not_clear")
@@ -182,6 +203,17 @@ def _safe_repository(repo):
     if any(entry and (entry[0].islower() or entry[0] == "S") for entry in
            _git(repo, "ls-files", "-v", "-z").stdout.split("\0")):
         raise VerificationError("unsafe_git_index_flags")
+    _require_no_ignored_helper_files(_git(repo, "ls-files", "--others", "--ignored", "--exclude-standard", "-z",
+                                        "--", HELPER_PATH, binary=True).stdout)
+
+
+def _require_no_ignored_helper_files(inventory):
+    if type(inventory) is not bytes:
+        raise VerificationError("helper_inventory_unavailable")
+    if inventory:
+        # Preserve all files, including an owner's existing __pycache__. The
+        # owner must retain them outside the checkout before source verification.
+        raise VerificationError("ignored_helper_files_present")
 
 
 def _blob_id(payload):
@@ -266,8 +298,9 @@ def _capture_canonical_tar(directory):
     return _canonical_tar(inventory)
 
 
-def verify_canonical_tar(payload, expected_tree, expected_inputs):
+def verify_canonical_tar(payload, expected_tree, expected_inputs, expected_operator_tools):
     """Validate the actual captured archive without extracting any member."""
+    _validate_operator_tools(expected_operator_tools)
     inventory, directories, names = {}, set(), set()
     if type(payload) is not bytes or len(payload) > MAX_CONTEXT_BYTES + 4 * 1024 * 1024:
         raise VerificationError("invalid_canonical_tar")
@@ -304,6 +337,9 @@ def verify_canonical_tar(payload, expected_tree, expected_inputs):
     for name, expected in expected_inputs.items():
         if name not in inventory or hashlib.sha256(inventory[name][1]).hexdigest() != expected:
             raise VerificationError("tar_build_input_mismatch")
+    for name, expected in expected_operator_tools.items():
+        if name not in inventory or hashlib.sha256(inventory[name][1]).hexdigest() != expected:
+            raise VerificationError("tar_operator_tool_mismatch")
     if _canonical_tar(inventory) != payload:
         raise VerificationError("noncanonical_tar_bytes")
 
@@ -324,13 +360,53 @@ def _docker(args, payload=None):
     return result
 
 
+def parse_built_image_id(payload):
+    """Parse one canonical immutable identifier without accepting a tag."""
+    if type(payload) is not bytes or re.fullmatch(rb"sha256:[0-9a-f]{64}\n?", payload) is None:
+        raise VerificationError("invalid_built_image_id")
+    return payload.decode("ascii").rstrip("\n")
+
+
+def _inspected_image(raw):
+    try:
+        values = json.loads(raw, object_pairs_hook=_unique_object)
+    except (ValueError, UnicodeError):
+        raise VerificationError("built_image_inspection_unavailable") from None
+    if type(values) is not list or len(values) != 1 or type(values[0]) is not dict:
+        raise VerificationError("built_image_inspection_unavailable")
+    return values[0]
+
+
+def _capture_built_image_id(iid_path, tag):
+    iid_file = Path(iid_path)
+    status = iid_file.lstat()
+    if not stat.S_ISREG(status.st_mode) or status.st_uid != os.geteuid():
+        raise VerificationError("owned_build_iid_file_unavailable")
+    iid_file.chmod(0o600)
+    with iid_file.open("rb") as stream:
+        built_image_id = parse_built_image_id(stream.read(128))
+    # The IID file is authority. The mutable tag is only a consistency check.
+    immutable = _inspected_image(_docker(["image", "inspect", built_image_id]).stdout)
+    tagged = _inspected_image(_docker(["image", "inspect", tag]).stdout)
+    if immutable.get("Id") != built_image_id or tagged.get("Id") != built_image_id:
+        raise VerificationError("built_image_identity_inconsistent")
+    return built_image_id
+
+
 def _build_candidate(tag, canonical_tar, verified_head):
     _candidate_tag(tag)
     _hex(verified_head, 40, "invalid_candidate_source_head")
     if _docker(["image", "ls", "--quiet", "--no-trunc", "--filter", "reference=" + tag]).stdout.strip():
         raise VerificationError("candidate_tag_already_exists")
-    _docker(["build", "--network=none", "--pull=false", "--label",
-             "lol.bos.coolify-helper-patch.source-commit=" + verified_head, "--tag", tag, "-"], canonical_tar)
+    with tempfile.TemporaryDirectory(prefix="coolify-owned-build-iid-") as temporary:
+        directory = Path(temporary)
+        status = directory.lstat()
+        if not stat.S_ISDIR(status.st_mode) or status.st_uid != os.geteuid() or stat.S_IMODE(status.st_mode) != 0o700:
+            raise VerificationError("private_iid_directory_unavailable")
+        iid_file = directory / "image-id"
+        _docker(["build", "--network=none", "--pull=false", "--iidfile", str(iid_file), "--label",
+                 "lol.bos.coolify-helper-patch.source-commit=" + verified_head, "--tag", tag, "-"], canonical_tar)
+        return _capture_built_image_id(iid_file, tag)
 
 
 def _tree_id(directory):
@@ -351,8 +427,9 @@ def _tree_id(directory):
     return hashlib.sha1(b"tree " + str(len(payload)).encode() + b"\0" + payload, usedforsecurity=False).hexdigest()
 
 
-def verify_exported_context(directory, expected_tree, expected_inputs):
+def verify_exported_context(directory, expected_tree, expected_inputs, expected_operator_tools):
     """Compare an owned export with the attested tree and raw build inputs."""
+    _validate_operator_tools(expected_operator_tools)
     directory = Path(directory)
     if directory.is_symlink() or not directory.is_dir() or _tree_id(directory) != expected_tree:
         raise VerificationError("export_context_tree_mismatch")
@@ -360,9 +437,13 @@ def verify_exported_context(directory, expected_tree, expected_inputs):
         path = directory / name
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise VerificationError("export_build_input_mismatch")
+    for name, expected in expected_operator_tools.items():
+        path = directory / name
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise VerificationError("export_operator_tool_mismatch")
 
 
-def _export_context(repo, source, expected_inputs, destination):
+def _export_context(repo, source, expected_inputs, destination, expected_operator_tools):
     destination = Path(destination).absolute()
     resolved = destination.resolve()
     if resolved == repo or repo in resolved.parents:
@@ -401,7 +482,7 @@ def _export_context(repo, source, expected_inputs, destination):
             with path.open("xb") as stream:
                 stream.write(payload)
             path.chmod(0o755 if mode == "100755" else 0o644)
-        verify_exported_context(destination, source["helper_subtree"], expected_inputs)
+        verify_exported_context(destination, source["helper_subtree"], expected_inputs, expected_operator_tools)
     except BaseException:
         shutil.rmtree(destination)
         raise
@@ -430,6 +511,9 @@ def verify(manifest_path, expected_manifest_sha256, repo=CHECKOUT_ROOT, *, expor
     except (UnicodeError, ValueError, RecursionError) as error:
         raise VerificationError("invalid_manifest_json") from error
     expected = _validate_manifest(manifest)
+    validate_executed_tool_binding(manifest["operator_tools"],
+                                   globals().get("_TRUSTED_OPERATOR_ENTRY_SHA256"),
+                                   globals().get("_TRUSTED_OPERATOR_LOADER_SHA256"))
     repo = Path(repo).resolve()
     _safe_repository(repo)
     if _git(repo, "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none").stdout:
@@ -447,28 +531,30 @@ def verify(manifest_path, expected_manifest_sha256, repo=CHECKOUT_ROOT, *, expor
         raise VerificationError("helper_subtree_not_tree")
     if _git(repo, "merge-base", "--is-ancestor", actual["expected_base"], actual["head"], allow_failure=True).returncode:
         raise VerificationError("base_not_ancestor")
-    destination = _export_context(repo, actual, manifest["build_inputs"], export_context)
+    destination = _export_context(repo, actual, manifest["build_inputs"], export_context, manifest["operator_tools"])
+    built_image_id = None
     try:
         _safe_repository(repo)
         if (_git(repo, "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none").stdout or
                 _git(repo, "rev-parse", "HEAD").stdout.strip() != actual["head"] or
                 _git(repo, "rev-parse", "refs/remotes/origin/main").stdout.strip() != actual["expected_base"]):
             raise VerificationError("checkout_changed_during_export")
-        verify_exported_context(destination, actual["helper_subtree"], manifest["build_inputs"])
+        verify_exported_context(destination, actual["helper_subtree"], manifest["build_inputs"], manifest["operator_tools"])
         canonical_tar = _capture_canonical_tar(destination)
-        verify_canonical_tar(canonical_tar, actual["helper_subtree"], manifest["build_inputs"])
+        verify_canonical_tar(canonical_tar, actual["helper_subtree"], manifest["build_inputs"], manifest["operator_tools"])
         tar_digest = hashlib.sha256(canonical_tar).hexdigest()
         if tar_digest != manifest["canonical_tar_sha256"]:
             raise VerificationError("canonical_tar_digest_mismatch")
         if build_candidate_tag is not None:
-            _build_candidate(build_candidate_tag, canonical_tar, actual["head"])
+            built_image_id = _build_candidate(build_candidate_tag, canonical_tar, actual["head"])
     except BaseException:
         shutil.rmtree(destination)
         raise
-    return {"schema_version": 3, "verified": True, "manifest_sha256": actual_digest, "source": actual,
-            "exported_context_verified": True, "build_inputs": manifest["build_inputs"],
+    return {"schema_version": 4, "verified": True, "manifest_sha256": actual_digest, "source": actual,
+            "exported_context_verified": True, "build_inputs": manifest["build_inputs"], "operator_tools": manifest["operator_tools"],
             "canonical_tar_sha256": tar_digest, "canonical_tar_verified": True,
             "candidate_build_completed": build_candidate_tag is not None,
+            "built_image_id": built_image_id,
             "expected_image_patch_receipt": {"patcher_sha256": manifest["build_inputs"]["apply_patch.php"],
                                              "retry_source_sha256": manifest["build_inputs"]["helper_retry.php"]},
             "image_patch_receipt_verified": False, "all_source_gates_clear": True}
@@ -479,6 +565,13 @@ class _ArgumentParser(argparse.ArgumentParser):
         raise VerificationError("invalid_arguments")
 
 
+def _trusted_operator_entry():
+    if (sys.flags.isolated != 1 or sys.flags.no_site != 1 or
+            type(globals().get("_TRUSTED_OPERATOR_ENTRY_SHA256")) is not str or
+            re.fullmatch(r"[0-9a-f]{64}", globals()["_TRUSTED_OPERATOR_ENTRY_SHA256"]) is None):
+        raise VerificationError("trusted_operator_loader_required")
+
+
 def main(argv=None):
     parser = _ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--manifest", required=True)
@@ -487,14 +580,15 @@ def main(argv=None):
     parser.add_argument("--build-candidate-tag")
     try:
         args = parser.parse_args(argv)
+        _trusted_operator_entry()
         print(json.dumps(verify(args.manifest, args.expected_manifest_sha256, CHECKOUT_ROOT,
                                 export_context=args.export_context, build_candidate_tag=args.build_candidate_tag), sort_keys=True))
         return 0
     except VerificationError as error:
-        print(json.dumps({"schema_version": 3, "verified": False, "error": str(error)}, sort_keys=True))
+        print(json.dumps({"schema_version": 4, "verified": False, "error": str(error)}, sort_keys=True))
         return 1
     except (OSError, UnicodeError, RecursionError, ValueError):
-        print(json.dumps({"schema_version": 3, "verified": False, "error": "source_or_export_unavailable"}, sort_keys=True))
+        print(json.dumps({"schema_version": 4, "verified": False, "error": "source_or_export_unavailable"}, sort_keys=True))
         return 1
 
 

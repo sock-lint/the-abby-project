@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import verify_reviewed_source as guard
 
@@ -28,7 +28,7 @@ class ReviewedSourceTests(unittest.TestCase):
         self.git("config", "user.email", "operator@example.invalid")
         self.helper = self.repo / guard.HELPER_PATH
         self.helper.mkdir(parents=True)
-        for name in guard.BUILD_INPUTS:
+        for name in guard.BUILD_INPUTS | guard.OPERATOR_TOOLS:
             (self.helper / name).write_text(f"synthetic reviewed {name}\n")
         (self.helper / "nested").mkdir()
         executable = self.helper / "nested" / "checked.sh"
@@ -52,6 +52,13 @@ class ReviewedSourceTests(unittest.TestCase):
         }
         self.manifest_path = self.directory / "owner-held-manifest.json"
         self.export = self.directory / "operator-context"
+        trusted_markers = patch.multiple(
+            guard, create=True,
+            _TRUSTED_OPERATOR_ENTRY_SHA256=hashlib.sha256((self.helper / "verify_reviewed_source.py").read_bytes()).hexdigest(),
+            _TRUSTED_OPERATOR_LOADER_SHA256=hashlib.sha256((self.helper / "trusted_operator_loader.py").read_bytes()).hexdigest(),
+        )
+        trusted_markers.start()
+        self.addCleanup(trusted_markers.stop)
 
     def git(self, *args):
         env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
@@ -64,9 +71,10 @@ class ReviewedSourceTests(unittest.TestCase):
     def manifest(self):
         source = copy.deepcopy(self.source)
         return {
-            "schema_version": 3,
+            "schema_version": 4,
             "source": source,
             "build_inputs": {name: hashlib.sha256((self.helper / name).read_bytes()).hexdigest() for name in guard.BUILD_INPUTS},
+            "operator_tools": {name: hashlib.sha256((self.helper / name).read_bytes()).hexdigest() for name in guard.OPERATOR_TOOLS},
             "canonical_tar_sha256": hashlib.sha256(self.fixture_tar()).hexdigest(),
             "independent_review": {
                 "author_family": "codex", "reviewer_family": "claude", "verdict": "clean",
@@ -205,7 +213,7 @@ class ReviewedSourceTests(unittest.TestCase):
 
     def test_every_main_finding_requires_final_disposition_and_evidence(self):
         self.assertEqual(guard.FINDINGS, {"H1", "H2", "M1", "M2", "M3", "M4", "M5",
-                                         "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5"})
+                                         "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1"})
         for name in guard.FINDINGS:
             for mutation, code in [("pending", "main_finding_unresolved"), ("no_evidence", "main_finding_evidence_missing")]:
                 with self.subTest(finding=name, mutation=mutation):
@@ -256,7 +264,7 @@ class ReviewedSourceTests(unittest.TestCase):
         self.reject(value, "source_gates_not_clear")
 
     def test_duplicate_unknown_and_malformed_schema_fields_reject(self):
-        payload = json.dumps(self.manifest()).replace('"schema_version": 3', '"schema_version": 3, "schema_version": 3', 1).encode()
+        payload = json.dumps(self.manifest()).replace('"schema_version": 4', '"schema_version": 4, "schema_version": 4', 1).encode()
         digest = self.write_manifest(payload=payload)
         with self.assertRaisesRegex(guard.VerificationError, "duplicate_manifest_key"):
             guard.verify(self.manifest_path, digest, self.repo, export_context=self.export)
@@ -273,7 +281,7 @@ class ReviewedSourceTests(unittest.TestCase):
         value["independent_review"]["reviewer_family"] = private_marker
         digest = self.write_manifest(value)
         out, err = io.StringIO(), io.StringIO()
-        with patch.object(guard, "CHECKOUT_ROOT", self.repo), redirect_stdout(out), redirect_stderr(err):
+        with patch.object(guard, "CHECKOUT_ROOT", self.repo), patch.object(guard, "_trusted_operator_entry"), redirect_stdout(out), redirect_stderr(err):
             status = guard.main(["--manifest", str(self.manifest_path), "--expected-manifest-sha256", digest, "--export-context", str(self.export)])
         self.assertEqual(status, 1)
         self.assertFalse(json.loads(out.getvalue())["verified"])
@@ -403,7 +411,7 @@ class ReviewedSourceTests(unittest.TestCase):
                     path.unlink()
                     path.symlink_to(self.helper / "Dockerfile")
                 with self.assertRaises(guard.VerificationError):
-                    guard.verify_exported_context(self.export, self.source["helper_subtree"], value["build_inputs"])
+                    guard.verify_exported_context(self.export, self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
                 if path.is_symlink():
                     path.unlink()
                 path.write_bytes(original)
@@ -414,9 +422,9 @@ class ReviewedSourceTests(unittest.TestCase):
         digest = self.write_manifest()
         real_check = guard.verify_exported_context
 
-        def tampered_check(directory, tree, inputs):
+        def tampered_check(directory, tree, inputs, tools):
             (Path(directory) / "apply_patch.php").write_text("unreviewed injected payload\n")
-            return real_check(directory, tree, inputs)
+            return real_check(directory, tree, inputs, tools)
 
         with patch.object(guard, "verify_exported_context", side_effect=tampered_check):
             with self.assertRaisesRegex(guard.VerificationError, "export_context_tree_mismatch"):
@@ -427,8 +435,8 @@ class ReviewedSourceTests(unittest.TestCase):
         digest = self.write_manifest()
         real_check = guard.verify_exported_context
 
-        def moved_ref_check(directory, tree, inputs):
-            real_check(directory, tree, inputs)
+        def moved_ref_check(directory, tree, inputs, tools):
+            real_check(directory, tree, inputs, tools)
             self.git("update-ref", "refs/remotes/origin/main", self.source["head"])
 
         with patch.object(guard, "verify_exported_context", side_effect=moved_ref_check):
@@ -447,7 +455,7 @@ class ReviewedSourceTests(unittest.TestCase):
                 # The fixture intentionally lacks a matching worktree entry;
                 # bypass only cleanliness to reach the independent exporter.
                 with self.assertRaisesRegex(guard.VerificationError, "unsafe_context_tree_entry"):
-                    guard._export_context(self.repo, self.source, self.manifest()["build_inputs"], self.export)
+                    guard._export_context(self.repo, self.source, self.manifest()["build_inputs"], self.export, self.manifest()["operator_tools"])
                 self.git("reset", "--hard", "HEAD~1")
 
     def test_assume_unchanged_and_skip_worktree_cannot_hide_dirty_files(self):
@@ -483,7 +491,7 @@ class ReviewedSourceTests(unittest.TestCase):
         digest = self.write_manifest(value)
         result = guard.verify(self.manifest_path, digest, self.repo, export_context=self.export)
         captured = guard._capture_canonical_tar(self.export)
-        guard.verify_canonical_tar(captured, self.source["helper_subtree"], value["build_inputs"])
+        guard.verify_canonical_tar(captured, self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
         self.assertEqual(hashlib.sha256(captured).hexdigest(), result["canonical_tar_sha256"])
         with tarfile.open(fileobj=io.BytesIO(captured), mode="r:") as archive:
             self.assertEqual(archive.extractfile("binary.dat").read(), payload)
@@ -507,12 +515,12 @@ class ReviewedSourceTests(unittest.TestCase):
     def test_tar_inventory_rejects_content_mode_tree_and_input_digest_changes(self):
         value = self.manifest()
         payload = self.fixture_tar()
-        guard.verify_canonical_tar(payload, self.source["helper_subtree"], value["build_inputs"])
+        guard.verify_canonical_tar(payload, self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
         with self.assertRaisesRegex(guard.VerificationError, "tar_context_tree_mismatch"):
-            guard.verify_canonical_tar(payload, "0" * 40, value["build_inputs"])
+            guard.verify_canonical_tar(payload, "0" * 40, value["build_inputs"], value["operator_tools"])
         changed_inputs = dict(value["build_inputs"], Dockerfile="0" * 64)
         with self.assertRaisesRegex(guard.VerificationError, "tar_build_input_mismatch"):
-            guard.verify_canonical_tar(payload, self.source["helper_subtree"], changed_inputs)
+            guard.verify_canonical_tar(payload, self.source["helper_subtree"], changed_inputs, value["operator_tools"])
 
         def change_content(entries):
             member, data = entries[0]
@@ -524,7 +532,7 @@ class ReviewedSourceTests(unittest.TestCase):
         for mutate in (change_content, change_mode):
             with self.subTest(mutation=mutate.__name__):
                 with self.assertRaisesRegex(guard.VerificationError, "tar_context_tree_mismatch"):
-                    guard.verify_canonical_tar(self.fixture_tar(mutate), self.source["helper_subtree"], value["build_inputs"])
+                    guard.verify_canonical_tar(self.fixture_tar(mutate), self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
 
     def test_tar_rejects_duplicate_fifo_symlink_hardlink_and_unsafe_names(self):
         value = self.manifest()
@@ -543,7 +551,7 @@ class ReviewedSourceTests(unittest.TestCase):
                     member.linkname = "Dockerfile"
                 entries.append((member, b"" if member.isreg() else None))
             with self.subTest(kind=kind), self.assertRaises(guard.VerificationError):
-                guard.verify_canonical_tar(self.fixture_tar(mutate), self.source["helper_subtree"], value["build_inputs"])
+                guard.verify_canonical_tar(self.fixture_tar(mutate), self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
 
     def test_tar_metadata_order_and_trailing_bytes_are_not_canonical(self):
         value = self.manifest()
@@ -559,7 +567,7 @@ class ReviewedSourceTests(unittest.TestCase):
             if kind == "trailing":
                 payload += b"unreviewed trailing bytes"
             with self.subTest(kind=kind), self.assertRaises(guard.VerificationError):
-                guard.verify_canonical_tar(payload, self.source["helper_subtree"], value["build_inputs"])
+                guard.verify_canonical_tar(payload, self.source["helper_subtree"], value["build_inputs"], value["operator_tools"])
 
     def test_all_raw_paths_and_collisions_are_rejected_before_any_export_write(self):
         oid = self.git("rev-parse", f"HEAD:{guard.HELPER_PATH}/Dockerfile")
@@ -568,7 +576,7 @@ class ReviewedSourceTests(unittest.TestCase):
             result = subprocess.CompletedProcess([], 0, stdout=records)
             with self.subTest(name=name), patch.object(guard, "_git", return_value=result) as query:
                 with self.assertRaises(guard.VerificationError):
-                    guard._export_context(self.repo, self.source, self.manifest()["build_inputs"], self.export)
+                    guard._export_context(self.repo, self.source, self.manifest()["build_inputs"], self.export, self.manifest()["operator_tools"])
                 self.assertFalse(self.export.exists())
                 self.assertEqual(query.call_count, 1)
 
@@ -606,11 +614,14 @@ class ReviewedSourceTests(unittest.TestCase):
             return subprocess.CompletedProcess(args, 0, stdout=b"")
 
         tag = "local/coolify-helper-synthetic:unique-123"
-        with patch.object(guard, "_capture_canonical_tar", side_effect=capture_then_mutate), patch.object(guard, "_docker", side_effect=docker):
+        built_id = "sha256:" + "e" * 64
+        with patch.object(guard, "_capture_canonical_tar", side_effect=capture_then_mutate), patch.object(guard, "_docker", side_effect=docker), \
+                patch.object(guard, "_capture_built_image_id", return_value=built_id):
             result = guard.verify(self.manifest_path, digest, self.repo, export_context=self.export, build_candidate_tag=tag)
         self.assertTrue(result["candidate_build_completed"])
+        self.assertEqual(result["built_image_id"], built_id)
         self.assertEqual(calls[0][0], ["image", "ls", "--quiet", "--no-trunc", "--filter", "reference=" + tag])
-        self.assertEqual(calls[1][0], ["build", "--network=none", "--pull=false", "--label",
+        self.assertEqual(calls[1][0], ["build", "--network=none", "--pull=false", "--iidfile", ANY, "--label",
                                       "lol.bos.coolify-helper-patch.source-commit=" + self.source["head"], "--tag", tag, "-"])
 
     def test_candidate_tag_rejects_existing_images_and_daemon_errors_without_build(self):

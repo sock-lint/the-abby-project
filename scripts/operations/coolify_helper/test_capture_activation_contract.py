@@ -179,6 +179,9 @@ class CaptureDriverTests(unittest.TestCase):
                      "candidate_image_id": self.engine.candidate, "probe_token": "3" * 32, "action": "prepare_review",
                      "tool_inputs": {name: sha((Path(driver.__file__).parent / name).read_bytes()) for name in
                                      ("capture_activation_contract.py", "compose_contract_projection.py", "verify_activation_contract.py")}}
+        loaded = patch.object(driver, "_TRUSTED_TOOL_SHA256", self.plan["tool_inputs"], create=True)
+        loaded.start()
+        self.addCleanup(loaded.stop)
 
     def observe(self, changes=None):
         raw = json.dumps(self.plan).encode()

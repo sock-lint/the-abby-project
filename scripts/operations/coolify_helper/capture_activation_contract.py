@@ -76,10 +76,14 @@ class OperationState:
             self.status.update(failed=True, error_class=type(error).__name__)
         try:
             self.persist()
-        except OSError:
-            self.status["status_persistence_failed"] = True
-            if error is None:
-                error = ValueError("status persistence failed")
+        except OSError as persistence_error:
+            prior_stage = self.status["stage"]
+            if error is not None:
+                self.status["prior_error_class"] = type(error).__name__
+            self.status.update(stage="status-persistence-failed", prior_stage=prior_stage,
+                               failed=True, error_class=type(persistence_error).__name__,
+                               status_persistence_failed=True, last_durable_state_current=False)
+            error = persistence_error
         if error is not None:
             raise OperationFailure(dict(self.status)) from error
         if self.result is not None:
@@ -259,6 +263,9 @@ def observe(plan_payload, *, expected_plan_sha256, operator_state_dir, reviewed_
     if plan["action"] == "activate_management" and not re.fullmatch(r"[0-9a-f]{64}", plan.get("freeze_receipt_sha256", "")):
         raise ValueError("explicit owner freeze clearance required")
     tools = {"capture_activation_contract.py", "compose_contract_projection.py", "verify_activation_contract.py"}
+    captured_hashes = globals().get("_TRUSTED_TOOL_SHA256")
+    if captured_hashes != plan["tool_inputs"]:
+        raise ValueError("operator tools require verified captured-buffer loading")
     if set(plan["tool_inputs"]) != tools or any(hashlib.sha256((Path(__file__).parent / name).read_bytes()).hexdigest() != value for name, value in plan["tool_inputs"].items()):
         raise ValueError("actual operator tooling differs from reviewed plan")
     approved_changes = None

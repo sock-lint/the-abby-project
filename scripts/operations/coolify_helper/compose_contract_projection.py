@@ -95,9 +95,13 @@ def observe_runtime(runner=_read_only_run):
         raise ValueError("incomplete Docker runtime metadata")
     client, server = value["Client"], value["Server"]
     if (any(server.get(key) != expected for key, expected in TESTED_SERVER.items()) or
+            server.get("Experimental") is not None and server.get("Experimental") is not False or
             any(client.get(key) != expected for key, expected in TESTED_CLIENT.items()) or
             client.get("Experimental") is not None or type(client.get("Context")) is not str or not client["Context"]):
         raise ValueError("unsupported Docker client or server runtime")
+    # Server.GitCommit was not independently collected before the operational
+    # stop. Do not invent a build pin: the complete version digest is frozen in
+    # the owner-reviewed ticket, and exact-build proof remains a live-use gate.
     identity = {key: client.get(key) for key in (*TESTED_CLIENT, "Context", "Experimental")}
     return {"schema_version": 1, "version_sha256": digest(value),
             "client_identity_sha256": digest(identity), "server": copy.deepcopy(TESTED_SERVER)}

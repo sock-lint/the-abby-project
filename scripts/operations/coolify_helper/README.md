@@ -83,7 +83,8 @@ credentials, paid asset content, or exported deployment logs.
 
 The former `99ce33ac` and `c8d10b60` runbooks are **NOT CLEAN and must not be
 used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
-README-1 findings apply to their activation/recovery procedures;
+README-1 findings apply to their activation/recovery procedures. Later N1–N5,
+SG-2 and RB-1 findings also require fresh independent dispositions;
 the helper algorithm and pinned image recipe remain unchanged. Every new
 source head needs fresh hosted checks, independent Claude review, and MAIN's
 per-finding disposition. Evidence for an older head is historical evidence,
@@ -99,16 +100,22 @@ from current HEAD and call it approval, or reuse the old-head attestation.
 - `source`: exact `head`, full `root_tree`, `helper_subtree`, and `expected_base`.
 - A clean independent review by Claude of Codex-authored work, bound to that
   same source tuple and the SHA256 of its owner-held raw receipt.
-- MAIN's clean disposition of all sixteen recorded findings, including N1–N5,
+- MAIN's clean disposition of all eighteen recorded findings, including N1–N5,
+  SG-2 and RB-1,
   each with evidence; missing or unresolved current findings reject.
 - Successful required hosted checks for that exact head/base, including
   `deployment-guards`, and `all_source_gates_clear=true`.
 - Clean tracked/untracked Git state, exact HEAD/root/helper trees, expected
   `origin/main`, and base ancestry. Fetch main first; a changed base requires
   renewed review, not rewriting the attestation to match local state.
-- Schema 3 `build_inputs`: reviewed raw-blob SHA256 for `Dockerfile`,
+- Schema 4 `build_inputs`: reviewed raw-blob SHA256 for `Dockerfile`,
   `apply_patch.php` and `helper_retry.php`, and independently pinned
   `canonical_tar_sha256` for the entire helper subtree.
+- A separate closed `operator_tools` map pins all six executed entry/sibling
+  sources: this verifier, the startup verifier, the activation driver, its
+  projection/comparison modules, and `trusted_operator_loader.py`. Docker build
+  inputs cannot authenticate the process doing verification. The executed
+  verifier and loader pins must match this same approved manifest.
 
 The manifest schema is defined by the verifier. Its externally supplied digest
 is the trust anchor; the script does not authenticate the underlying raw
@@ -116,13 +123,18 @@ review or establish runtime admission/installation approval. Keep manifests,
 raw receipts and private evidence outside Git. Source gate clearance alone
 never clears the activation gates below.
 
-Use Python 3, PHP 8, and Bash:
+Use Python 3, PHP 8, and Bash. During the current operational review hold, the
+allowed local subset is limited to harmless policy, constant-module, standard
+library isolation and status-schema cases:
 
 ```bash
-python3 -m unittest discover -s scripts/operations/coolify_helper -p 'test_*.py' -v
+cd scripts/operations/coolify_helper
+PYTHONDONTWRITEBYTECODE=1 python3 -B -W error::ResourceWarning -m unittest \
+  test_operator_source_policy test_safe_operator_bootstrap -v
 ```
 
-The tests generate the real Bash command through `helper_retry.php`. Synthetic
+The broader existing suites are not rerun locally under that hold. They
+generate the real Bash command through `helper_retry.php`. Synthetic
 Docker tests cover delayed release, persistent exact-name conflicts, original
 occupant preservation, argument quoting, 4.1.3 sudo rewriting, unrelated errors,
 other names/exit codes, slow successful starts, hash/version drift, duplicate
@@ -132,6 +144,46 @@ configuration drift and literal dollar encoding. They do not load Laravel or
 private settings. If PHP is absent, `PHP_COMMAND_JSON` may select an isolated
 runner accepting only the pure PHP program on stdin; invoke PHP without a `-`
 operand. `BASH_EXECUTABLE` selects Git Bash on Windows. Skips are not passes.
+
+Every operator entry must run through the following trusted inline bootstrap
+with `python3 -I -S -B`; plain checkout-script execution is not a verified path.
+Obtain the loader's own SHA256 independently from the **same** approved manifest.
+The inline code reads a regular loader file once, verifies that captured buffer,
+then compiles and executes those same bytes. Do not replace it with a separate
+hash command followed by reopening the script. Copy this reviewed inline code
+directly; an unverified checkout bootstrap is not a trust anchor. Set
+`helper_tools_dir` to the canonical absolute helper directory and define:
+
+```bash
+helper_operator() {
+  python3 -I -S -B - "${helper_tools_dir:?}/trusted_operator_loader.py" \
+    "${helper_loader_sha256:?}" "$@" <<'PY'
+import hashlib, os, pathlib, re, stat, sys
+path = pathlib.Path(sys.argv[1])
+expected = sys.argv[2]
+if not path.is_absolute() or path.resolve() != path or not re.fullmatch(r"[0-9a-f]{64}", expected):
+    raise SystemExit("Independent canonical loader pin required")
+fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+with os.fdopen(fd, "rb") as stream:
+    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+        raise SystemExit("Regular loader source required")
+    source = stream.read(16 * 1024 * 1024 + 1)
+if len(source) > 16 * 1024 * 1024 or hashlib.sha256(source).hexdigest() != expected:
+    raise SystemExit("Captured loader digest mismatch")
+sys.argv = [str(path), *sys.argv[3:]]
+namespace = {"__name__": "__main__", "__file__": str(path),
+             "_TRUSTED_OPERATOR_ENTRY_SHA256": expected}
+exec(compile(source, str(path), "exec"), namespace)
+PY
+}
+```
+
+The loader captures and verifies the independently SHA-pinned raw manifest
+before loading a standalone entry. For the driver, it captures the independently
+SHA-pinned raw plan, binds its three source hashes to that same approved
+manifest, and captures **all three** entry/sibling source buffers before any
+executes. Sibling imports resolve only the verified in-memory modules; there is
+no checkout search-path insertion, bytecode loading, or source reopening.
 
 Set `helper_build_context` to a **not-yet-existing** private export path outside
 the checkout, and `helper_verified_binding_output` to a fresh private receipt
@@ -143,11 +195,19 @@ checked against the external manifest. With the optional build flag, Docker
 consumes those **same immutable in-memory TAR bytes** on stdin in that process.
 It does not consume the mutable diagnostic export directory. Without that
 flag, the command only verifies/captures and makes no Docker call. The unique
-tag must not exist; the base must already be cached. Run in Bash:
+tag must not exist; the base must already be cached. Ignored/excluded helper
+files reject. Preserve any known test-generated `__pycache__` outside the
+checkout with an ownership record before verification; do not broadly clean or
+delete other work. The following is a future gated build procedure, not
+permission to build during the current operational hold:
 
 ```bash
 set -euo pipefail
-python3 scripts/operations/coolify_helper/verify_reviewed_source.py \
+helper_operator standalone --tool-dir "${helper_tools_dir:?}" \
+  --entry verify_reviewed_source.py \
+  --expected-entry-sha256 "${helper_verifier_sha256:?}" \
+  --operator-manifest "${helper_binding_manifest:?}" \
+  --expected-operator-manifest-sha256 "${helper_binding_sha256:?}" -- \
   --manifest "${helper_binding_manifest:?}" \
   --expected-manifest-sha256 "${helper_binding_sha256:?}" \
   --export-context "${helper_build_context:?}" \
@@ -156,7 +216,10 @@ python3 scripts/operations/coolify_helper/verify_reviewed_source.py \
 ```
 
 Record the source tuple, actual consumed canonical TAR SHA, patch/build receipt
-and immutable candidate image ID. Compare its embedded `patcher_sha256` and
+and returned `built_image_id`. The build writes a fresh uniquely owned IIDfile;
+its captured immutable ID and independent ID/tag inspections must agree.
+Unknown OCI index/selected-ID ambiguity is a HOLD, never mutable-tag inference.
+Compare its embedded `patcher_sha256` and
 `retry_source_sha256` against the trusted reviewed raw-blob build inputs. The
 source guard returns expected values and explicitly does **not** claim this
 image receipt check passed. Never substitute `git archive`, an inherited filter
@@ -169,7 +232,12 @@ owned disposables. Compile the actual candidate s6 graph as `www-data`, with no
 network/private mounts and without running `/init`:
 
 ```bash
-python3 scripts/operations/coolify_helper/verify_startup_graph.py sha256:<candidate-image-id>
+helper_operator standalone --tool-dir "${helper_tools_dir:?}" \
+  --entry verify_startup_graph.py \
+  --expected-entry-sha256 "${helper_startup_verifier_sha256:?}" \
+  --operator-manifest "${helper_binding_manifest:?}" \
+  --expected-operator-manifest-sha256 "${helper_binding_sha256:?}" -- \
+  "${helper_candidate_image_id:?}"
 ```
 
 A failed compile or lost nginx → PHP-FPM edge blocks activation. Old candidate
@@ -304,6 +372,20 @@ label order alone is canonicalized, retaining every name/condition/restart bit.
 Unknown generated keys reject; ordinary/image labels stay compared. Never
 ignore a label prefix or assume the old creator version.
 
+The server's Git commit was not independently collected before the operational
+stop. The policy pins the observed client commit and client/server version,
+API, OS and architecture; it rejects an explicitly experimental server. The
+complete version JSON digest, including any server commit, is frozen in the
+approved chain ticket, but a matching version tuple alone does **not** prove an
+independently tested server build. Exact-build proof and renewed independent
+review remain mandatory before live use of the OOM transition. Do not invent
+the missing commit or treat this source policy as runtime acceptance.
+
+For the reviewed existing-MAC endpoint case, an empty requested `IPAMConfig`
+may serialize as `null` or `{}`. Only these empty representations compare
+equally; requested addresses remain compared and unknown IPAM keys reject.
+The MAC itself stays in the contract and is never normalized away.
+
 On the proved Docker 29 OCI image store, the container's immutable image/index
 ID and `Config.Image` can differ from `com.docker.compose.image`, which records
 the selected platform manifest. Derive its expected value independently with
@@ -331,7 +413,9 @@ explicit `action`. See the driver for the strict schema. Prepare a plan through
 the trusted owner/reviewer and supply its **raw file SHA256 independently**:
 
 ```bash
-python3 scripts/operations/coolify_helper/capture_activation_contract.py \
+helper_operator driver --tool-dir "${helper_tools_dir:?}" \
+  --operator-manifest "${helper_binding_manifest:?}" \
+  --expected-operator-manifest-sha256 "${helper_binding_sha256:?}" \
   --plan "${helper_operator_plan:?}" \
   --expected-plan-sha256 "${helper_operator_plan_sha256:?}" \
   --operator-state-dir "${helper_private_operator_state:?}" \
@@ -438,6 +522,19 @@ for scheduler-worker. Actual immutable-image verification remains required.
 These holds do not drain current services; perform the genuine PRE-init drain
 above first. Record exact controller-only file changes and restoration for both
 candidate and recovery. Initialization does not create these file flags.
+
+Before app initialization, native s6 `init-seeder` runs `ProductionSeeder` on
+every start; `SEEDER_ENABLED` defaults true. It forces localhost server 0
+reachable/usable, conditionally start the proxy and queue
+`CheckAndStartSentinelJob`. `CaSslCertSeeder` can queue high-priority
+`CoolifyTask` per server to write `/data/coolify/ssl/coolify-ca.crt`. The existing
+36-predicate Init observer excludes these seeder branches and is an incomplete
+startup audit. **Before any installation**, independently bind every seeder
+branch, target, direct effect, callsite/arguments/payload hash and admitted-job
+count, alongside the Init closure below. Prove mutating branches absent or
+obtain a separately scoped review of their exact effects before installation.
+Service hold flags do not suppress seeders. Never skip seeding or initialization
+to make this gate pass.
 
 After initialization the held services must be verified sleeping, with no
 Horizon master/supervisor/worker or scheduler executor. **The native flags do
@@ -547,6 +644,13 @@ not imply startup failure or authorize rollback. The error receipt/exception
 preserves these facts rather than reporting every failure as pre-mutation.
 Unknown identity/health remains explicitly unresolved. No stage automatically
 retries, rolls back or releases admission holds.
+
+If the final status write itself fails, the exception reports
+`status-persistence-failed`, its `prior_stage`, `failed=true`, the error class
+and `last_durable_state_current=false`, preserving known up/installed identity
+evidence. The last durable file may be stale even if it says success. Keep the
+hold and inspect privately; do not infer current success from that file or
+automatically retry/rollback.
 
 **Missing-manager recovery is a separate installation STOP.** The normal
 chain/probe driver requires a live baseline and unchanged connectivity; it does
