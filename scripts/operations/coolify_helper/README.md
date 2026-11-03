@@ -79,143 +79,271 @@ The added correction files are licensed under the same Apache License 2.0;
 see [LICENSE](LICENSE). This directory contains no private application source,
 credentials, paid asset content, or exported deployment logs.
 
-## Focused tests and candidate build
+## Review binding and focused validation
 
-Use Python 3, PHP 8, and Bash. The tests generate the real Bash command through
-`helper_retry.php`; they do not maintain another retry implementation in Python.
-The fake Docker accepts only synthetic inputs and exercises delayed name release,
-persistent conflicts, unchanged original occupants, argument quoting, Coolify's
-non-root sudo rewriting, unrelated errors, other names/exit codes, successful
-slow starts, source/version drift, duplicate anchors, and reapplication rejection.
-The v4.1.3 `parseLineForSudo` applies the same rewrites as the existing test;
-the Dockerfile also checks the complete upstream `sudo.php` hash. No Laravel
-bootstrap or private settings are loaded by the tests.
+The former `99ce33ac` runbook is **NOT CLEAN and must not be used to install**.
+MAIN's H1, H2 and M1–M5 findings apply to its activation/recovery procedure;
+the helper algorithm and pinned image recipe remain unchanged. Every new
+source head needs fresh hosted checks, independent Claude review, and MAIN's
+per-finding disposition. Evidence for an older head is historical evidence,
+not approval of a new head or permission to activate it.
+
+Build only the exact PR head approved independently. A trusted owner/reviewer
+supplies a private normalized operator binding manifest and its expected SHA256
+through an independent channel. This is an attestation, not the native Claude
+receipt format. Do not fabricate a raw receipt path/schema, calculate a digest
+from current HEAD and call it approval, or reuse the old-head attestation.
+`verify_reviewed_source.py` checks:
+
+- `source`: exact `head`, full `root_tree`, `helper_subtree`, and `expected_base`.
+- A clean independent review by Claude of Codex-authored work, bound to that
+  same source tuple and the SHA256 of its owner-held raw receipt.
+- MAIN's clean disposition of H1, H2, M1, M2, M3, M4 and M5, each with evidence.
+- Successful required hosted checks for that exact head/base, including
+  `deployment-guards`, and `all_source_gates_clear=true`.
+- Clean tracked/untracked Git state, exact HEAD/root/helper trees, expected
+  `origin/main`, and base ancestry. Fetch main first; a changed base requires
+  renewed review, not rewriting the attestation to match local state.
+
+The manifest schema is defined by the verifier. Its externally supplied digest
+is the trust anchor; the script does not authenticate the underlying raw
+review or establish runtime admission/installation approval. Keep manifests,
+raw receipts and private evidence outside Git. Source gate clearance alone
+never clears the activation gates below.
+
+Use Python 3, PHP 8, and Bash:
 
 ```bash
-python3 -m unittest discover -s scripts/operations/coolify_helper -p test_helper_retry.py -v
-python3 -m unittest discover -s scripts/operations/coolify_helper -p test_startup_graph.py -v
-test -z "$(git status --porcelain -- scripts/operations/coolify_helper)"
-helper_patch_head="$(git rev-parse HEAD)"
-helper_patch_build="$(date -u +%Y%m%dT%H%M%SZ)-${helper_patch_head}"
-docker build --network=none --pull=false \
-  --label "lol.bos.coolify-helper-patch.source-commit=${helper_patch_head}" \
-  -t "local/coolify:4.1.3-helper-retry-${helper_patch_build}" scripts/operations/coolify_helper
+python3 -m unittest discover -s scripts/operations/coolify_helper -p 'test_*.py' -v
 ```
 
-If PHP is unavailable locally, `PHP_COMMAND_JSON` may name an operator-controlled
-runner that accepts **only the pure PHP test program on stdin** and returns its
-stdout, such as an isolated PHP container with its entrypoint overridden. It
-must not bootstrap Laravel, load private settings, or print environment values.
-`BASH_EXECUTABLE` selects Git Bash on Windows. A skipped test suite is not a pass.
-The base image must already be cached for an offline build. Do not replace its
-digest or bypass either source hash to get a build through.
+The tests generate the real Bash command through `helper_retry.php`. Synthetic
+Docker tests cover delayed release, persistent exact-name conflicts, original
+occupant preservation, argument quoting, 4.1.3 sudo rewriting, unrelated errors,
+other names/exit codes, slow successful starts, hash/version drift, duplicate
+anchors and reapplication. Operator-tool tests use temporary synthetic Git
+repositories and Engine snapshots, including port 6001/6002 conflicts,
+configuration drift and literal dollar encoding. They do not load Laravel or
+private settings. If PHP is absent, `PHP_COMMAND_JSON` may select an isolated
+runner accepting only the pure PHP program on stdin; invoke PHP without a `-`
+operand. `BASH_EXECUTABLE` selects Git Bash on Windows. Skips are not passes.
 
-Retain a unique tag for each reviewed build and escrow the candidate image
-privately. The image declares `coolify.managed=true`, which excludes its tagged
-artifact from Coolify's generic unused-image deletion path. A dangling image can
-still be pruned, so never move its only retained tag to another build. An owned,
-network-isolated holder can protect a candidate while testing and activation are
-pending; remove only that holder after the running control plane uses the image.
+Set `helper_build_context` to a new private temporary directory and
+`helper_verified_binding_output` to a fresh private receipt file. Fetch main,
+then run the binding guard immediately before archiving/building. Derive the
+archive revision from its successful verified output, not a separate HEAD
+variable or manually copied label. The archive contains only the reviewed
+helper subtree. The base must already be cached. Run this block in Bash:
 
-After building, inspect the candidate's image identity and patch receipt, lint
-both files in an isolated process, and run a real Docker reservation test using
-uniquely named, network-isolated disposable containers with no production
-mounts. Verify delayed release succeeds and a persistent occupied name returns
-124 while preserving that original container. Use the produced PHP command,
-not a hand-translated substitute. Only owned disposable containers are eligible
-for cleanup. Image build and synthetic tests do not themselves prove a live
-deployment; keep their evidence distinct.
+```bash
+set -euo pipefail
+python3 scripts/operations/coolify_helper/verify_reviewed_source.py \
+  --manifest "${helper_binding_manifest:?}" \
+  --expected-manifest-sha256 "${helper_binding_sha256:?}" \
+  > "${helper_verified_binding_output:?}"
+helper_reviewed_head="$(python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["verified"] is True; print(r["source"]["head"])' "${helper_verified_binding_output:?}")"
+git archive "${helper_reviewed_head:?}:scripts/operations/coolify_helper" | \
+  tar -x -C "${helper_build_context:?}"
+docker build --network=none --pull=false \
+  --label "lol.bos.coolify-helper-patch.source-commit=${helper_reviewed_head:?}" \
+  -t "${helper_unique_candidate_tag:?}" "${helper_build_context:?}"
+```
 
-Run the actual s6 compiler against the verified candidate image ID in isolation:
+Record the source tuple, context archive hash, patch/build receipt and immutable
+candidate image ID. Inspect/lint the changed PHP files and run the full pure PHP
+suite against this head. Verify PHP 8.4.27 and unchanged image-inherited runtime
+settings. Run the produced helper command in real, uniquely owned, isolated
+Docker containers: delayed name release succeeds; a persistently occupied name
+returns 124 and preserves its original ID/running state. Clean up only exact
+owned disposables. Compile the actual candidate s6 graph as `www-data`, with no
+network/private mounts and without running `/init`:
 
 ```bash
 python3 scripts/operations/coolify_helper/verify_startup_graph.py sha256:<candidate-image-id>
 ```
 
-This verifier uses no network or application settings, never runs `/init`, and
-checks both original and added direct service dependencies. A failed compile
-or a missing original nginx → PHP-FPM edge blocks activation.
+A failed compile or lost nginx → PHP-FPM edge blocks activation. Old candidate
+runtime receipts must not be attributed automatically to a new source head.
+Build/test success does not establish live activation or staging acceptance.
 
-## Guarded activation
+## Durable recovery images and updater hold
 
-The operator must capture fresh hashes of the existing Compose files, `.env`,
-effective configuration and private application settings; a control database
-backup and original image recovery reference; all running workload identities;
-and an empty active deployment queue. Keep secrets and backups on the host in a
-private recovery directory. Stop if the observed base, source hashes, existing
-override, or active work differs from the reviewed state. Do not stop an active
-deployment to install this correction.
+Before any freeze, retain both the original security-patched 4.1.3 image and
+the candidate by immutable ID, unique unmoved tags, and independently verified
+private `docker image save` archives. Verify archive SHA256 and a tested offline
+load/identity check in isolation, then verify a durable off-guest escrow copy.
+Record exact load/restore steps and storage ownership privately. A registry
+repull is only an additional fallback after verifying this same digest remains
+available; it is not the only recovery method.
 
-### Version-native management health check
+Also keep a uniquely owned **running**, network-isolated holder for each image,
+with no published ports, production mounts, application initialization or
+credentials. Override the entrypoint with a harmless idle process and verify
+that each holder runs the exact expected immutable image. Require both holders
+and both archives to exist and remain valid at each freeze and until the
+recovery window closes. Tags and `coolify.managed=true` are insufficient:
+4.1.3's image-prune label template contains literal quadruple braces and can
+select labeled images for deletion. Its container prune can remove eligible
+stopped holders before image pruning. Never rely on a stopped holder. Clean up
+only holders whose recorded name, ID, ownership label and image all match;
+never run global pruning. Retain the recovery base holder after activation.
 
-The November 3 inspection found a management health-check override from a
-newer Compose layout: it probes both the HTTP route on port 8080 and a
-WebSocket route on port 6001. The pinned 4.1.3 management image does not serve
-that latter route; its realtime service is separate. Its own image-native
-health-check command succeeds on the current management instance. The helper
-derivative inherits that 4.1.3 image-native check, but an existing Compose test
-overrides it and would make `--wait` fail even with a correctly built candidate.
+The image pin **does not stop the updater from rewriting configuration**.
+`UpdateCoolify` downloads the configured unversioned CDN `upgrade.sh`; its
+Compose and `.env` writes precede the image pull. A later pull failure on an
+image ID does not preserve those files. Manual update bypasses the DB-disabled
+check. Before freeze require database `is_auto_update_enabled=false`, effective
+startup `AUTOUPDATE=false` with no later true override, and no queued/running
+updater work. Verify both runtime-effective and startup/disk values; startup
+initialization can reapply `AUTOUPDATE` to the database. If absent, true,
+unparseable or contradictory, STOP for a separately reviewed correction. Do
+not silently change settings under this runbook or invoke any manual updater,
+installer or `upgrade.sh` while pinned. Recheck DB and effective startup state
+after initialization and on rollback.
 
-Before freezing, capture private hashes of the current override and effective
-configuration, plus the exact `Config.Healthcheck.Test` array from the verified
-candidate image. Require the candidate test to equal the inspected patched
-4.1.3 base image's test, and execute that native command through the trusted
-administrator route against the current management container. It must exit
-zero before continuing. Do not invent a replacement command, disable health
-checks, or use a different release's route to obtain a pass.
+Capture hashes of all Compose layers, `.env`, effective service contracts,
+private settings and running container identities through the trusted operator
+route; retain a private control-DB backup and independently verified off-guest
+escrow. Recheck disk **and running** hashes immediately before freeze, before
+the atomic override write and before recreation. Any concurrent drift aborts
+for renewed review. Never print expanded configuration, environment, secret
+build inputs or raw queue payloads in chat, CI logs or Git.
 
-The explicitly reviewed effective-configuration allowlist is now exactly
-`services.coolify.image` and `services.coolify.healthcheck.test`. Restore the
-latter to the exact candidate image-native test. Preserve every other
-health-check field, including interval, timeout, retries, start period and any
-start interval, and every private environment value, port, mount, network,
-service setting and other service. Preserve the original owned override
-privately for recovery and refuse concurrent changes. When encoding the test
-in Compose, escape each literal `$` as `$$`; then render the proposed merged
-configuration in memory and require its decoded test array to equal the
-image-native array exactly. Only those two allowlisted paths may differ from
-the captured effective configuration. Keep hashes and the comparison receipt
-private; do not print expanded configuration, command substitutions or secret
-values into chat or Git.
+## Application health and actual running contract
 
-### Drain and activate
+Use the official **4.1.3 application** health command for the management service:
 
-Before the final empty-queue check, put the old management instance in
-maintenance mode, stop its scheduler service and pause/drain Horizon. Check all
-running/reserved queue jobs, application deployments, backup executions and
-scheduled tasks, not just application deployment rows. Proceed only after the
-management work is empty. Do not kill jobs or clear queues to force this state;
-resume the old services and leave maintenance mode if installation is aborted.
-Initialization clears the application cache and marks outstanding deployment
-rows failed, so maintenance mode alone cannot prevent startup requests from
-racing that cleanup. The added s6 dependencies keep both HTTP and PHP ingress
-closed until this initialization completes. Wait for fresh management health
-before resuming operator requests. The dependency gate also protects incoming
-webhooks during cleanup.
+```json
+["CMD-SHELL", "curl --fail http://127.0.0.1:8080/api/health || exit 1"]
+```
 
-The observed Compose project is **`source`**, not `coolify`. Its files include
-`/data/coolify/source/docker-compose.yml`, `docker-compose.prod.yml`, and the
-existing `docker-compose.custom.yml`. The November 3 inspection found that
-custom override already pinning the official 4.1.3 image. Capture its exact
-bytes and compare the effective configuration; preserve every setting besides
-the deliberately reviewed image and version-native health-test replacement.
-Read the current automatic-update preference instead of assuming the initial
-October inspection still describes it. Never overwrite an unknown or
-concurrently changed override.
+Remove only the incompatible newer-layout port-6001 WebSocket clause from this
+management test; realtime remains a separate service. The image-native
+`/healthcheck` checks generic PHP-FPM ping and can pass while Laravel returns
+500 or its dependencies are unreachable. It is not application acceptance.
+Require a fresh direct `/api/health` response of **exactly HTTP 200** before
+freeze, after activation and after rollback. Do not follow redirects or accept
+3xx merely because `curl --fail` returns zero. Preserve interval, timeout,
+retries, start period, start interval and every other health setting unless a
+specific reconciliation has been independently reviewed.
 
-Atomically update the reviewed `/data/coolify/source/docker-compose.custom.yml`
-so `services.coolify.image` changes to the **verified candidate image ID** and
-`services.coolify.healthcheck.test` becomes the verified image-native test,
-retaining `pull_policy: never` and all other existing owned settings. Record the
-literal image ID in a private installation receipt; a mutable local tag alone
-is insufficient recovery evidence. Compare
-the effective configuration in memory: all other service definitions and
-Coolify mounts, ports, environment, network, user and non-test health settings
-must match.
-Do not print expanded Compose configuration, which contains secrets.
+Preserve the original override bytes privately, but do not assume disk Compose
+matches the running instance. The observed project is `source` and uses
+`docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.custom.yml`
+and `.env` under `/data/coolify/source`. Newer files can assign management the
+separate realtime service's ports 6001/6002, new mounts, environment and network
+aliases. A disk-to-disk image/test-only diff can therefore still destroy the
+working instance and fail to start its replacement.
 
-Using the same trusted SSH session and reviewed files, activate only the
-management service:
+Before freeze capture fresh raw Engine inspect snapshots of the running
+management service **and every other service**. Independently review the
+proposed effective management creation contract against the running contract:
+immutable image, entrypoint/command/arguments, all environment/labels/user,
+published bindings, mounts and options, networks/aliases/static addresses,
+health timings and all HostConfig runtime/security/resource settings. Preserve
+other services byte/value-for-value. The default intended changes are the
+candidate image and application health test; **any existing disk/runtime drift
+requires an explicit minimal reconciliation, independent review and a proven
+recovery contract before freeze**. Do not carry drift into recovery.
+
+`verify_activation_contract.py` compares supplied Engine-shaped snapshots,
+retaining all Config/HostConfig fields, mounts and network creation fields. It
+omits only generated hostname/address/endpoint identity, retaining requested
+static IPAM and aliases. Unknown network creation fields remain comparable.
+Its exact-change manifest has `schema_version: 1` and `changes`, a list of
+`{path, before, after}` JSON-pointer entries; the set must equal the complete
+actual diff. No wildcard paths or implicit allowlist. Supply the independently
+reviewed manifest's expected SHA256. Values and diffs remain private; failures
+print no configuration. Capture and review snapshot hashes/provenance too:
+matching arbitrary supplied files does not prove correspondence to a host.
+
+A safe never-started, uniquely owned, network-none probe may establish image
+inherited defaults and the Engine health-test array. **It does not establish
+production mounts, networks, aliases or the full creation contract.** Never
+join a probe to production networks or mount production paths merely to get a
+passing comparison. A safe explicit service projection must preserve all
+creation fields, reject unsupported settings, and receive independent review;
+this repository does not implement a Compose-to-Engine projector. If equivalent
+proposed/recovery contract evidence cannot be obtained safely, STOP. Do not
+present the network-none probe as full service validation.
+
+Render the proposed merged Compose configuration **with interpolation enabled**.
+Require the source test's literal dollar encoding (`$` → `$$`), decode exactly
+one dollar layer from default Compose JSON, and compare the actual created
+probe's `Config.Healthcheck.Test` to the approved application array. Do not use
+`--no-interpolate` or repeatedly decode to obtain a pass. The current command
+contains no dollars; synthetic guard tests retain coverage for future commands.
+The verifier's private health evidence fields are `encoded`, `rendered`,
+`engine` and `interpolated: true`:
+
+```bash
+python3 scripts/operations/coolify_helper/verify_activation_contract.py \
+  --running "${helper_running_inspect:?}" --proposed "${helper_proposed_inspect:?}" \
+  --other-containers "${helper_all_containers_inspect:?}" \
+  --reviewed-changes "${helper_exact_changes:?}" \
+  --expected-changes-sha256 "${helper_exact_changes_sha256:?}" \
+  --health-evidence "${helper_health_evidence:?}"
+```
+
+Require a complete fresh live container/host-listener inventory as well. The
+verifier rejects conflicting published TCP/UDP ports in the supplied running
+container inventory, including separate realtime ownership of 6001/6002. It
+cannot certify inventory completeness, non-Docker listeners or changing port
+availability. Check those independently immediately before freeze. Any conflict
+or unsupported/ambiguous automatic host binding blocks recreation; do not stop
+another service to free its ports.
+
+## Owner-controlled admission hold and drained activation
+
+**No installation is authorized while admission closure or the drain is
+unproven.** Prepare a concrete target list, bounded owner window, evidence and
+restore plan if owner actions are needed. This desktop lane must not change
+abby-loop state, take over its tasks, modify unrelated application auto-deploy
+settings, add credentials/connections, or silently change environment/network/
+webhook settings. MAIN holds PR366, PR359 and other merges capable of native
+auto-deployment. Merging this PR is not the repair: it triggers normal main
+CI/CD/webhooks, and does not install the management derivative.
+
+The owner must confirm a reviewed hold covering **all** deployment admission
+sources: abby-loop and other merge producers, all control-plane automatic and
+preview webhooks, hosted pipelines, manual/API/CLI operators and recurring
+producers. Verify admission closure independently and show it persists across
+management recreation, until explicit staging-only release. Maintenance mode
+alone is insufficient: `webhooks/*` is exempt, and maintenance state may not
+persist through initialization. Do not discard queued production work to make
+the gate pass. If persistence cannot be proven, STOP and propose the additional
+technical gate for separate review/approval; no blanket permission is implied.
+
+Within that owner-approved hold, check HTTP 200 and fresh disk/runtime hashes,
+then enter maintenance, stop the scheduler and close/drain nginx **and**
+PHP-FPM gracefully. Prove no admitted request or independent CLI producer
+remains. Let existing work finish; then pause/drain Horizon and check all
+Redis ready/delayed/reserved/processing queues and every deployment, console
+job, scheduled task and backup execution twice. A reserved cleanup job blocks
+the gate just like other work; age is not completion. Do not acknowledge,
+except, delete, requeue, reset attempts, kill jobs or clear queues to force a
+pass. Abort and resume the old service if the gate cannot clear.
+
+Only after other work drains, stop Horizon gracefully with the reviewed
+`/command/s6-svc -wD -T 30000 -O -t /run/service/horizon`. Prove its master,
+supervisors and workers exited and repeat the empty/PID check. A timeout or
+remaining executor blocks recreation. Recheck the owner hold, source binding,
+image holders/escrow, disk/running snapshots, exact contract/recovery diffs and
+host-port ownership. Record the complete private freeze receipt.
+
+The added nginx/PHP-FPM s6 edges protect initialization only; **Horizon and the
+scheduler start automatically after initialization**. The external/persistent
+admission hold and genuinely empty queues must already make that safe before
+recreation. The ingress dependencies do not implement an ongoing staging-only
+queue hold. Keep application discovery disabled. No production jobs may run
+before the explicitly authorized isolated staging app/revision has validated
+the normal build-secret helper restart path.
+
+Atomically install only the reviewed owned management override with immutable
+candidate image ID, `pull_policy: never`, the application health test, and any
+explicitly approved minimal reconciliation. Refuse concurrent/unknown changes.
+Keep prior bytes and the separately prevalidated recovery override; preserve
+every other service. Using only the reviewed file chain:
 
 ```bash
 cd /data/coolify/source
@@ -224,127 +352,86 @@ docker compose --project-name source --env-file .env \
   up -d --no-deps --no-build --pull never --force-recreate --wait --wait-timeout 120 coolify
 ```
 
-Do not use `down`, `--remove-orphans`, the installer, or `upgrade.sh` for this
-activation. Recreating only `coolify` refreshes Horizon's persistent PHP workers;
-editing the source in the running container alone would neither refresh loaded
-classes reliably nor survive recreation. The dashboard is briefly unavailable;
-existing deployed applications, the proxy, PostgreSQL and Redis stay running.
-Coolify's [instance configuration documentation](https://coolify.io/docs/core/instance-management/environment-variables)
-describes custom overrides and this `--no-deps` recreation pattern.
+Do not use `down`, `--remove-orphans`, installer, updater or a full-stack
+recreation. On success verify Engine image/patch receipt/hashes, PHP 8.4.27,
+actual health test and HTTP 200, private runtime/disk contract, unchanged other
+workload identities and public application health. Recheck the updater hold,
+all queues/executions and PID state immediately after initialization, while
+external admission remains closed. Unexpected work blocks release; do not clear
+it or let it become an unplanned production deployment.
 
-After activation, verify management health, candidate identity, the two patched
-source hashes, source receipt, and that the installed container's health-test
-array equals the candidate's image-native array. Verify unchanged private
-settings/volumes, unchanged workload identities and public app health. Then
-validate the normal build-secret
-helper restart on an authorized isolated staging deployment before relying on
-future production deployments. Do not deploy production merely to demonstrate
-this management-service correction.
+Only then may the owner authorize admission of **one exact isolated staging
+application/revision**, preserving its normal build secrets and helper restart
+path, while every production producer remains held. Verify successful staging
+and original-occupant preservation. If safe selective admission cannot be
+proven, leave the hold in place and STOP for a reviewed plan. After this proof
+and MAIN acceptance, MAIN owns subsequent PR merges and production release;
+the owner restores only the recorded holds in the approved restore plan.
 
-## Rollback and later platform updates
+## Failed recreation and guarded rollback
 
-Keep the exact security-patched 4.1.3 original image locally and the private
-configuration/control-DB backup. Never use the historical 4.1.2 image as the
-recovery target for this rebase. Before rollback, repeat the guarded freeze
-against the **currently running** instance: enter maintenance mode, stop the
-scheduler, gracefully drain nginx and PHP-FPM, and prove no admitted request or
-CLI producer remains. Pause
-Horizon only after other work drains; check all queues and deployment/task/backup
-executions twice. Then stop Horizon gracefully with the verified
-`/command/s6-svc -wD -T 30000 -O -t /run/service/horizon` and prove its master,
-supervisors and workers have exited twice before recreation. A timeout or active
-work blocks rollback; never kill jobs or clear queues to force a pass. If
-aborting, resume the current instance and verify its health and workers.
+A nonzero `up --wait` is a failure, even if the old container has disappeared.
+Do not retry blindly: capture the current Engine/container/error state privately
+and keep external admission closed. Determine whether the old immutable
+container still runs, the candidate runs but is unhealthy, or only a Created/
+exited replacement remains. If the old instance still runs, resume it only
+under the reviewed abort/restore plan and verify application HTTP 200. If it
+has been removed, use the **prevalidated recovery contract**, never whichever
+Compose bytes happen to be on disk after the failure. A known failed Created
+replacement is eligible for removal only after its exact recorded ID/name,
+ownership, stopped state and lack of admitted work are verified; preserve
+failure evidence first. Unknown or active state requires operator recovery,
+not deletion or retry.
 
-A reservation is not completed merely because it is old. Any exceptional
-unowned reservation needs a separate private review recording its exact UUID,
-raw payload hash and retry score, plus a root-only copy of the raw member.
-Only that unchanged member may be excepted; all other work must drain. Prove
-all executors exited, preserve its bytes and score through recreation, and
-compare them again before accepting rollback. Do not acknowledge, delete,
-requeue or reset its attempts as part of rollback.
+The same admission, hash, drain, queue/PID and port gates apply to rollback.
+When a failed recreation leaves no running management process, prove absence
+of all management executors/admitted requests and externally inspect queues/
+execution state rather than assuming absence means drained. Do not run the
+freeze commands against an unrelated or missing container. A missing gate or
+active reservation blocks automatic recovery; escalate with holds intact.
 
-The original image does **not** contain the new ingress dependencies. Before
-using it, prepare two files in the private recovery directory:
+Recover only to the original security-patched **4.1.3/PHP 8.4.27** image. Its
+original startup graph lacks the new ingress dependencies, so prepare these
+nonsecret files under the private recovery directory before any activation:
 
-- `rollback-nginx-dependencies`: `php-fpm` followed by `init-script`, one per line.
+- `rollback-nginx-dependencies`: `php-fpm` then `init-script`, each newline-terminated.
 - `rollback-php-fpm-dependencies`: `init-script` followed by a newline.
 
-Keep the parent directory mode `0700`, but make these two nonsecret files
-readable by the image's `www-data` user (`0644` was validated). Root-owned `0600`
-bind files prevent its unprivileged s6 compiler from starting. Bind them
-read-only to `/etc/s6-overlay/s6-rc.d/nginx/dependencies` and
-`/etc/s6-overlay/s6-rc.d/php-fpm/dependencies`, respectively, in the final rollback
-override. Use long Compose bind syntax with `bind.create_host_path: false`;
-a missing source must fail rather than create a directory. Keep the original
-flat dependency definitions; adding `dependencies.d` can hide them.
+The parent directory remains `0700`; make the two files `0644` so `www-data`
+can read them. Bind read-only to each matching
+`/etc/s6-overlay/s6-rc.d/<service>/dependencies` using long syntax and
+`bind.create_host_path: false`. Do not add `dependencies.d`. Validate the exact
+original image plus these binds with the real s6 compiler/checker as `www-data`
+in isolation before freeze; require nginx→PHP-FPM, both ingress→init-script,
+Horizon/scheduler→init-script and init-script→init-seeder→db-migration. No `/init`,
+network or private mounts are needed for that check.
 
-Validate the original image with those exact files **before freezing**. Set
-`helper_original_image` to its verified immutable image ID and
-`helper_recovery_dir` to the existing absolute recovery path from the private
-installation receipt. This offline check runs no initialization or services:
+The independent recovery review must bind exact base image ID, tested gate
+binds, the application health test, `pull_policy: never`, and any minimal
+reconciliation required to reproduce the **previous running** contract. Compare
+recovery against actual running state and against intended preserved state;
+review the inverse image/test diff and only these extra gate mounts. Recheck
+health dollar encoding/actual probe test. Do not restore the known-incompatible
+6001 clause, drifted layout, mutable `${LATEST_IMAGE:-latest}` fallback, or an
+unreviewed change. Prevalidate port ownership and a safe complete recovery
+contract before the original instance is removed.
 
-```bash
-docker run --rm --pull=never --network=none --read-only --user=www-data \
-  --cap-drop=ALL --security-opt=no-new-privileges \
-  --pids-limit=64 --memory=128m --cpus=1 \
-  --tmpfs=/tmp:rw,nosuid,nodev,size=32m \
-  --mount "type=bind,source=${helper_recovery_dir:?}/rollback-nginx-dependencies,target=/etc/s6-overlay/s6-rc.d/nginx/dependencies,readonly" \
-  --mount "type=bind,source=${helper_recovery_dir:?}/rollback-php-fpm-dependencies,target=/etc/s6-overlay/s6-rc.d/php-fpm/dependencies,readonly" \
-  --entrypoint=/bin/sh "${helper_original_image:?}" -ec '
-    export PATH=/command:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    s6-rc-compile -v0 /tmp/rollback-graph /etc/s6-overlay/s6-rc.d /package/admin/s6-overlay/etc/s6-rc/sources
-    s6-rc-db -c /tmp/rollback-graph check
-    for pair in "nginx php-fpm" "nginx init-script" "php-fpm init-script" \
-      "horizon init-script" "scheduler-worker init-script" \
-      "init-script init-seeder" "init-seeder db-migration"; do
-      set -- $pair
-      s6-rc-db -c /tmp/rollback-graph dependencies "$1" | grep -Fxq "$2"
-    done'
-```
+Atomically install the exact reviewed recovery override last in the preserved
+file chain and recreate only `coolify` with the same bounded `--no-deps
+--no-build --pull never --force-recreate --wait` procedure. If recovery itself
+fails, keep holds and evidence, stop retries and use the independently reviewed
+operator recovery plan/offline escrow. Never broaden to full-stack teardown.
+After recovery require HTTP 200, exact image/PHP/source identity, expected
+actual health test, private preserved settings/volumes/networks/ports, other
+workload identities, updater hold and queues/executions; release producers only
+through the approved restore plan. Retain the recovery override, gate files,
+image holders and escrow for the recovery window. No application database
+migration, production data restore or application rollback is part of this
+source correction.
 
-The final rollback override must contain the original image ID, `pull_policy:
-never`, the verified version-native health-test correction, and only those two
-additional startup-gate binds. Before freezing for rollback, re-inspect the
-exact recovery image's native test, prove the encoded/rendered test matches it
-with the same dollar escaping, and require the native command to succeed on
-the currently running instance. Both this derivative and its 4.1.3 recovery
-base use the same native test, so retaining that correction is expected. Do not
-blindly restore the pre-repair override's known-incompatible port-6001 test.
-Record and independently review the inverse image/health-test diff and the two
-gate binds; every other health timing, private setting and service must remain
-unchanged. Preserve the prior **owned** override privately, then atomically
-install the reviewed rollback
-configuration as `/data/coolify/source/docker-compose.custom.yml`; refuse to
-overwrite an unknown or concurrently changed override. Compare the effective
-configuration in memory; all other settings must match. Include this override
-**last** in the same project/files command above and recreate only `coolify`
-with `--no-deps --no-build --pull never --force-recreate --wait --wait-timeout
-120`. Never rely on the original Compose `${LATEST_IMAGE:-latest}` fallback:
-it may select another platform version.
-
-Verify the original image identity, management/app health and preserved workload
-identities, environment, mounts, ports and networks. Resume and verify Horizon
-and the scheduler, and confirm any preserved reservation is unchanged. Keep the
-verified original-image override and both gate binds effective for subsequent
-recreations; do not restore the candidate override or a mutable image fallback
-after rollback. Retain the dependency files while mounted and record the final
-override chain. Rolling forward or upgrading is a separate reviewed operation.
-This correction has no database migration and requires no application rollback
-or restoration of production data.
-
-The custom image override is an explicit **platform upgrade hold**, not an
-automatic patching system. Coolify's official updater preserves custom overrides
-and explicitly runs `docker pull` on every configured image. Pulling an image ID
-will fail; in the reviewed `v4.1.2` updater this aborts before stopping the current
-containers. Do not use the updater while the override is installed, assume a
-reported version means the patched image was upgraded, or enable auto-update to
-work around this hold. The current auto-update preference remains unchanged.
-
-Before a later manual update: inspect the target release for the upstream fix,
-prepare recovery, remove or deliberately rebase this exact owned override,
-revalidate native deployment and CI behavior, and verify the actual running
-image/version afterwards. A rebase needs new base-image and both source hashes,
-fresh patch review, tests and a new image; never transplant the old complete
-deployment-job file into a different release. Retire the derivative when a
-reviewed official release includes equivalent protection.
+A future platform upgrade is a separate reviewed operation: check the target
+for the upstream fix, deliberately remove/rebase this owned override, renew
+base/source/startup guards and tests, and verify actual image/runtime behavior.
+Never transplant complete old job files or assume a reported version proves
+this derivative was installed. Retire it once a reviewed official release
+contains equivalent protection.
