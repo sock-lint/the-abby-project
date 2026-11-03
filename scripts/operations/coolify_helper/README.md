@@ -146,6 +146,40 @@ private recovery directory. Stop if the observed base, source hashes, existing
 override, or active work differs from the reviewed state. Do not stop an active
 deployment to install this correction.
 
+### Version-native management health check
+
+The November 3 inspection found a management health-check override from a
+newer Compose layout: it probes both the HTTP route on port 8080 and a
+WebSocket route on port 6001. The pinned 4.1.3 management image does not serve
+that latter route; its realtime service is separate. Its own image-native
+health-check command succeeds on the current management instance. The helper
+derivative inherits that 4.1.3 image-native check, but an existing Compose test
+overrides it and would make `--wait` fail even with a correctly built candidate.
+
+Before freezing, capture private hashes of the current override and effective
+configuration, plus the exact `Config.Healthcheck.Test` array from the verified
+candidate image. Require the candidate test to equal the inspected patched
+4.1.3 base image's test, and execute that native command through the trusted
+administrator route against the current management container. It must exit
+zero before continuing. Do not invent a replacement command, disable health
+checks, or use a different release's route to obtain a pass.
+
+The explicitly reviewed effective-configuration allowlist is now exactly
+`services.coolify.image` and `services.coolify.healthcheck.test`. Restore the
+latter to the exact candidate image-native test. Preserve every other
+health-check field, including interval, timeout, retries, start period and any
+start interval, and every private environment value, port, mount, network,
+service setting and other service. Preserve the original owned override
+privately for recovery and refuse concurrent changes. When encoding the test
+in Compose, escape each literal `$` as `$$`; then render the proposed merged
+configuration in memory and require its decoded test array to equal the
+image-native array exactly. Only those two allowlisted paths may differ from
+the captured effective configuration. Keep hashes and the comparison receipt
+private; do not print expanded configuration, command substitutions or secret
+values into chat or Git.
+
+### Drain and activate
+
 Before the final empty-queue check, put the old management instance in
 maintenance mode, stop its scheduler service and pause/drain Horizon. Check all
 running/reserved queue jobs, application deployments, backup executions and
@@ -164,17 +198,20 @@ The observed Compose project is **`source`**, not `coolify`. Its files include
 existing `docker-compose.custom.yml`. The November 3 inspection found that
 custom override already pinning the official 4.1.3 image. Capture its exact
 bytes and compare the effective configuration; preserve every setting besides
-the deliberately reviewed image replacement. Read the current automatic-update
-preference instead of assuming the initial October inspection still describes
-it. Never overwrite an unknown or concurrently changed override.
+the deliberately reviewed image and version-native health-test replacement.
+Read the current automatic-update preference instead of assuming the initial
+October inspection still describes it. Never overwrite an unknown or
+concurrently changed override.
 
 Atomically update the reviewed `/data/coolify/source/docker-compose.custom.yml`
-so only `services.coolify.image` changes to the **verified candidate image ID**,
-retaining `pull_policy: never` and any other existing owned settings. Record the
-literal image ID in a private installation
-receipt; a mutable local tag alone is insufficient recovery evidence. Compare
+so `services.coolify.image` changes to the **verified candidate image ID** and
+`services.coolify.healthcheck.test` becomes the verified image-native test,
+retaining `pull_policy: never` and all other existing owned settings. Record the
+literal image ID in a private installation receipt; a mutable local tag alone
+is insufficient recovery evidence. Compare
 the effective configuration in memory: all other service definitions and
-Coolify mounts, ports, environment, network, user and health settings must match.
+Coolify mounts, ports, environment, network, user and non-test health settings
+must match.
 Do not print expanded Compose configuration, which contains secrets.
 
 Using the same trusted SSH session and reviewed files, activate only the
@@ -196,8 +233,10 @@ Coolify's [instance configuration documentation](https://coolify.io/docs/core/in
 describes custom overrides and this `--no-deps` recreation pattern.
 
 After activation, verify management health, candidate identity, the two patched
-source hashes, source receipt, unchanged private settings/volumes, unchanged
-workload identities and public app health. Then validate the normal build-secret
+source hashes, source receipt, and that the installed container's health-test
+array equals the candidate's image-native array. Verify unchanged private
+settings/volumes, unchanged workload identities and public app health. Then
+validate the normal build-secret
 helper restart on an authorized isolated staging deployment before relying on
 future production deployments. Do not deploy production merely to demonstrate
 this management-service correction.
@@ -207,9 +246,9 @@ this management-service correction.
 Keep the exact security-patched 4.1.3 original image locally and the private
 configuration/control-DB backup. Never use the historical 4.1.2 image as the
 recovery target for this rebase. Before rollback, repeat the guarded freeze
-against the **currently
-running** instance: enter maintenance mode, stop the scheduler, gracefully drain
-nginx and PHP-FPM, and prove no admitted request or CLI producer remains. Pause
+against the **currently running** instance: enter maintenance mode, stop the
+scheduler, gracefully drain nginx and PHP-FPM, and prove no admitted request or
+CLI producer remains. Pause
 Horizon only after other work drains; check all queues and deployment/task/backup
 executions twice. Then stop Horizon gracefully with the verified
 `/command/s6-svc -wD -T 30000 -O -t /run/service/horizon` and prove its master,
@@ -265,8 +304,17 @@ docker run --rm --pull=never --network=none --read-only --user=www-data \
 ```
 
 The final rollback override must contain the original image ID, `pull_policy:
-never`, and only those two additional startup-gate binds. Preserve the prior
-**owned** override privately, then atomically install the reviewed rollback
+never`, the verified version-native health-test correction, and only those two
+additional startup-gate binds. Before freezing for rollback, re-inspect the
+exact recovery image's native test, prove the encoded/rendered test matches it
+with the same dollar escaping, and require the native command to succeed on
+the currently running instance. Both this derivative and its 4.1.3 recovery
+base use the same native test, so retaining that correction is expected. Do not
+blindly restore the pre-repair override's known-incompatible port-6001 test.
+Record and independently review the inverse image/health-test diff and the two
+gate binds; every other health timing, private setting and service must remain
+unchanged. Preserve the prior **owned** override privately, then atomically
+install the reviewed rollback
 configuration as `/data/coolify/source/docker-compose.custom.yml`; refuse to
 overwrite an unknown or concurrently changed override. Compare the effective
 configuration in memory; all other settings must match. Include this override
