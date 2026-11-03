@@ -31,7 +31,7 @@ class ActivationContractTests(unittest.TestCase):
         before = inspect_fixture()
         after = copy.deepcopy(before)
         after["Image"] = "sha256:" + "2" * 64
-        manifest = {"schema_version": 1, "changes": [{"path": "/Image", "before": before["Image"], "after": after["Image"]}]}
+        manifest = {"schema_version": 1, "changes": [{"path": "/Image", "before": contract(before)["Image"], "after": contract(after)["Image"]}]}
         compare(before, after, manifest)
         manifest["changes"][0]["before"] = "sha256:" + "3" * 64
         with self.assertRaises(ValueError):
@@ -115,7 +115,7 @@ class ActivationContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             running, proposed = inspect_fixture(), inspect_fixture()
-            proposed["Config"]["Env"] = ["PRIVATE-SYNTHETIC-MARKER"]
+            proposed["Config"]["Env"] = ["SYNTHETIC=PRIVATE-SYNTHETIC-MARKER"]
             values = {"running": running, "proposed": proposed, "other-containers": [running],
                       "reviewed-changes": {"schema_version": 1, "changes": []},
                       "health-evidence": {"encoded": APPLICATION_TEST, "rendered": APPLICATION_TEST,
@@ -133,8 +133,9 @@ class ActivationContractTests(unittest.TestCase):
                 self.assertEqual(status, 1)
                 self.assertNotIn("PRIVATE-SYNTHETIC-MARKER", out.getvalue() + err.getvalue())
                 self.assertNotIn(str(directory), out.getvalue() + err.getvalue())
-            approved = {"schema_version": 1, "changes": [{"path": "/Config/Env",
-                        "before": running["Config"]["Env"], "after": proposed["Config"]["Env"]}]}
+            approved = {"schema_version": 1, "changes": [{"path": "/Config/Env/SYNTHETIC",
+                        "before": contract(running)["Config"]["Env"]["SYNTHETIC"],
+                        "after": contract(proposed)["Config"]["Env"]["SYNTHETIC"]}]}
             changes = directory / "reviewed-changes.json"
             changes.write_text(json.dumps(approved))
             digest = hashlib.sha256(changes.read_bytes()).hexdigest()
@@ -143,6 +144,39 @@ class ActivationContractTests(unittest.TestCase):
                 status = main([*args, "--expected-changes-sha256", digest])
             self.assertEqual(status, 0)
             self.assertNotIn("PRIVATE-SYNTHETIC-MARKER", out.getvalue() + err.getvalue())
+
+    def test_order_only_environment_binds_mounts_and_aliases_pass(self):
+        before = inspect_fixture()
+        before["Config"]["Env"] = ["SYNTHETIC_A=one", "SYNTHETIC_B=two"]
+        before["HostConfig"]["Binds"] = ["/synthetic/a:/a:ro", "/synthetic/b:/b:rw"]
+        before["Mounts"].append({"Type": "bind", "Source": "/synthetic/b", "Destination": "/b", "RW": True})
+        before["NetworkSettings"]["Networks"]["synthetic"]["Aliases"].append("synthetic-alias")
+        after = copy.deepcopy(before)
+        after["Config"]["Env"].reverse()
+        after["HostConfig"]["Binds"].reverse()
+        after["Mounts"].reverse()
+        after["NetworkSettings"]["Networks"]["synthetic"]["Aliases"].reverse()
+        compare(before, after, {"schema_version": 1, "changes": []})
+
+    def test_value_drift_is_key_level_and_canonical_evidence_has_no_secret_values(self):
+        before, after = inspect_fixture(), inspect_fixture()
+        marker = "SYNTHETIC-SECRET-DO-NOT-EMIT"
+        before["Config"].update(Env=[f"SECRET_TOKEN={marker}"], Cmd=["/bin/run", marker],
+                                Labels={"test": marker})
+        after["Config"] = copy.deepcopy(before["Config"])
+        after["Config"]["Env"] = [f"SECRET_TOKEN={marker}-changed"]
+        left, right = contract(before), contract(after)
+        self.assertNotIn(marker, json.dumps(left))
+        expected = {"schema_version": 1, "changes": [{"path": "/Config/Env/SECRET_TOKEN",
+                    "before": left["Config"]["Env"]["SECRET_TOKEN"],
+                    "after": right["Config"]["Env"]["SECRET_TOKEN"]}]}
+        compare(before, after, expected)
+        self.assertNotIn(marker, json.dumps(expected))
+        with self.assertRaises(ValueError):
+            compare(before, after, {"schema_version": 1, "changes": []})
+        before["Config"]["Env"] *= 2
+        with self.assertRaises(ValueError):
+            contract(before)
 
 
 if __name__ == "__main__":

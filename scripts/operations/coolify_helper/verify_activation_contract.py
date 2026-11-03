@@ -52,6 +52,15 @@ def contract(value):
     """
     value = single_inspect(value)
     config = copy.deepcopy(value["Config"])
+    environment = {}
+    for entry in config.get("Env") or []:
+        if not isinstance(entry, str) or "=" not in entry:
+            raise ValueError("invalid environment entry")
+        key, item = entry.split("=", 1)
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) or key in environment:
+            raise ValueError("invalid or duplicate environment key")
+        environment[key] = hashlib.sha256(item.encode()).hexdigest()
+    config["Env"] = {}
     if config.get("Hostname") == value["Id"][:12]:
         config["Hostname"] = "<engine-generated-hostname>"
     networks = {}
@@ -60,23 +69,56 @@ def contract(value):
     for name, settings in value["NetworkSettings"]["Networks"].items():
         networks[name] = {key: copy.deepcopy(item) for key, item in settings.items()
                           if key not in generated_endpoint_fields}
-    return {"Image": value["Image"], "Path": value["Path"], "Args": value["Args"],
-            "Config": config, "HostConfig": value["HostConfig"],
-            "Mounts": value["Mounts"], "Networks": networks}
+    host_config = copy.deepcopy(value["HostConfig"])
+    for field in ("Binds", "Mounts", "VolumesFrom", "CapAdd", "CapDrop", "SecurityOpt",
+                  "GroupAdd", "Devices", "DeviceRequests", "Ulimits", "MaskedPaths", "ReadonlyPaths"):
+        if isinstance(host_config.get(field), list):
+            host_config[field] = sorted(host_config[field], key=lambda item: json.dumps(item, sort_keys=True))
+    for bindings in (host_config.get("PortBindings") or {}).values():
+        if isinstance(bindings, list):
+            bindings.sort(key=lambda item: json.dumps(item, sort_keys=True))
+    for settings in networks.values():
+        for field in ("Aliases", "Links"):
+            if isinstance(settings.get(field), list):
+                settings[field] = sorted(settings[field])
+    result = {"Image": value["Image"], "Path": value["Path"], "Args": value["Args"],
+              "Config": config, "HostConfig": host_config,
+              "Mounts": sorted(value["Mounts"], key=lambda item: json.dumps(item, sort_keys=True)),
+              "Networks": networks}
+    result = redact_strings(result)
+    result["Config"]["Env"] = environment
+    return result
+
+
+def redact_strings(value):
+    """Comparison artifacts contain no string values from private snapshots.
+
+    Environment digests are installed separately after this function. Paths,
+    labels and commands can contain secrets, so every string leaf is hashed.
+    """
+    if isinstance(value, dict):
+        return {key: redact_strings(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_strings(item) for item in value]
+    if isinstance(value, str):
+        return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
+    return value
 
 
 def differences(before, after, path=""):
     if type(before) is not type(after):
         return [(path, before, after)]
     if isinstance(before, dict) and isinstance(after, dict):
-        if before.keys() != after.keys():
-            # A missing setting must be approved as a whole parent object; null
-            # is not an ambiguous sentinel for a missing key.
-            return [(path, before, after)]
         result = []
-        for key in sorted(before):
+        for key in sorted(before.keys() | after.keys()):
             escaped = key.replace("~", "~0").replace("/", "~1")
-            result.extend(differences(before[key], after[key], f"{path}/{escaped}"))
+            child = f"{path}/{escaped}"
+            if key not in before:
+                result.append((child, {"absent": True}, after[key]))
+            elif key not in after:
+                result.append((child, before[key], {"absent": True}))
+            else:
+                result.extend(differences(before[key], after[key], child))
         return result
     return [] if before == after else [(path, before, after)]
 
@@ -186,7 +228,7 @@ def main(argv=None):
     except (ValueError, KeyError, TypeError, OSError):
         print("Activation contract verification failed; inspect private evidence through the trusted route.", file=sys.stderr)
         return 1
-    print("Running/proposed contract, exact reviewed changes, application health encoding and supplied port inventory verified.")
+    print("Offline supplied-file comparison passed. Activation authorization: false; use the actual chain/probe driver and owner runtime gates.")
     return 0
 
 

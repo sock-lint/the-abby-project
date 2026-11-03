@@ -81,8 +81,9 @@ credentials, paid asset content, or exported deployment logs.
 
 ## Review binding and focused validation
 
-The former `99ce33ac` runbook is **NOT CLEAN and must not be used to install**.
-MAIN's H1, H2 and M1–M5 findings apply to its activation/recovery procedure;
+The former `99ce33ac` and `c8d10b60` runbooks are **NOT CLEAN and must not be
+used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
+README-1 findings apply to their activation/recovery procedures;
 the helper algorithm and pinned image recipe remain unchanged. Every new
 source head needs fresh hosted checks, independent Claude review, and MAIN's
 per-finding disposition. Evidence for an older head is historical evidence,
@@ -98,12 +99,15 @@ from current HEAD and call it approval, or reuse the old-head attestation.
 - `source`: exact `head`, full `root_tree`, `helper_subtree`, and `expected_base`.
 - A clean independent review by Claude of Codex-authored work, bound to that
   same source tuple and the SHA256 of its owner-held raw receipt.
-- MAIN's clean disposition of H1, H2, M1, M2, M3, M4 and M5, each with evidence.
+- MAIN's clean disposition of all eleven recorded findings, each with evidence.
 - Successful required hosted checks for that exact head/base, including
   `deployment-guards`, and `all_source_gates_clear=true`.
 - Clean tracked/untracked Git state, exact HEAD/root/helper trees, expected
   `origin/main`, and base ancestry. Fetch main first; a changed base requires
   renewed review, not rewriting the attestation to match local state.
+- Schema 3 `build_inputs`: reviewed raw-blob SHA256 for `Dockerfile`,
+  `apply_patch.php` and `helper_retry.php`, and independently pinned
+  `canonical_tar_sha256` for the entire helper subtree.
 
 The manifest schema is defined by the verifier. Its externally supplied digest
 is the trust anchor; the script does not authenticate the underlying raw
@@ -128,29 +132,34 @@ private settings. If PHP is absent, `PHP_COMMAND_JSON` may select an isolated
 runner accepting only the pure PHP program on stdin; invoke PHP without a `-`
 operand. `BASH_EXECUTABLE` selects Git Bash on Windows. Skips are not passes.
 
-Set `helper_build_context` to a new private temporary directory and
-`helper_verified_binding_output` to a fresh private receipt file. Fetch main,
-then run the binding guard immediately before archiving/building. Derive the
-archive revision from its successful verified output, not a separate HEAD
-variable or manually copied label. The archive contains only the reviewed
-helper subtree. The base must already be cached. Run this block in Bash:
+Set `helper_build_context` to a **not-yet-existing** private export path outside
+the checkout, and `helper_verified_binding_output` to a fresh private receipt
+file. Fetch main, then run the guard. It disables replacement/config/attribute
+overrides, rejects unsafe repository state, exports raw `ls-tree`/`cat-file`
+objects, and independently reconstructs the exact tree, file modes and input
+SHA256. A canonical TAR is captured and independently parsed/rehashed, then
+checked against the external manifest. With the optional build flag, Docker
+consumes those **same immutable in-memory TAR bytes** on stdin in that process.
+It does not consume the mutable diagnostic export directory. Without that
+flag, the command only verifies/captures and makes no Docker call. The unique
+tag must not exist; the base must already be cached. Run in Bash:
 
 ```bash
 set -euo pipefail
 python3 scripts/operations/coolify_helper/verify_reviewed_source.py \
   --manifest "${helper_binding_manifest:?}" \
   --expected-manifest-sha256 "${helper_binding_sha256:?}" \
+  --export-context "${helper_build_context:?}" \
+  --build-candidate-tag "${helper_unique_candidate_tag:?}" \
   > "${helper_verified_binding_output:?}"
-helper_reviewed_head="$(python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["verified"] is True; print(r["source"]["head"])' "${helper_verified_binding_output:?}")"
-git archive "${helper_reviewed_head:?}:scripts/operations/coolify_helper" | \
-  tar -x -C "${helper_build_context:?}"
-docker build --network=none --pull=false \
-  --label "lol.bos.coolify-helper-patch.source-commit=${helper_reviewed_head:?}" \
-  -t "${helper_unique_candidate_tag:?}" "${helper_build_context:?}"
 ```
 
-Record the source tuple, context archive hash, patch/build receipt and immutable
-candidate image ID. Inspect/lint the changed PHP files and run the full pure PHP
+Record the source tuple, actual consumed canonical TAR SHA, patch/build receipt
+and immutable candidate image ID. Compare its embedded `patcher_sha256` and
+`retry_source_sha256` against the trusted reviewed raw-blob build inputs. The
+source guard returns expected values and explicitly does **not** claim this
+image receipt check passed. Never substitute `git archive`, an inherited filter
+or a mutable directory as the build input. Inspect/lint the changed PHP files and run the full pure PHP
 suite against this head. Verify PHP 8.4.27 and unchanged image-inherited runtime
 settings. Run the produced helper command in real, uniquely owned, isolated
 Docker containers: delayed name release succeeds; a persistently occupied name
@@ -246,44 +255,95 @@ candidate image and application health test; **any existing disk/runtime drift
 requires an explicit minimal reconciliation, independent review and a proven
 recovery contract before freeze**. Do not carry drift into recovery.
 
-`verify_activation_contract.py` compares supplied Engine-shaped snapshots,
-retaining all Config/HostConfig fields, mounts and network creation fields. It
-omits only generated hostname/address/endpoint identity, retaining requested
-static IPAM and aliases. Unknown network creation fields remain comparable.
-Its exact-change manifest has `schema_version: 1` and `changes`, a list of
-`{path, before, after}` JSON-pointer entries; the set must equal the complete
-actual diff. No wildcard paths or implicit allowlist. Supply the independently
-reviewed manifest's expected SHA256. Values and diffs remain private; failures
-print no configuration. Capture and review snapshot hashes/provenance too:
-matching arbitrary supplied files does not prove correspondence to a host.
+`capture_activation_contract.py` is the authoritative chain/probe driver. Its
+externally approved plan binds the **actual ordered Compose files and `.env`
+bytes**, actual interpolated render, service config hash, actual Compose version,
+running container ID, candidate image ID, project/service identity, ownership
+nonce and exact operator-tool source SHA256. No operator-supplied proposed
+Engine snapshot or health assertion is accepted. `verify_activation_contract.py`
+is an offline comparison helper; its supplied-file result cannot authorize
+activation.
 
-A safe never-started, uniquely owned, network-none probe may establish image
-inherited defaults and the Engine health-test array. **It does not establish
-production mounts, networks, aliases or the full creation contract.** Never
-join a probe to production networks or mount production paths merely to get a
-passing comparison. A safe explicit service projection must preserve all
-creation fields, reject unsupported settings, and receive independent review;
-this repository does not implement a Compose-to-Engine projector. If equivalent
-proposed/recovery contract evidence cannot be obtained safely, STOP. Do not
-present the network-none probe as full service validation.
+The driver itself queries the actual chain, derives a fresh owner-labeled
+network-none/port-free/private-mount-free recipe, and creates/inspects only its
+own never-started container. Original dependencies remain declared, with safe
+unstarted stub dependencies and `create --no-deps`. Preserve command/entrypoint
+null inheritance and every remaining field from actual Engine behavior. Prove
+that declared published ports, bind mounts, resolved external network and exact
+aliases match the fresh running service before reinserting those connectivity
+fields. Image-declared volumes, unsupported options/fields and ambiguous
+creation semantics reject. The observed shape is seven binds, no image/runtime
+VOLUME declarations, one external bridge and three aliases including the repeated
+`coolify`; an optional reviewed endpoint MAC pin must equal the exact existing
+MAC. No new address, static IPAM or firewall acceptance is implied by this data.
 
-Render the proposed merged Compose configuration **with interpolation enabled**.
-Require the source test's literal dollar encoding (`$` → `$$`), decode exactly
-one dollar layer from default Compose JSON, and compare the actual created
-probe's `Config.Healthcheck.Test` to the approved application array. Do not use
-`--no-interpolate` or repeatedly decode to obtain a pass. The current command
-contains no dollars; synthetic guard tests retain coverage for future commands.
-The verifier's private health evidence fields are `encoded`, `rendered`,
-`engine` and `interpolated: true`:
+Every other Config/HostConfig field remains from the actual probe, including all
+63 observed HostConfig fields and nullable defaults. The current Compose 5.6.1
+differs from the running instance's creator label 2.38.2; version/default changes
+must appear in the review diff. Only eleven explicitly enumerated generated
+Compose metadata fields may be projected from actual same-version config/hash/
+version/path observations. Unknown generated keys reject; ordinary/image labels
+stay compared. Never ignore a label prefix or assume the old creator version.
+
+Environment is a sorted key→SHA256(value) map; duplicate/conflicting keys reject.
+Binds, mounts, aliases and supported unordered multisets normalize order, while
+command/argument and DNS order remain significant. Every other private string
+leaf, including labels and commands, is also a SHA256 fingerprint. Reviewer
+artifacts contain no plaintext credentials or whole environment lists. Changes
+use individual key paths, including additions/removals with an explicit absent
+marker. The independently approved difference manifest is `schema_version: 1`
+with an exact list `changes: [{path, before, after}]`; no wildcard or automatic
+approval. Raw observations remain only in fresh root-private operator state.
+
+The plan's source hashes must come from the independently reviewed helper tree.
+Its schema binds `project`, service `coolify`, ordered absolute `compose_files`,
+absolute `env_file`, `expected_chain_ticket`, `running_container_id`, immutable
+`candidate_image_id`, `probe_token`, exact three `tool_inputs` hashes, and an
+explicit `action`. See the driver for the strict schema. Prepare a plan through
+the trusted owner/reviewer and supply its **raw file SHA256 independently**:
 
 ```bash
-python3 scripts/operations/coolify_helper/verify_activation_contract.py \
-  --running "${helper_running_inspect:?}" --proposed "${helper_proposed_inspect:?}" \
-  --other-containers "${helper_all_containers_inspect:?}" \
+python3 scripts/operations/coolify_helper/capture_activation_contract.py \
+  --plan "${helper_operator_plan:?}" \
+  --expected-plan-sha256 "${helper_operator_plan_sha256:?}" \
+  --operator-state-dir "${helper_private_operator_state:?}" \
   --reviewed-changes "${helper_exact_changes:?}" \
-  --expected-changes-sha256 "${helper_exact_changes_sha256:?}" \
-  --health-evidence "${helper_health_evidence:?}"
+  --expected-changes-sha256 "${helper_exact_changes_sha256:?}"
 ```
+
+`prepare_review` needs no approved difference file and returns a **proposal**,
+with `reviewed_diff_verified=false` and `activation_authorized=false`.
+`probe_only` verifies the independently approved exact difference set and still
+starts nothing. `activate_management` additionally requires the separately
+owner-approved freeze receipt SHA256 and deterministic reviewed endpoint identity;
+it rechecks the **same actual apply chain/render/version** immediately before
+executing its one bounded management-only `up`. No alternate project/files or
+caller arguments can be substituted into that operation. An exclusive owner
+operation window/lock and absent concurrent mutators cover the check-to-exec
+interval. A nonzero command does not retry. After success the same driver checks
+the actual installed Engine contract, exact HTTP 200 without redirects, and the
+chain again. It explicitly reports that runtime admission/drain/startup/staging
+approval is **not** established by this tool.
+
+Every Docker call uses the same controlled Compose client environment. Ambient
+Compose flags are removed, known mutation/output flags are fixed explicitly,
+and project `.env` Compose-control keys reject before observation. An inherited
+`COMPOSE_REMOVE_ORPHANS` cannot silently broaden management-only activation.
+Ordinary application values are preserved and compared. The private state
+directory must belong to the effective operator, have mode `0700`, remain outside
+Git, and have trusted non-writable ancestry; `/tmp` or a replaceable foreign-owned
+parent is unsuitable. The outer activation timeout exceeds its 120-second wait.
+
+The actual Engine health test must equal the official application test. A safe
+probe establishes defaults/health plus the restricted proved projection; it is
+never attached to production networks and never mounts production paths. Keep
+the private recipe and raw evidence for recovery review; remove only its exact
+owned never-started ID. Unexpected running state or ownership preserves the
+container for the operator. Default Compose JSON escapes literal dollars;
+preserve one encoding layer during replay and reject an unescaped dollar.
+Never use `--no-interpolate`, invent health evidence or repeatedly decode until
+it passes. Isolated fixtures must validate this same driver/Compose version and
+its supported connectivity/metadata/dollar behavior before live use.
 
 Require a complete fresh live container/host-listener inventory as well. The
 verifier rejects conflicting published TCP/UDP ports in the supplied running
@@ -315,55 +375,92 @@ the gate pass. If persistence cannot be proven, STOP and propose the additional
 technical gate for separate review/approval; no blanket permission is implied.
 
 Within that owner-approved hold, check HTTP 200 and fresh disk/runtime hashes,
-then enter maintenance, stop the scheduler and close/drain nginx **and**
-PHP-FPM gracefully. Prove no admitted request or independent CLI producer
-remains. Let existing work finish; then pause/drain Horizon and check all
+stop scheduler/admission producers and close/drain nginx **and** PHP-FPM
+gracefully. Prove no admitted request, keepalive/FPM child or independent CLI
+producer remains. **Keep normal Horizon running with cache maintenance OFF**
+while admitted work finishes; entering maintenance first would prevent normal
+workers from draining. Check all
 Redis ready/delayed/reserved/processing queues and every deployment, console
 job, scheduled task and backup execution twice. A reserved cleanup job blocks
 the gate just like other work; age is not completion. Do not acknowledge,
 except, delete, requeue, reset attempts, kill jobs or clear queues to force a
 pass. Abort and resume the old service if the gate cannot clear.
 
-Only after other work drains, stop Horizon gracefully with the reviewed
+Only after all other work and queues genuinely drain, pause and stop Horizon gracefully with the reviewed
 `/command/s6-svc -wD -T 30000 -O -t /run/service/horizon`. Prove its master,
 supervisors and workers exited and repeat the empty/PID check. A timeout or
-remaining executor blocks recreation. Recheck the owner hold, source binding,
+remaining executor blocks recreation. Only then enter actual cache maintenance
+if required and verify literal startup holds for recreation. Recheck the owner hold, source binding,
 image holders/escrow, disk/running snapshots, exact contract/recovery diffs and
 host-port ownership. Record the complete private freeze receipt.
 
-The added nginx/PHP-FPM s6 edges protect initialization only; **Horizon and the
-scheduler start automatically after initialization**. The external/persistent
-admission hold and genuinely empty queues must already make that safe before
-recreation. The ingress dependencies do not implement an ongoing staging-only
-queue hold. Keep application discovery disabled. No production jobs may run
-before the explicitly authorized isolated staging app/revision has validated
-the normal build-secret helper restart path.
+The added nginx/PHP-FPM s6 edges protect initialization only. Before recreation,
+the owner must approve and verify **literal file** holds
+`HORIZON_ENABLED=false` and `SCHEDULER_ENABLED=false` in the exact read-only
+mounted `/var/www/html/.env`. The pinned native run scripts grep that file and
+sleep on service startup. Process environment alone does not establish this
+hold; verify actual image scripts, dependency graph, mount source/target/mode
+and canonical file bytes, with no duplicate keys or ambiguous prefixes. The
+public script SHA256s are `296dfda050b4d25c32fd9a858216a9a492148fd6ef9960644e08f32f7caf5e31`
+for Horizon and `9034571c9f328e694720f9c66c461016e96a3d932ade29f5d2498754677d906c`
+for scheduler-worker. Actual immutable-image verification remains required.
+These holds do not drain current services; perform the genuine PRE-init drain
+above first. Record exact controller-only file changes and restoration for both
+candidate and recovery. Initialization does not create these file flags.
+
+After initialization the held services must be verified sleeping, with no
+Horizon master/supervisor/worker or scheduler executor. Init legitimately queues
+`PullChangelog` on high and `CheckHelperImageJob` on default, so **immediate
+post-init empty queues are not expected**. Capture the actual bounded startup
+job set and payload hashes privately; prove no deployment, unknown or old work
+has appeared. The helper-error path can enqueue general-notification wrappers,
+channel send jobs and retries/delays, so the reviewed closure must include those
+conditional descendants rather than merely allowlisting two direct job types.
+Init also clears statuses/locks and marks outstanding execution rows; this is
+why the genuine PRE-init drain admits no exception. Never insert jobs manually,
+invoke `queue_next`, filter/pop arbitrary work or discard jobs to obtain a pass.
+
+Keep the independently proven external admission gate and production producer
+holds while the owner clears actual cache maintenance, then deliberately releases
+normal Horizon to naturally complete only the reviewed startup housekeeping
+closure. Normal workers require maintenance off. Scheduler remains disabled;
+Horizon release is not a job-ID selector, so all competing producers/consumers
+and delayed/retry sources must already be accounted for. Unexpected work blocks
+release and requires review. After the known startup jobs naturally finish,
+prove all queues/executions empty twice before authorizing the single staging
+request. Keep application discovery disabled; no production deployment is a
+startup or repair test.
 
 Atomically install only the reviewed owned management override with immutable
 candidate image ID, `pull_policy: never`, the application health test, and any
 explicitly approved minimal reconciliation. Refuse concurrent/unknown changes.
 Keep prior bytes and the separately prevalidated recovery override; preserve
-every other service. Using only the reviewed file chain:
-
-```bash
-cd /data/coolify/source
-docker compose --project-name source --env-file .env \
-  -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.custom.yml \
-  up -d --no-deps --no-build --pull never --force-recreate --wait --wait-timeout 120 coolify
-```
+every other service. After the independent operational gates clear, use only
+the owner-approved `activate_management` plan through the chain-bound driver
+above. It executes the same project/files as its observations, for service
+`coolify` only, with `up -d --no-deps --no-build --pull never --force-recreate
+--wait --wait-timeout 120`. Do not substitute a separate manual up command whose
+files were not observed by that invocation.
 
 Do not use `down`, `--remove-orphans`, installer, updater or a full-stack
 recreation. On success verify Engine image/patch receipt/hashes, PHP 8.4.27,
 actual health test and HTTP 200, private runtime/disk contract, unchanged other
 workload identities and public application health. Recheck the updater hold,
 all queues/executions and PID state immediately after initialization, while
-external admission remains closed. Unexpected work blocks release; do not clear
-it or let it become an unplanned production deployment.
+external admission and native service holds remain effective. Reconcile and
+complete only the expected bounded startup closure under the controlled normal
+Horizon release above. Unexpected work blocks release; do not clear it or let
+it become an unplanned production deployment.
 
 Only then may the owner authorize admission of **one exact isolated staging
 application/revision**, preserving its normal build secrets and helper restart
 path, while every production producer remains held. Verify successful staging
-and original-occupant preservation. If safe selective admission cannot be
+and original-occupant preservation. Bind the existing staging branch to its
+independently reviewed full commit through an owner-approved branch freeze/lock,
+and verify remote HEAD before queueing and native resolution during the job.
+The normal job resolves branch HEAD and can overwrite the row's commit; a
+requested commit parameter alone does not establish the tested revision. Do not
+create a new branch or alter protection under an implied permission. If safe selective admission cannot be
 proven, leave the hold in place and STOP for a reviewed plan. After this proof
 and MAIN acceptance, MAIN owns subsequent PR merges and production release;
 the owner restores only the recorded holds in the approved restore plan.
@@ -382,6 +479,19 @@ replacement is eligible for removal only after its exact recorded ID/name,
 ownership, stopped state and lack of admitted work are verified; preserve
 failure evidence first. Unknown or active state requires operator recovery,
 not deletion or retry.
+
+**Missing-manager recovery is a separate installation STOP.** The normal
+chain/probe driver requires a live baseline and unchanged connectivity; it does
+not implement recovery with a missing manager or the two additional base-image
+startup-gate mounts below. Before any installation, require a separately
+approved prevalidated recovery wrapper/packet binding the actual recovery file
+chain, interpolated render, current Compose version/config hash, complete Engine
+contract, immutable patched base, both nonsecret gate-file hashes/modes, and
+fresh failed-state no-executor/queue/ownership proof. It must guard the actual
+same recovery chain before one bounded recreation and HTTP 200 acceptance.
+Until that wrapper/packet passes independent review, keep the external holds and
+do not install. Do not substitute arbitrary saved Engine JSON, relax normal
+guards, claim this driver covers missing-manager cases, or run a bare manual up.
 
 The same admission, hash, drain, queue/PID and port gates apply to rollback.
 When a failed recreation leaves no running management process, prove absence
@@ -417,8 +527,9 @@ unreviewed change. Prevalidate port ownership and a safe complete recovery
 contract before the original instance is removed.
 
 Atomically install the exact reviewed recovery override last in the preserved
-file chain and recreate only `coolify` with the same bounded `--no-deps
---no-build --pull never --force-recreate --wait` procedure. If recovery itself
+file chain **only through that separately approved recovery wrapper**, recreating
+only `coolify` with the bounded `--no-deps --no-build --pull never
+--force-recreate --wait` procedure. If recovery itself
 fails, keep holds and evidence, stop retries and use the independently reviewed
 operator recovery plan/offline escrow. Never broaden to full-stack teardown.
 After recovery require HTTP 200, exact image/PHP/source identity, expected
