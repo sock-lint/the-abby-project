@@ -125,7 +125,8 @@ class HelperCommandTests(unittest.TestCase):
         self.assertEqual(self.count.read_text(), "1")
 
     def test_non_root_sudo_rewrite_keeps_bash_control_flow_valid(self):
-        # These are the exact command rewrites in Coolify v4.1.2 parseLineForSudo.
+        # Exact v4.1.3 parseLineForSudo rewrites; the Dockerfile also guards
+        # that upstream sudo.php's complete hash before building a candidate.
         # The wrapper receives one sudo; command substitution receives docker's sudo.
         command = "sudo " + generated(timeout=5)
         command = command.replace("$(", "$(sudo ").replace("`", "`sudo ")
@@ -165,7 +166,7 @@ class PatchGuardTests(unittest.TestCase):
         $this->prepare_builder_image(firstTry: false);
     }
 """
-        return {"app/Jobs/ApplicationDeploymentJob.php": job, "bootstrap/helpers/docker.php": "<?php\nfunction syntheticOriginalHelper() {}\n"}
+        return {"config/constants.php": "<?php\nreturn ['coolify' => ['version' => '4.1.3']];\n", "app/Jobs/ApplicationDeploymentJob.php": job, "bootstrap/helpers/docker.php": "<?php\nfunction syntheticOriginalHelper() {}\n"}
 
     def invoke_patch(self, alteration=""):
         sources = self.fixture()
@@ -181,12 +182,20 @@ class PatchGuardTests(unittest.TestCase):
         self.assertEqual(job.count("graceful_shutdown_container($this->deployment_uuid, skipRemove: true)"), 1)
         self.assertEqual(patched["bootstrap/helpers/docker.php"].count("function dockerRunWithNameConflictRetryCommand("), 1)
 
-    def test_either_source_drift_rejects_every_output(self):
+    def test_any_guarded_source_drift_rejects_every_output(self):
         for path in self.fixture():
             with self.subTest(path=path):
                 result = self.invoke_patch(f"$sources[{php_value(path)}].='drift';")
                 self.assertNotIn("patched", result)
                 self.assertIn("source hash mismatch", result["error"])
+
+    def test_matching_fixture_hashes_cannot_accept_another_base_version(self):
+        path = "config/constants.php"
+        for version in ["4.1.2", "4.6.0"]:
+            with self.subTest(version=version):
+                result = self.invoke_patch(f"$sources[{php_value(path)}]=str_replace('4.1.3',{php_value(version)},$sources[{php_value(path)}]); $expected[{php_value(path)}]=hash('sha256',$sources[{php_value(path)}]);")
+                self.assertNotIn("patched", result)
+                self.assertIn("base version mismatch", result["error"])
 
     def test_already_patched_sources_reject_original_hashes(self):
         result = self.invoke_patch("$sources=patchCoolifyHelperSources($sources,$retry,$expected);")

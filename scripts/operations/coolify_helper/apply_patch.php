@@ -1,7 +1,10 @@
 <?php
 
 /** A version-specific backport. Never apply this to another Coolify release. */
+const COOLIFY_HELPER_BASE_VERSION = '4.1.3';
+const COOLIFY_HELPER_BASE_IMAGE = 'ghcr.io/coollabsio/coolify@sha256:7cfd6e20b796024cf7ae5dfcd981b13a0dd3144ba6fb5f533729de4957c05d96';
 const COOLIFY_HELPER_BASE_SHA256 = [
+    'config/constants.php' => 'f80bf7467c45fc3f28c233d28c5fd8bffd83ce9d4e7545cade899be7702b1581',
     'app/Jobs/ApplicationDeploymentJob.php' => '56e49836d9d952e23adb91d6c5c5ed7ad4d2ae7dc32f54c8019ac3879ecae9c8',
     'bootstrap/helpers/docker.php' => 'af3bf14e7d3fef6e5aa1a03ec3cd89fd25afa33877618af8d047068247706467',
 ];
@@ -13,6 +16,9 @@ function patchCoolifyHelperSources(array $sources, string $retrySource, array $e
         if (! isset($sources[$path], $expectedHashes[$path]) || ! hash_equals($expectedHashes[$path], hash('sha256', $sources[$path]))) {
             throw new RuntimeException('Coolify source hash mismatch: '.$path.'. No files changed.');
         }
+    }
+    if (preg_match_all("/'version'\\s*=>\\s*'([^']+)'/", $sources['config/constants.php'], $versions) !== 1 || $versions[1][0] !== COOLIFY_HELPER_BASE_VERSION) {
+        throw new RuntimeException('Coolify base version mismatch. No files changed.');
     }
     if (! str_starts_with($retrySource, "<?php\n") || substr_count($retrySource, 'function dockerRunWithNameConflictRetryCommand(') !== 1) {
         throw new RuntimeException('Invalid helper retry source. No files changed.');
@@ -81,7 +87,7 @@ function writeCoolifyHelperPatch(string $sourceRoot, string $outputRoot): void
             chmod($temporary.'/'.$path, 0644);
             $hashes[$path] = hash('sha256', $bytes);
         }
-        $receipt = json_encode(['schema_version' => 1, 'base_version' => '4.1.2', 'original_sha256' => COOLIFY_HELPER_BASE_SHA256, 'patched_sha256' => $hashes], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+        $receipt = json_encode(['schema_version' => 1, 'base_version' => COOLIFY_HELPER_BASE_VERSION, 'base_image' => COOLIFY_HELPER_BASE_IMAGE, 'php_version' => PHP_VERSION, 'patcher_sha256' => hash_file('sha256', __FILE__), 'retry_source_sha256' => hash('sha256', $retrySource), 'original_sha256' => COOLIFY_HELPER_BASE_SHA256, 'patched_sha256' => $hashes], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         if (file_put_contents($temporary.'/patch-receipt.json', $receipt, LOCK_EX) !== strlen($receipt) || ! rename($temporary, $outputRoot)) {
             throw new RuntimeException('Cannot publish patched output tree.');
         }
@@ -105,7 +111,7 @@ if (! defined('COOLIFY_HELPER_PATCH_LIBRARY_ONLY')) {
             throw new InvalidArgumentException('Usage: php apply_patch.php SOURCE_ROOT NEW_OUTPUT_ROOT');
         }
         writeCoolifyHelperPatch($argv[1], $argv[2]);
-        fwrite(STDOUT, "Verified Coolify 4.1.2 helper patch prepared.\n");
+        fwrite(STDOUT, "Verified Coolify 4.1.3 helper patch prepared.\n");
     } catch (Throwable $error) {
         fwrite(STDERR, $error->getMessage()."\n");
         exit(1);

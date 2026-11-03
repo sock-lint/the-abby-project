@@ -1,4 +1,4 @@
-# Coolify 4.1.2 helper restart correction
+# Coolify 4.1.3 helper restart correction
 
 This is a narrowly scoped, reproducible derivative of the installed Coolify
 image. Build-secret deployments resolve `HEAD`, stop their auto-removed helper,
@@ -23,15 +23,24 @@ not add deployment queue locking or resolve every possible SSH/Docker failure.
 The original image is:
 
 ```text
-ghcr.io/coollabsio/coolify@sha256:3a27ba5f7f98ff7763a0a4d6715ec36e564f9622eea8f492c46f90716ea2525f
+ghcr.io/coollabsio/coolify@sha256:7cfd6e20b796024cf7ae5dfcd981b13a0dd3144ba6fb5f533729de4957c05d96
 ```
 
+This is the security-patched 4.1.3 base observed on November 3, 2026, running
+PHP **8.4.27**. The Docker build checks that exact PHP version. Do not rebuild
+the older 4.1.2 recipe, downgrade PHP, transplant its complete files, or relax a
+guard to get a candidate through.
+
 `apply_patch.php` verifies the complete original bytes of **both** changed PHP
-files against the installed image and official `v4.1.2` sources. It transforms
-them in memory before creating a fresh output tree, then publishes that tree
-with one directory rename. Source drift, a missing input, an existing output,
+files and `config/constants.php` against the observed image and official
+`v4.1.3` sources, and requires the constants to identify exactly 4.1.3. The two
+changed files have the same original bytes as the previous recipe; matching
+those files alone does not distinguish the releases. It transforms them in
+memory before creating a fresh output tree, then publishes that tree with one
+directory rename. Source/version drift, a missing input, an existing output,
 or reapplication fails closed. It never edits its input tree. A receipt records
-the original and patched hashes. Docker builds lint both resulting files before
+the immutable base, PHP version, original and patched hashes, and the
+patcher/retry source hashes. Docker builds lint both resulting files before
 copying them into the derivative and preserve the base image's user, entrypoint,
 command, runtime dependencies, and version.
 
@@ -46,23 +55,25 @@ The candidate must compile its s6 dependency graph in isolation before activatio
 Do not introduce `dependencies.d` alongside the flat nginx dependency file:
 s6 gives the directory precedence and would discard the existing PHP-FPM edge.
 
-As checked on 2026-10-15, the released `v4.4.6` still contains the same helper
+As checked on 2026-11-03, the released `v4.6.0` still contains the same helper
 restart sequence. The relevant upstream correction is
 [PR 11626](https://github.com/coollabsio/coolify/pull/11626), open and unmerged
 at head `fd6fec6317ff37ee4b0577a71cf2a8b925c808a0`. This implementation follows
 its bounded reservation-retry approach and additionally checks the exit code
-and exact conflicting name. Upgrading to `4.4.6` alone does not establish that
+and exact conflicting name. Upgrading to `4.6.0` alone does not establish that
 this race is fixed.
 
 Original source/provenance:
 
-- [Coolify v4.1.2 deployment job](https://github.com/coollabsio/coolify/blob/v4.1.2/app/Jobs/ApplicationDeploymentJob.php)
-- [Coolify v4.1.2 Docker helpers](https://github.com/coollabsio/coolify/blob/v4.1.2/bootstrap/helpers/docker.php)
+- [Coolify v4.1.3 deployment job](https://github.com/coollabsio/coolify/blob/v4.1.3/app/Jobs/ApplicationDeploymentJob.php)
+- [Coolify v4.1.3 Docker helpers](https://github.com/coollabsio/coolify/blob/v4.1.3/bootstrap/helpers/docker.php)
+- [Coolify v4.1.3 sudo parser](https://github.com/coollabsio/coolify/blob/v4.1.3/bootstrap/helpers/sudo.php)
+- [Coolify v4.1.3 security release](https://github.com/coollabsio/coolify/releases/tag/v4.1.3)
 - [Upstream issue 9363](https://github.com/coollabsio/coolify/issues/9363)
-- [Latest release checked: v4.4.6](https://github.com/coollabsio/coolify/releases/tag/v4.4.6)
+- [Latest release checked: v4.6.0](https://github.com/coollabsio/coolify/releases/tag/v4.6.0)
 
 Coolify is copyright its upstream contributors, licensed under
-[Apache License 2.0](https://github.com/coollabsio/coolify/blob/v4.1.2/LICENSE).
+[Apache License 2.0](https://github.com/coollabsio/coolify/blob/v4.1.3/LICENSE).
 The derivative retains the upstream source and notices in the base image.
 The added correction files are licensed under the same Apache License 2.0;
 see [LICENSE](LICENSE). This directory contains no private application source,
@@ -75,12 +86,20 @@ Use Python 3, PHP 8, and Bash. The tests generate the real Bash command through
 The fake Docker accepts only synthetic inputs and exercises delayed name release,
 persistent conflicts, unchanged original occupants, argument quoting, Coolify's
 non-root sudo rewriting, unrelated errors, other names/exit codes, successful
-slow starts, source drift, duplicate anchors, and reapplication rejection.
+slow starts, source/version drift, duplicate anchors, and reapplication rejection.
+The v4.1.3 `parseLineForSudo` applies the same rewrites as the existing test;
+the Dockerfile also checks the complete upstream `sudo.php` hash. No Laravel
+bootstrap or private settings are loaded by the tests.
 
 ```bash
 python3 -m unittest discover -s scripts/operations/coolify_helper -p test_helper_retry.py -v
 python3 -m unittest discover -s scripts/operations/coolify_helper -p test_startup_graph.py -v
-docker build --network=none --pull=false -t local/coolify:4.1.2-helper-retry-v1 scripts/operations/coolify_helper
+test -z "$(git status --porcelain -- scripts/operations/coolify_helper)"
+helper_patch_head="$(git rev-parse HEAD)"
+helper_patch_build="$(date -u +%Y%m%dT%H%M%SZ)-${helper_patch_head}"
+docker build --network=none --pull=false \
+  --label "lol.bos.coolify-helper-patch.source-commit=${helper_patch_head}" \
+  -t "local/coolify:4.1.3-helper-retry-${helper_patch_build}" scripts/operations/coolify_helper
 ```
 
 If PHP is unavailable locally, `PHP_COMMAND_JSON` may name an operator-controlled
@@ -140,16 +159,19 @@ closed until this initialization completes. Wait for fresh management health
 before resuming operator requests. The dependency gate also protects incoming
 webhooks during cleanup.
 
-The observed Compose project is **`source`**, not `coolify`. The files are
-`/data/coolify/source/docker-compose.yml` and `docker-compose.prod.yml`.
-There was no custom override, and automatic platform updates were disabled at
-the initial inspection. Preserve both facts unless a fresh review deliberately
-changes them. Never overwrite an existing override without preserving and
-reviewing it.
+The observed Compose project is **`source`**, not `coolify`. Its files include
+`/data/coolify/source/docker-compose.yml`, `docker-compose.prod.yml`, and the
+existing `docker-compose.custom.yml`. The November 3 inspection found that
+custom override already pinning the official 4.1.3 image. Capture its exact
+bytes and compare the effective configuration; preserve every setting besides
+the deliberately reviewed image replacement. Read the current automatic-update
+preference instead of assuming the initial October inspection still describes
+it. Never overwrite an unknown or concurrently changed override.
 
-Create a minimal `/data/coolify/source/docker-compose.custom.yml` that changes
-only `services.coolify.image` to the **verified candidate image ID**, with
-`pull_policy: never`. Record the literal image ID in a private installation
+Atomically update the reviewed `/data/coolify/source/docker-compose.custom.yml`
+so only `services.coolify.image` changes to the **verified candidate image ID**,
+retaining `pull_policy: never` and any other existing owned settings. Record the
+literal image ID in a private installation
 receipt; a mutable local tag alone is insufficient recovery evidence. Compare
 the effective configuration in memory: all other service definitions and
 Coolify mounts, ports, environment, network, user and health settings must match.
@@ -182,8 +204,10 @@ this management-service correction.
 
 ## Rollback and later platform updates
 
-Keep the exact original image locally and the private configuration/control-DB
-backup. Before rollback, repeat the guarded freeze against the **currently
+Keep the exact security-patched 4.1.3 original image locally and the private
+configuration/control-DB backup. Never use the historical 4.1.2 image as the
+recovery target for this rebase. Before rollback, repeat the guarded freeze
+against the **currently
 running** instance: enter maintenance mode, stop the scheduler, gracefully drain
 nginx and PHP-FPM, and prove no admitted request or CLI producer remains. Pause
 Horizon only after other work drains; check all queues and deployment/task/backup
