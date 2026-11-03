@@ -24,6 +24,46 @@ from .factories import ASSET_POLICY, make_catalog
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
 )
 class MovementIdentityMigrationTests(TestCase):
+    @override_settings(EGG_DISCOVERY_ENABLED=False)
+    def test_upgrade_bounds_oversized_historical_minutes_without_changing_sources_or_rewards(self):
+        child = make_family("Movement upgrade bounds", children=[{"username": "movement-upgrade-bounds"}]).children[0]
+        day = timezone.localdate(timezone=household_timezone(child))
+        movement_type = MovementType.objects.create(name="Historical walking", slug="historical-walking")
+        durations = (0, 32767, 32768, 2147483647)
+        sources = [
+            MovementSession.objects.create(
+                user=child, movement_type=movement_type, duration_minutes=minutes,
+                occurred_on=day, client_request_id=uuid4(),
+            )
+            for minutes in durations
+        ]
+        MovementSession.objects.create(
+            user=child, movement_type=movement_type, duration_minutes=2147483647,
+            occurred_on=day, client_request_id=None,
+        )
+        migration = import_module("apps.egg_discoveries.migrations.0002_preserve_movement_request_identities")
+
+        for _ in range(2):
+            migration.preserve_existing_request_identities(apps, SimpleNamespace(connection=connection))
+
+        self.assertEqual(DiscoveryActivityCredit.objects.count(), len(sources))
+        for source, minutes in zip(sources, durations):
+            with self.subTest(minutes=minutes):
+                credit = DiscoveryActivityCredit.objects.get(
+                    user=child, source_kind="movement_session", source_key=str(source.client_request_id),
+                )
+                self.assertEqual(
+                    (credit.category, credit.occurred_on, credit.minutes, credit.credited_minutes, credit.discovery_id),
+                    ("movement", day, min(minutes, 32767), 0, None),
+                )
+                source.refresh_from_db()
+                self.assertEqual(source.duration_minutes, minutes)
+        self.assertFalse(EggDiscovery.objects.exists())
+        self.assertFalse(DiscoverySearch.objects.exists())
+        self.assertFalse(UserInventory.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+        self.assertFalse(DropLog.objects.exists())
+
     def test_upgrade_retains_live_uuids_as_zero_credit_and_preserves_existing_receipts(self):
         child = make_family("Movement upgrade", children=[{"username": "movement-upgrade-child"}]).children[0]
         catalog = make_catalog()

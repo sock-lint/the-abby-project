@@ -83,6 +83,8 @@ replays do not retry delivery, and a saved winning search never rolls again.
 - Reading also respects its existing native reward-credit UUIDs from before
   this feature. Movement retains zero-credit request identities even while the
   mode is off; a metadata-only migration reserves surviving older UUIDs.
+  Its receipt minutes are bounded to 32767 for oversized historical rows,
+  preserving their UUIDs without changing the original sessions or any rewards.
   Identities deleted before any durable receipt existed cannot be reconstructed.
 - Keep surplus progress with its accepted target. A success cannot send the
   unused portion of the same saved source into the next selected discovery.

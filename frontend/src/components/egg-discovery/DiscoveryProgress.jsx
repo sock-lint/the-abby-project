@@ -19,6 +19,8 @@ export default function DiscoveryProgress({ discovery, compact = false }) {
   const requirements = discovery.requirements || {};
   const rare = requirements.guaranteed_search != null;
   const total = TYPES.reduce((sum, [type]) => sum + (discovery.minutes?.[type] || 0), 0);
+  const activityTypes = Math.min(requirements.activity_types_required,
+    TYPES.filter(([type]) => (discovery.minutes?.[type] || 0) >= requirements.min_minutes_per_type).length);
   const searches = discovery.searches || [];
   const pending = discovery.delivery_pending === true;
   const completed = discovery.status === 'completed' && !pending;
@@ -31,9 +33,10 @@ export default function DiscoveryProgress({ discovery, compact = false }) {
       <ProgressBar value={searches.length} max={requirements.guaranteed_search} aria-label={`${discovery.name} searches`} />
       <p className="text-caption text-ink-secondary">At most {discovery.remaining_searches} more {discovery.remaining_searches === 1 ? 'search' : 'searches'} until you find this egg.</p>
     </> : <>
-      <p className="text-body text-ink-primary">{total} of {requirements.total_minutes} minutes recorded</p>
+      <p className="text-body text-ink-primary">{Math.min(total, requirements.total_minutes)} of {requirements.total_minutes} minutes recorded</p>
       <ProgressBar value={total} max={requirements.total_minutes} aria-label={`${discovery.name} activity minutes`} />
-      <p className="text-caption text-ink-secondary">Include at least {requirements.min_minutes_per_type} minutes in each of {requirements.activity_types_required} activity types.</p>
+      <p className="text-caption text-ink-secondary">{activityTypes} of {requirements.activity_types_required} activity types with at least {requirements.min_minutes_per_type} minutes</p>
+      <ProgressBar value={activityTypes} max={requirements.activity_types_required} aria-label={`${discovery.name} activity variety`} />
     </>}
     {!compact && !completed && <>
       <p className="text-caption font-semibold text-ink-primary">Your recorded activity</p>

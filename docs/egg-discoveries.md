@@ -50,6 +50,9 @@ An ordinary egg needs **240 minutes total**, including at least **90 minutes
 in each of two activity types**. The remaining 60 minutes may come from any
 type. For example, 150 minutes of making and 90 minutes of reading qualify.
 240 minutes of reading alone do not meet the variety requirement.
+Your discovery shows separate progress for total minutes and activity variety,
+so reaching the time goal still shows any unmet variety requirement. The
+detailed activity list keeps all your recorded minutes.
 
 ## Rare discoveries
 

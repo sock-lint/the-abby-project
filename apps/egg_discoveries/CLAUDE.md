@@ -44,9 +44,11 @@ no-active cases. Corrections, deletion, retries and switching targets cannot mov
 those minutes into another discovery. There is no historical backfill.
 Migration `0002` only preserves owner/UUID, saved date and minutes from surviving
 movement sessions with a UUID as zero-credit identities. It creates no target,
-progress, search or reward. Requests deleted before deployment have no surviving
-identity evidence to preserve; sessions without a UUID cannot recover a request
-identity. New movement UUIDs remain reserved even while the mode is disabled.
+progress, search or reward. Historical minutes above 32767 are bounded to that
+receipt-field limit; the original movement sessions remain unchanged. Requests
+deleted before deployment have no surviving identity evidence to preserve;
+sessions without a UUID cannot recover a request identity. New movement UUIDs
+remain reserved even while the mode is disabled.
 
 Ordinary completion needs 240 total minutes and at least 90 minutes in each of
 two categories. Rare searches use cumulative totals from reading, movement and
