@@ -5,7 +5,9 @@ import { createContext, useContext } from 'react';
 export const PULSE_INTERVAL_MS = 30000;
 
 // Consecutive failed beats (gateway status or HTML page, each already retried)
-// before PulseProvider reports an outage; a deploy window ends sooner.
+// before PulseProvider reports an outage; a deploy window ends sooner. The run
+// must also span (PULSE_OUTAGE_BEATS - 1) intervals, because `refresh()` and tab
+// focus start extra beats that would otherwise reach the count within seconds.
 export const PULSE_OUTAGE_BEATS = 3;
 
 export const PulseContext = createContext(null);
