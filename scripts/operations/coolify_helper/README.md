@@ -81,10 +81,10 @@ credentials, paid asset content, or exported deployment logs.
 
 ## Review binding and focused validation
 
-The former `99ce33ac` and `c8d10b60` runbooks are **NOT CLEAN and must not be
+The former `99ce33ac`, `c8d10b60` and `92243170` runbooks are **NOT CLEAN and must not be
 used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
 README-1 findings apply to their activation/recovery procedures. Later N1–N5,
-SG-2 and RB-1 findings also require fresh independent dispositions;
+SG-2, RB-1 and RV366G-RB1-A/B findings also require fresh independent dispositions;
 the helper algorithm and pinned image recipe remain unchanged. Every new
 source head needs fresh hosted checks, independent Claude review, and MAIN's
 per-finding disposition. Evidence for an older head is historical evidence,
@@ -100,8 +100,8 @@ from current HEAD and call it approval, or reuse the old-head attestation.
 - `source`: exact `head`, full `root_tree`, `helper_subtree`, and `expected_base`.
 - A clean independent review by Claude of Codex-authored work, bound to that
   same source tuple and the SHA256 of its owner-held raw receipt.
-- MAIN's clean disposition of all eighteen recorded findings, including N1–N5,
-  SG-2 and RB-1,
+- MAIN's clean disposition of all twenty mandatory gated finding IDs, including
+  N1–N5, SG-2, RB-1 and RV366G-RB1-A/B,
   each with evidence; missing or unresolved current findings reject.
 - Successful required hosted checks for that exact head/base, including
   `deployment-guards`, and `all_source_gates_clear=true`.
@@ -122,6 +122,15 @@ is the trust anchor; the script does not authenticate the underlying raw
 review or establish runtime admission/installation approval. Keep manifests,
 raw receipts and private evidence outside Git. Source gate clearance alone
 never clears the activation gates below.
+
+The closed twenty-ID guard is not a count of every observation in the raw
+review. MAIN's `92243170` review reports 0 high, 2 verified medium, 22 low and
+4 informational observations, with 3 reviewers, 5 verifier jobs, 28 confirmed
+and 1 unverified item in its retained review trail. The two new mandatory IDs
+are RV366G-RB1-A and RV366G-RB1-B. Other low/informational observations remain
+in the coordinator-held report; this change does not invent dispositions or
+claim they were all fixed. The former clean reviews and source/runtime receipts
+cannot clear this new head or the unresolved operational boundary.
 
 Use Python 3, PHP 8, and Bash. During the current operational review hold, the
 allowed local subset is limited to harmless policy, constant-module, standard
@@ -523,18 +532,31 @@ These holds do not drain current services; perform the genuine PRE-init drain
 above first. Record exact controller-only file changes and restoration for both
 candidate and recovery. Initialization does not create these file flags.
 
-Before app initialization, native s6 `init-seeder` runs `ProductionSeeder` on
-every start; `SEEDER_ENABLED` defaults true. It forces localhost server 0
-reachable/usable, conditionally start the proxy and queue
-`CheckAndStartSentinelJob`. `CaSslCertSeeder` can queue high-priority
-`CoolifyTask` per server to write `/data/coolify/ssl/coolify-ca.crt`. The existing
-36-predicate Init observer excludes these seeder branches and is an incomplete
-startup audit. **Before any installation**, independently bind every seeder
-branch, target, direct effect, callsite/arguments/payload hash and admitted-job
-count, alongside the Init closure below. Prove mutating branches absent or
-obtain a separately scoped review of their exact effects before installation.
-Service hold flags do not suppress seeders. Never skip seeding or initialization
-to make this gate pass.
+**Migration, seeding and the entire native startup closure are separate
+pre-installation gates.** Follow the pinned-source branch/predicate/effects
+matrix in [STARTUP_REVIEW.md](STARTUP_REVIEW.md) for both candidate and recovery.
+All actual counts, targets and effects remain **UNVERIFIED**. The existing
+36-file/predicate observer is incomplete and cannot certify these gates.
+Native `db-migration` calls `migrate --force --isolated`; `MIGRATION_ENABLED`
+defaults true. Require an independently verified **zero pending migration** set
+for the exact image and actual database repository before recreation. Do not
+invoke migration/pretend/status or a dry-run under a read-only assumption.
+
+Next `init-seeder` runs forced `ProductionSeeder` on every enabled startup;
+`SEEDER_ENABLED` defaults true. It rewrites localhost settings and conditionally
+creates default rows, starts proxies and dispatches sentinel work. Its SSH
+directory seeder unconditionally deletes/recreates persisted key/mux roots and
+rewrites/chowns their contents; zero key rows do not remove that effect. OAuth
+settings can be deleted in bulk, CA creation can delete existing certificate
+rows, every server is a remote certificate-write target, and synchronous SSH
+can happen before activity/job admission. Root-user, public-IP and other seeder
+branches also write state or use external services. Nightwatch is a separate
+longrun outside the Horizon/scheduler hold. Each source-defined conditional
+target must be proven absent or separately reviewed; **unconditional and
+persisted-host effects always require scoped review and verified backups before
+installation**. Use the exact targets/counts/side effects and execution order in
+the linked matrix, not only a class allowlist. Never skip native startup or
+silently edit service flags to pass.
 
 After initialization the held services must be verified sleeping, with no
 Horizon master/supervisor/worker or scheduler executor. **The native flags do
@@ -546,9 +568,14 @@ servers and high-priority `DeleteResourceJob` for trashed/orphaned resources.
 configuration and records, dispatch Docker cleanup, and enqueue another default
 cleanup command wrapper. This closure is data-dependent and may recurse.
 Other Init branches can enqueue high-priority `CoolifyTask` network-disconnect/
-removal commands, and localhost-proxy compatibility can synchronously write,
-remove or reload Caddy configuration. Neither native service flag gates these
-direct actions.
+removal commands. Localhost-proxy compatibility can synchronously rewrite or
+remove **TRAEFIK** `/data/coolify/proxy/dynamic/coolify.yaml`, changing management/
+realtime/terminal ingress, as well as write/remove/reload Caddy configuration.
+Direct cleanup also deletes empty teams, soft-deleted servers, orphan deployment
+rows, trashed/orphan service children, scheduled tasks/backups and SSL records.
+Template fetch/file writes, telemetry/public-IP calls, name/email/proxy rewrites
+and restoration of an enabled daily control-DB backup record are separate
+branches. Neither native worker flag gates these actions.
 
 Init also queues `PullChangelog` and `CheckHelperImageJob`; helper-error
 notifications can create queued wrappers/channel send jobs and retries/delays.
@@ -565,6 +592,10 @@ per-server admission, so dispatch-attempt counts are not accepted-job counts;
 the broad helper selector must be proven safe when it actually runs after Init
 has changed deployment statuses. Docker cleanup, queued command wrappers and
 service-status broadcasts also belong to the conditional descendant review.
+The native Redis cleanup deletes historical job hashes/lists/metrics and old
+keys, deduplicates queues, clears matching stale overlap locks and marks selected
+processing/reserved records failed. Empty executable queues do not prove those
+other effects absent. Preserve and review the complete evidence/target set.
 Do not invent count queries or assume job classes prove non-destructive behavior.
 Preserve actual job identity/payload hashes privately and reconcile every branch.
 Immediate post-init emptiness is not expected. Init's status/lock mutations are
@@ -581,7 +612,8 @@ Horizon release is not a job-ID selector, so all competing producers/consumers
 and delayed/retry sources must already be accounted for. Unexpected work blocks
 release and requires review. After the known startup jobs naturally finish,
 prove all queues/executions empty twice before authorizing the single staging
-request. Keep application discovery disabled; no production deployment is a
+request. Keep application discovery disabled indefinitely until a new explicit
+human instruction, including after hold restoration; no production deployment is a
 startup or repair test.
 
 Atomically install only the reviewed owned management override with immutable
@@ -666,6 +698,13 @@ do not install. Do not substitute arbitrary saved Engine JSON, relax normal
 guards, claim this driver covers missing-manager cases, or run a bare manual up.
 
 The same admission, hash, drain, queue/PID and port gates apply to rollback.
+Rollback starts the whole migration/seeder/Init closure again. Before **any**
+rollback recreation, capture verified private failed-attempt evidence, including
+Horizon records/lists/metrics that recovery's Redis cleanup can delete, then
+obtain fresh failed-state predicates and scoped effects/backups for every branch
+in [STARTUP_REVIEW.md](STARTUP_REVIEW.md). The first attempt can change the next
+target set; do not reuse pre-attempt counts or assume rollback is only an inverse
+image/test change. Unconditional persisted-host mutations still need review.
 When a failed recreation leaves no running management process, prove absence
 of all management executors/admitted requests and externally inspect queues/
 execution state rather than assuming absence means drained. Do not run the

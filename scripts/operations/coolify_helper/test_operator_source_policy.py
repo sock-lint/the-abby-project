@@ -84,8 +84,8 @@ class OperatorSourcePolicyTests(unittest.TestCase):
             guard.validate_executed_tool_binding(changed, "1" * 64, "2" * 64)
 
     def test_new_formal_findings_cannot_be_omitted_or_left_unresolved(self):
-        self.assertEqual(len(guard.FINDINGS), 18)
-        for name in ("SG-2", "RB-1"):
+        self.assertEqual(len(guard.FINDINGS), 20)
+        for name in ("SG-2", "RB-1", "RV366G-RB1-A", "RV366G-RB1-B"):
             value = schema_fixture()
             del value["main_review"]["findings"][name]
             with self.subTest(name=name, state="missing"), self.assertRaisesRegex(guard.VerificationError, "incomplete_main_findings"):

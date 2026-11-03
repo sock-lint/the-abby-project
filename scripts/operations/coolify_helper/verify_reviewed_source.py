@@ -31,7 +31,8 @@ CHECKOUT_ROOT = Path(__file__).resolve().parents[3]
 HELPER_PATH = "scripts/operations/coolify_helper"
 SOURCE_FIELDS = {"head", "root_tree", "helper_subtree", "expected_base"}
 FINDINGS = {"H1", "H2", "M1", "M2", "M3", "M4", "M5",
-            "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1"}
+            "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1",
+            "RV366G-RB1-A", "RV366G-RB1-B"}
 CHECKS = {"Frontend validation", "Backend validation", "API fixtures", "deployment-guards"}
 BUILD_INPUTS = {"Dockerfile", "apply_patch.php", "helper_retry.php"}
 OPERATOR_TOOLS = {"verify_reviewed_source.py", "verify_startup_graph.py", "capture_activation_contract.py",

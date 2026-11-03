@@ -213,7 +213,8 @@ class ReviewedSourceTests(unittest.TestCase):
 
     def test_every_main_finding_requires_final_disposition_and_evidence(self):
         self.assertEqual(guard.FINDINGS, {"H1", "H2", "M1", "M2", "M3", "M4", "M5",
-                                         "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1"})
+                                         "RV366D-ACT-1", "RV366D-ACT-2", "SG-1", "RV366D-README-1", "N1", "N2", "N3", "N4", "N5", "SG-2", "RB-1",
+                                         "RV366G-RB1-A", "RV366G-RB1-B"})
         for name in guard.FINDINGS:
             for mutation, code in [("pending", "main_finding_unresolved"), ("no_evidence", "main_finding_evidence_missing")]:
                 with self.subTest(finding=name, mutation=mutation):
