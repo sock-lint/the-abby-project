@@ -18,8 +18,8 @@ export default function DailyChallengeCard({ refreshKey, challenge }) {
   const participant = Boolean(user?.id && isPersonalSpace && ['child', 'parent'].includes(user.role));
   const navigate = useNavigate();
   const account = `${user?.id}:${getToken()}`;
-  const fetch = useCallback(() => participant && challenge === undefined
-    ? getChallenges().then((result) => result.daily_bonus ? { ...result.daily_bonus, _bonusAccount: account } : null)
+  const fetch = useCallback((signal) => participant && challenge === undefined
+    ? getChallenges(undefined, signal).then((result) => result.daily_bonus ? { ...result.daily_bonus, _bonusAccount: account } : null)
     : Promise.resolve(null), [participant, challenge, account]);
   const { data, error, reload } = useApi(fetch, [account, participant, refreshKey, challenge]);
   const bonus = challenge === undefined ? data?._bonusAccount === account ? data : null : challenge;
