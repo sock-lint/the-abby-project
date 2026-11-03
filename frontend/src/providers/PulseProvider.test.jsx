@@ -272,6 +272,42 @@ describe('PulseProvider', () => {
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
+  it('does not let a beat held across a hidden-tab gap join the failures after it', async () => {
+    const INTERVAL = 30000;
+    let requests = 0;
+    let releaseHeld;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests === 1) await new Promise((resolve) => { releaseHeld = resolve; });
+      return failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(INTERVAL);
+    await waitFor(() => expect(requests).toBe(1));
+    const start = Date.now();
+    const advanceTo = async (t) => {
+      await act(async () => { await vi.advanceTimersByTimeAsync(Math.max(0, start + t - Date.now())); });
+    };
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    await advanceTo(3599000);
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    // The interval beat at t=1h fails, as do two refreshes seconds later.
+    await advanceTo(3600000);
+    await runBeat();
+    await advanceTo(3605000);
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await runBeat();
+    // Now the beat that has been pending since t=0 finally fails.
+    await act(async () => { releaseHeld(); });
+    await runBeat();
+    await advanceTo(3610000);
+    await user.click(screen.getByRole('button', { name: 'Refresh pulse' }));
+    await runBeat();
+    await waitFor(() => expect(requests).toBeGreaterThanOrEqual(8));
+    // The post-gap run is ten seconds old, however stale the held beat is.
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
   it('restarts the outage count after a beat succeeds', async () => {
     let requests = 0;
     // Two failed beats (four requests), one good beat, then failures again.
