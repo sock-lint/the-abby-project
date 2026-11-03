@@ -188,6 +188,15 @@ class CaptureDriverTests(unittest.TestCase):
         return driver.observe(raw, expected_plan_sha256=sha(raw), operator_state_dir=self.state,
                               reviewed_changes=changes, expected_changes_sha256=sha(changes) if changes else None, runner=self.engine.run)
 
+    def activate_plan(self):
+        # Synthetic opaque data only: this is not a real freeze approval/schema.
+        self.freeze_bytes = b"synthetic owner-reviewed opaque receipt\x00\n"
+        self.freeze_path = self.state / "synthetic-freeze-receipt.bin"
+        self.freeze_path.write_bytes(self.freeze_bytes)
+        self.freeze_path.chmod(0o600)
+        self.plan.update(action="activate_management", freeze_receipt_path=str(self.freeze_path),
+                         freeze_receipt_sha256=sha(self.freeze_bytes))
+
     def test_prepare_owns_actual_disconnected_probe_and_only_exports_fingerprints(self):
         result = self.observe()
         self.assertTrue(result["actual_chain_bound"])
@@ -228,7 +237,7 @@ class CaptureDriverTests(unittest.TestCase):
         proposal = json.dumps(self.observe()["difference_proposal"]).encode()
         self.engine.created = self.engine.removed = False
         self.engine.mutate_after_create = True
-        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        self.activate_plan()
         with self.assertRaises(driver.OperationFailure) as failure:
             self.observe(proposal)
         self.assertEqual(failure.exception.status["stage"], "pre-mutation")
@@ -250,7 +259,7 @@ class CaptureDriverTests(unittest.TestCase):
     def test_failed_bound_management_recreate_runs_once_and_keeps_recovery_holds(self):
         proposal = json.dumps(self.observe()["difference_proposal"]).encode()
         self.engine.created = self.engine.removed = False
-        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        self.activate_plan()
         with self.assertRaises(driver.OperationFailure) as failure:
             self.observe(proposal)
         self.assertEqual(failure.exception.status["stage"], "up-failed")
@@ -268,6 +277,51 @@ class CaptureDriverTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             driver.observe(raw, expected_plan_sha256="0" * 64, operator_state_dir=self.state, runner=self.engine.run)
         self.assertEqual(len(self.engine.calls), before)
+
+    def test_missing_or_mismatched_freeze_receipt_rejects_before_any_runner_call(self):
+        self.activate_plan()
+        approved_fixture = copy.deepcopy(self.plan)
+        for mutation in ("missing_path", "missing_digest", "missing_file", "wrong_digest"):
+            self.plan = copy.deepcopy(approved_fixture)
+            if mutation == "missing_path":
+                del self.plan["freeze_receipt_path"]
+            elif mutation == "missing_digest":
+                del self.plan["freeze_receipt_sha256"]
+            elif mutation == "missing_file":
+                self.plan["freeze_receipt_path"] = str(self.state / "missing-receipt.bin")
+            else:
+                self.plan["freeze_receipt_sha256"] = "0" * 64
+            before = len(self.engine.calls)
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, "freeze receipt"):
+                self.observe()
+            self.assertEqual(len(self.engine.calls), before)
+            self.assertFalse(self.engine.up or self.engine.created)
+
+    def test_nonactivation_actions_reject_unused_freeze_fields(self):
+        self.activate_plan()
+        for action in ("prepare_review", "probe_only"):
+            self.plan["action"] = action
+            before = len(self.engine.calls)
+            with self.subTest(action=action), self.assertRaisesRegex(ValueError, "freeze receipt"):
+                self.observe()
+            self.assertEqual(len(self.engine.calls), before)
+
+    def test_final_receipt_recheck_failure_keeps_holds_and_never_applies(self):
+        proposal = json.dumps(self.observe()["difference_proposal"]).encode()
+        self.engine.created = self.engine.removed = False
+        self.activate_plan()
+        with patch.object(driver, "recheck_freeze_receipt", side_effect=ValueError("synthetic data recheck failure")):
+            with self.assertRaises(driver.OperationFailure) as failure:
+                self.observe(proposal)
+        status = failure.exception.status
+        self.assertTrue(status["freeze_receipt_bytes_verified"])
+        self.assertEqual(status["verified_freeze_receipt_sha256"], sha(self.freeze_bytes))
+        self.assertFalse(status["freeze_receipt_recheck_verified"] or status["up_executed"])
+        self.assertTrue(status["keep_operator_admission_holds"])
+        self.assertFalse(self.engine.up)
+        self.assertTrue(self.engine.removed)
+        work = self.state / status["private_operation_state_id"]
+        self.assertEqual((work / "verified-freeze-receipt.bin").read_bytes(), self.freeze_bytes)
 
     def test_private_state_requires_trusted_nonreplaceable_ancestry(self):
         driver.trusted_state_directory(self.state)
@@ -311,18 +365,25 @@ class CaptureDriverTests(unittest.TestCase):
         proposal = json.dumps(self.observe()["difference_proposal"]).encode()
         self.engine.created = self.engine.removed = False
         self.engine.fail_up = False
-        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        self.activate_plan()
         result = self.observe(proposal)
         self.assertTrue(result["applied"])
         self.assertEqual(result["application_http_status"], 200)
         self.assertEqual(self.engine.installed["Config"]["Labels"][driver.PREFIX + "replace"], "coolify")
+        self.assertTrue(result["freeze_receipt_bytes_verified"] and result["freeze_receipt_recheck_verified"])
+        self.assertEqual(result["verified_freeze_receipt_sha256"], sha(self.freeze_bytes))
+        self.assertFalse(result["owner_runtime_gates_verified_by_this_tool"])
+        self.assertNotIn(str(self.freeze_path), json.dumps(result))
+        work = self.state / result["private_operation_state_id"]
+        self.assertEqual((work / "verified-freeze-receipt.bin").read_bytes(), self.freeze_bytes)
+        self.assertEqual((work / "verified-freeze-receipt.bin").stat().st_mode & 0o777, 0o600)
 
     def test_wrong_replacement_name_and_redirect_cannot_pass_post_apply(self):
         proposal = json.dumps(self.observe()["difference_proposal"]).encode()
         self.engine.created = self.engine.removed = False
         self.engine.fail_up = False
         self.engine.wrong_replace = True
-        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        self.activate_plan()
         with self.assertRaises(driver.OperationFailure) as failure:
             self.observe(proposal)
         state = failure.exception.status

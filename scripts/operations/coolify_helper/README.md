@@ -81,7 +81,8 @@ credentials, paid asset content, or exported deployment logs.
 
 ## Review binding and focused validation
 
-The former `99ce33ac`, `c8d10b60` and `92243170` runbooks are **NOT CLEAN and must not be
+The former `99ce33ac`, `c8d10b60`, `92243170` and `34736af6` revisions are
+**NOT CLEAN and must not be
 used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
 README-1 findings apply to their activation/recovery procedures. Later N1–N5,
 SG-2, RB-1 and RV366G-RB1-A/B findings also require fresh independent dispositions;
@@ -132,6 +133,13 @@ in the coordinator-held report; this change does not invent dispositions or
 claim they were all fixed. The former clean reviews and source/runtime receipts
 cannot clear this new head or the unresolved operational boundary.
 
+Native Claude review of exact `34736af6`, completed `2026-11-03T22:54:04Z`,
+returned FINDINGS with one LOW `freeze-receipt-digest-never-checked`: the old
+driver checked only a 64-hex string. The raw-byte/path correction below requires
+fresh independent review. This LOW is not silently added to the twenty-ID MAIN
+gate. MAIN's separate `34736af6` disposition remains pending; neither review is
+represented as clean current-head approval.
+
 Use Python 3, PHP 8, and Bash. During the current operational review hold, the
 allowed local subset is limited to harmless policy, constant-module, standard
 library isolation and status-schema cases:
@@ -139,7 +147,8 @@ library isolation and status-schema cases:
 ```bash
 cd scripts/operations/coolify_helper
 PYTHONDONTWRITEBYTECODE=1 python3 -B -W error::ResourceWarning -m unittest \
-  test_operator_source_policy test_safe_operator_bootstrap -v
+  test_operator_source_policy test_safe_operator_bootstrap \
+  test_freeze_receipt_policy -v
 ```
 
 The broader existing suites are not rerun locally under that hold. They
@@ -435,9 +444,31 @@ helper_operator driver --tool-dir "${helper_tools_dir:?}" \
 `prepare_review` needs no approved difference file and returns a **proposal**,
 with `reviewed_diff_verified=false` and `activation_authorized=false`.
 `probe_only` verifies the independently approved exact difference set and still
-starts nothing. `activate_management` additionally requires the separately
-owner-approved freeze receipt SHA256 and deterministic reviewed endpoint identity;
-it rechecks the **same actual apply chain/render/version** immediately before
+starts nothing. `activate_management` additionally requires both
+`freeze_receipt_path` and `freeze_receipt_sha256` inside the independently
+approved plan, plus deterministic reviewed endpoint identity. Non-activation
+plans reject these receipt fields. Before **any runner call**, the driver
+captures the exact canonical non-symlink receipt file directly inside the trusted
+private operator-state directory. It must be a nonempty regular file, belong to
+the effective operator, have no group/other permissions and be at most 1 MiB.
+Its raw bytes must match the plan's independently approved SHA256; do not derive
+a digest from the current file and call that approval, truncate or reserialize it.
+The open is nonblocking and rejects nonregular types before reading; before/after
+metadata must agree. The exact captured bytes are privately escrowed as
+`verified-freeze-receipt.bin` with mode `0600`; identity evidence stays private.
+
+Immediately after the final chain recheck, before the up marker/call, the same
+path must yield identical bytes, device/inode, size, owner, mode, mtime and ctime.
+Atime is excluded because reading can change it. Removal, replacement, changed
+permissions or data drift blocks mutation. Only the actual verified SHA and
+byte-integrity/recheck flags are reported, never receipt payloads/private paths.
+This is **opaque byte integrity only**: there is no invented receipt schema or
+machine verification of issuer, freshness, admission/drain or other runtime
+semantics. Owner and MAIN must independently approve and maintain those gates;
+`owner_runtime_gates_verified_by_this_tool` remains false. A matching stale
+artifact does not establish fresh operational clearance.
+
+The driver rechecks the **same actual apply chain/render/version** before
 executing its one bounded management-only `up`. No alternate project/files or
 caller arguments can be substituted into that operation. An exclusive owner
 operation window/lock and absent concurrent mutators cover the check-to-exec
@@ -758,8 +789,14 @@ Never transplant complete old job files or assume a reported version proves
 this derivative was installed. Retire it once a reviewed official release
 contains equivalent protection.
 
-Operational validation is currently **unresolved**: automatic security review
-stopped further live/network/service testing and installation. The reason given
-was possible cybersecurity risk without a specific command. Local synthetic
-compatibility tests and ordinary source CI/review do not clear that boundary;
-do not retry operational work through another tool, model, account or route.
+Operational validation is currently **unresolved**. Automatic security review
+stopped live/network/service testing and installation on 2026-11-03, reporting
+possible cybersecurity risk without a specific command. The owner subsequently
+reported review/access resolution in the owning chat; that is **owner-reported
+resolved**, not platform-verified restoration by this source task. No new
+rejection or permanently blocked account is claimed. This lane remains local
+source-only, and all installation/admission/startup/recovery/staging gates remain
+held. Any separately authorized operation remains subject to ordinary controls;
+a renewed rejection requires stopping, not rerouting through another tool,
+model, account or connection. Local tests and source CI/review cannot establish
+operational acceptance.

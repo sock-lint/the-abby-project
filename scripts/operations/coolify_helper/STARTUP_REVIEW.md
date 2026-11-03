@@ -142,5 +142,7 @@ The missing-manager recovery wrapper remains separately unimplemented and
 unapproved. All source, runtime, admission, recovery and staging gates in the
 [main runbook](README.md) still apply. Discovery remains disabled indefinitely
 until a new explicit human instruction, including after any approved repair or
-hold restoration. MAIN owns merges and production release. Current operational
-security review remains unresolved; this checklist grants no access or action.
+hold restoration. MAIN owns merges and production release. The owner reports
+review/access resolution; platform restoration has not been independently
+verified by this source task. All installation/startup/recovery/staging gates
+remain held, and this checklist grants no access or action.

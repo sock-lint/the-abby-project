@@ -27,6 +27,7 @@ LABEL_KEYS = {"config-hash", "container-number", "depends_on", "image", "oneoff"
 OWNER_LABEL = "lol.bos.coolify-contract-probe.owner"
 PROBE_FLAGS = ("--no-start", "--no-deps", "--no-build", "--pull", "--no-recreate", "--force-recreate", "--wait", "--wait-timeout")
 SUPPORTED_COMPOSE_VERSION = "5.6.1"
+MAX_FREEZE_RECEIPT_BYTES = 1024 * 1024
 
 
 class OperationFailure(ValueError):
@@ -44,6 +45,9 @@ class OperationState:
                        "up_succeeded": False, "installed_container_id": None, "post_up_inspect_sha256": None,
                        "actual_chain_bound": False,
                        "application_http_status": None, "owned_probe_cleanup_verified": False,
+                       "freeze_receipt_bytes_verified": False, "verified_freeze_receipt_sha256": None,
+                       "freeze_receipt_recheck_verified": False,
+                       "owner_runtime_gates_verified_by_this_tool": False,
                        "private_operation_state_id": work.name, "automatic_retry": False,
                        "automatic_rollback": False, "keep_operator_admission_holds": True}
         self.persist()
@@ -91,8 +95,9 @@ class OperationState:
         return False
 
 
-def private_json(work, name, value):
-    payload = json.dumps(value).encode()
+def private_bytes(work, name, payload):
+    if type(payload) is not bytes:
+        raise ValueError("private evidence bytes required")
     path = work / name
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(descriptor, "wb") as stream:
@@ -100,6 +105,10 @@ def private_json(work, name, value):
         stream.flush()
         os.fsync(stream.fileno())
     return hashlib.sha256(payload).hexdigest()
+
+
+def private_json(work, name, value):
+    return private_bytes(work, name, json.dumps(value).encode())
 
 
 def application_status(runner, container_id):
@@ -154,6 +163,49 @@ def trusted_state_directory(path):
     if path.stat().st_uid != uid or path.stat().st_mode & 0o077:
         raise ValueError("effective-owner private state directory required")
     return path
+
+
+def _freeze_metadata(value):
+    # Reading can change atime; it is deliberately not identity evidence.
+    return (value.st_dev, value.st_ino, value.st_size, value.st_uid, value.st_mode,
+            value.st_mtime_ns, value.st_ctime_ns)
+
+
+def capture_freeze_receipt(path, state, expected_sha256):
+    """Capture opaque reviewed bytes, without inferring runtime approval.
+
+    The independent plan digest is authority for both exact path and raw SHA.
+    No receipt schema, issuer, freshness or operational semantics are inferred.
+    """
+    state = trusted_state_directory(state)
+    if type(path) is not str or type(expected_sha256) is not str or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        raise ValueError("independently bound freeze receipt path and digest required")
+    filename = Path(path)
+    if (not filename.is_absolute() or str(filename) != path or filename.resolve() != filename
+            or filename.parent != state):
+        raise ValueError("freeze receipt must be a canonical private-state child")
+    try:
+        descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid()
+                    or stat.S_IMODE(before.st_mode) & 0o077
+                    or not 0 < before.st_size <= MAX_FREEZE_RECEIPT_BYTES):
+                raise ValueError("bounded owner-private regular freeze receipt required")
+            payload = stream.read(MAX_FREEZE_RECEIPT_BYTES + 1)
+            after = os.fstat(stream.fileno())
+    except OSError:
+        raise ValueError("freeze receipt capture unavailable") from None
+    if (not payload or len(payload) != before.st_size or _freeze_metadata(before) != _freeze_metadata(after)
+            or hashlib.sha256(payload).hexdigest() != expected_sha256):
+        raise ValueError("freeze receipt bytes or identity differ from approved digest")
+    return {"path": path, "payload": payload, "metadata": _freeze_metadata(after), "sha256": expected_sha256}
+
+
+def recheck_freeze_receipt(captured, state):
+    current = capture_freeze_receipt(captured["path"], state, captured["sha256"])
+    if current["metadata"] != captured["metadata"] or current["payload"] != captured["payload"]:
+        raise ValueError("freeze receipt identity or bytes changed before mutation")
 
 
 def _service_hash(raw, service):
@@ -255,13 +307,17 @@ def observe(plan_payload, *, expected_plan_sha256, operator_state_dir, reviewed_
     plan = json.loads(plan_payload, object_pairs_hook=_unique_object)
     required = {"schema_version", "project", "service", "compose_files", "env_file", "expected_chain_ticket",
                 "running_container_id", "candidate_image_id", "probe_token", "action", "tool_inputs"}
-    optional = {"freeze_receipt_sha256"}
+    optional = {"freeze_receipt_path", "freeze_receipt_sha256"}
     if not required <= set(plan) or set(plan) - required - optional or type(plan["schema_version"]) is not int or plan["schema_version"] != 1 or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", plan["project"]) or plan["service"] != "coolify":
         raise ValueError("unsupported plan schema")
     if plan["action"] not in {"prepare_review", "probe_only", "activate_management"}:
         raise ValueError("unsupported owner action")
-    if plan["action"] == "activate_management" and not re.fullmatch(r"[0-9a-f]{64}", plan.get("freeze_receipt_sha256", "")):
-        raise ValueError("explicit owner freeze clearance required")
+    if (plan["action"] == "activate_management" and not optional <= set(plan)
+            or plan["action"] != "activate_management" and set(plan) & optional):
+        raise ValueError("activation requires exact freeze receipt path and digest")
+    state = trusted_state_directory(operator_state_dir)
+    freeze = (capture_freeze_receipt(plan["freeze_receipt_path"], state, plan["freeze_receipt_sha256"])
+              if plan["action"] == "activate_management" else None)
     tools = {"capture_activation_contract.py", "compose_contract_projection.py", "verify_activation_contract.py"}
     captured_hashes = globals().get("_TRUSTED_TOOL_SHA256")
     if captured_hashes != plan["tool_inputs"]:
@@ -318,8 +374,11 @@ def observe(plan_payload, *, expected_plan_sha256, operator_state_dir, reviewed_
                               "entrypoint": ["/bin/false"], "command": [],
                               "healthcheck": {"test": ["CMD", "true"]}, "labels": {OWNER_LABEL: token}}
     probe_help_sha256 = check_probe_capabilities(runner)
-    state = trusted_state_directory(operator_state_dir)
     work = Path(tempfile.mkdtemp(prefix="owned-compose-probe-", dir=state))
+    if freeze is not None:
+        if private_bytes(work, "verified-freeze-receipt.bin", freeze["payload"]) != freeze["sha256"]:
+            raise ValueError("private freeze evidence digest mismatch")
+        private_json(work, "freeze-receipt-identity.json", {key: value for key, value in freeze.items() if key != "payload"})
     probe_file = work / "probe.json"
     probe_file.write_text(json.dumps({"services": safe_services}))
     probe_file.chmod(0o600)
@@ -332,6 +391,8 @@ def observe(plan_payload, *, expected_plan_sha256, operator_state_dir, reviewed_
     private_json(work, "rendered.json", rendered)
     private_json(work, "running-inspect.json", running)
     operation = OperationState(work)
+    if freeze is not None:
+        operation.update(freeze_receipt_bytes_verified=True, verified_freeze_receipt_sha256=freeze["sha256"])
     with operation:
         try:
             # Actual same-version default serialization/dollar roundtrip is captured;
@@ -398,7 +459,8 @@ def observe(plan_payload, *, expected_plan_sha256, operator_state_dir, reviewed_
                     if (endpoint or {}).get("mac_address") != running["NetworkSettings"]["Networks"][name].get("MacAddress"):
                         raise ValueError("activation needs independently reviewed stable endpoint identity")
                 recheck_chain(ticket, files, env_file, plan["project"], "coolify", runner)
-                operation.update(stage="up-running", up_executed=True)
+                recheck_freeze_receipt(freeze, state)
+                operation.update(stage="up-running", up_executed=True, freeze_receipt_recheck_verified=True)
                 try:
                     runner([*final_command, "up", "-d", "--no-deps", "--no-build", "--pull", "never",
                             "--force-recreate", "--wait", "--wait-timeout", "120", "coolify"])
