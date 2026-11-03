@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 import capture_activation_contract as driver
-from compose_contract_projection import capture_chain, digest
+from compose_contract_projection import capture_chain, digest, TESTED_CLIENT, TESTED_SERVER, OCI_INDEX, OCI_MANIFEST
 from verify_activation_contract import APPLICATION_TEST
 
 
@@ -30,6 +30,20 @@ class SyntheticEngine:
         self.unexpected_label = False
         self.probe_started = False
         self.health_override = None
+        self.rows = {}
+        self.removed_ids = []
+        self.partial_create_failure = False
+        self.unsafe_stub = False
+        self.create_help = b"--no-start --no-deps --no-build --pull policy --no-recreate --force-recreate --wait --wait-timeout\n"
+        self.version = b"5.6.1\n"
+        self.fail_up = True
+        self.wrong_replace = False
+        self.http_status = b"200"
+        self.installed = None
+        self.runtime = {"Client": {**TESTED_CLIENT, "Context": "default", "Experimental": None}, "Server": dict(TESTED_SERVER)}
+        self.selected_id = "sha256:" + "3" * 64
+        self.bad_selected_platform = False
+        self.wrong_image_label = False
         self.env = directory / ".env"
         self.env.write_text("SYNTHETIC=PRIVATE-SYNTHETIC-SECRET\n")
         self.compose = directory / "compose.json"
@@ -58,8 +72,12 @@ class SyntheticEngine:
 
     def run(self, argv, payload=None):
         self.calls.append(argv)
+        if argv == ["docker", "version", "--format", "{{json .}}"]:
+            return json.dumps(self.runtime).encode()
         if argv[:3] == ["docker", "compose", "version"]:
-            return b"5.6.1\n"
+            return self.version
+        if argv == ["docker", "compose", "up", "--help"]:
+            return self.create_help
         if argv[:2] == ["docker", "compose"]:
             path = Path(argv[argv.index("-f") + 1])
             rendered = json.loads(path.read_bytes())
@@ -67,44 +85,83 @@ class SyntheticEngine:
                 if "--hash" in argv:
                     return ("coolify " + digest(rendered["services"]["coolify"]) + "\n").encode()
                 return json.dumps(rendered).encode()
-            if "create" in argv:
+            if "up" in argv and "--no-start" in argv:
+                allowed = {"--no-start", "--no-deps", "--no-build", "--pull", "--no-recreate"}
+                if any(item.startswith("--") and item not in allowed for item in argv[argv.index("up") + 1:]):
+                    raise ValueError("unsupported actual Compose no-start option")
                 self.created = True
                 safe = rendered["services"]["coolify"]
                 if safe["network_mode"] != "none" or safe["ports"] or safe["volumes"]:
                     raise AssertionError("unsafe probe recipe")
                 self.probe = copy.deepcopy(self.running)
                 self.probe.update(Id=self.probe_id, Image=self.candidate, Name="/" + safe["container_name"],
-                                  Mounts=[], State={"Status": "running" if self.probe_started else "created", "Running": self.probe_started, "Pid": 1 if self.probe_started else 0})
+                                  Mounts=[], State={"Status": "running" if self.probe_started else "created", "Running": self.probe_started, "Pid": 1 if self.probe_started else 0, "StartedAt": "0001-01-01T00:00:00Z"})
                 self.probe["Config"].update(Hostname=self.probe_id[:12], Image=self.candidate,
                     Env=[key + "=" + value for key, value in safe["environment"].items()],
                     Healthcheck={"Test": self.health_override or safe["healthcheck"]["test"]})
                 self.probe["HostConfig"].update(NetworkMode="none", Binds=[], PortBindings={}, OomKillDisable=False)
                 self.probe["NetworkSettings"] = {"Ports": {}, "Networks": {"none": {}}}
                 project = argv[argv.index("--project-name") + 1]
-                generated = {"config-hash": digest(safe), "container-number": "1", "depends_on": "redis:service_healthy:false",
-                    "image": self.candidate, "oneoff": "False", "project": project, "project.config_files": str(path),
+                generated = {"config-hash": digest(safe), "container-number": "1", "depends_on": "",
+                    "image": self.candidate if self.wrong_image_label else self.selected_id, "oneoff": "False", "project": project, "project.config_files": str(path),
                     "project.environment_file": "/dev/null", "project.working_dir": str(self.directory), "service": "coolify", "version": "5.6.1"}
                 labels = {driver.PREFIX + key: value for key, value in generated.items()}
                 labels.update(safe["labels"])
                 if self.unexpected_label:
                     labels[driver.PREFIX + "unreviewed-future"] = "unexpected"
                 self.probe["Config"]["Labels"] = labels
+                self.rows = {self.probe_id: self.probe}
+                for index, (name, stub) in enumerate(rendered["services"].items()):
+                    if name == "coolify" or not self.unsafe_stub:
+                        continue
+                    row = copy.deepcopy(self.probe)
+                    row["Id"] = format(index + 12, "x") * 64
+                    row["Name"] = "/" + stub["container_name"]
+                    row["Config"].update(Env=[], Entrypoint=["/bin/false"], Cmd=[])
+                    row["Config"]["Labels"][driver.PREFIX + "service"] = name
+                    if self.unsafe_stub:
+                        row["Config"]["Labels"][driver.OWNER_LABEL] = "unknown-owner"
+                    self.rows[row["Id"]] = row
+                if self.partial_create_failure:
+                    raise ValueError("synthetic partial dependency creation failure")
                 if self.mutate_after_create:
                     self.env.write_text("SYNTHETIC=drift-after-create\n")
                 return b""
             if "up" in argv:
                 self.up = True
-                raise ValueError("synthetic failed recreation; must never retry")
+                if self.fail_up:
+                    raise ValueError("synthetic failed recreation; must never retry")
+                snapshot = max((self.directory / "state").glob("*/projected-inspect.json"), key=lambda item: item.stat().st_mtime_ns)
+                self.installed = json.loads(snapshot.read_bytes())
+                self.installed.update(Id="e" * 64, Name="/coolify", State={"Running": True})
+                self.installed["Config"]["Hostname"] = "e" * 12
+                if self.wrong_replace:
+                    self.installed["Config"]["Labels"][driver.PREFIX + "replace"] = "wrong-old-name"
+                return b""
+            if "ps" in argv:
+                return self.installed["Id"].encode()
         if argv[:3] == ["docker", "image", "inspect"]:
-            return json.dumps([{"Id": argv[3], "Config": self.image_config}]).encode()
+            if "--help" in argv:
+                return b"--platform string\n"
+            image_id = self.selected_id if "--platform" in argv else argv[3]
+            value = {"Id": image_id, "Config": self.image_config, "RootFS": {"Type": "layers", "Layers": ["sha256:" + "4" * 64]},
+                     "Os": "linux", "Architecture": "amd64", "Variant": "",
+                     "Descriptor": {"mediaType": OCI_MANIFEST if "--platform" in argv else OCI_INDEX, "digest": image_id}}
+            if "--platform" in argv and self.bad_selected_platform:
+                value["Architecture"] = "arm64"
+            return json.dumps([value]).encode()
         if argv[:2] == ["docker", "inspect"]:
-            rows = [self.running if item == self.running_id else self.probe for item in argv[2:]]
+            rows = [self.running if item == self.running_id else self.installed if self.installed and item == self.installed["Id"] else self.rows[item] for item in argv[2:]]
             return json.dumps(rows).encode()
         if argv[:2] == ["docker", "ps"]:
-            return ((self.probe_id if self.created and not self.removed else "") if "--all" in argv else self.running_id).encode()
+            return ("\n".join(self.rows) if "--all" in argv else self.running_id).encode()
         if argv[:2] == ["docker", "rm"]:
-            self.removed = True
+            self.removed_ids.append(argv[2])
+            self.rows.pop(argv[2])
+            self.removed = not self.rows
             return b""
+        if argv[:2] == ["docker", "exec"]:
+            return self.http_status
         raise AssertionError("unexpected actual command")
 
 
@@ -137,9 +194,13 @@ class CaptureDriverTests(unittest.TestCase):
         self.assertTrue(self.engine.created and self.engine.removed)
         self.assertFalse(self.engine.up)
         differences = result["difference_proposal"]["changes"]
-        self.assertIn("/HostConfig/OomKillDisable", [item["path"] for item in differences])
+        self.assertNotIn("/HostConfig/OomKillDisable", [item["path"] for item in differences])
         self.assertIn("/Config/Labels/com.docker.compose.version", [item["path"] for item in differences])
-        self.assertTrue(any("--no-deps" in argv and "create" in argv for argv in self.engine.calls))
+        self.assertEqual(result["owned_created_service_count"], 1)
+        self.assertEqual(len(self.engine.removed_ids), 1)
+        create = [argv for argv in self.engine.calls if "up" in argv and "--no-start" in argv]
+        self.assertEqual(len(create), 1)
+        self.assertIn("--no-deps", create[0])
         self.assertFalse(any("--no-interpolate" in argv for argv in self.engine.calls))
 
     def test_same_actual_plan_and_reviewed_fingerprints_verify_without_activation(self):
@@ -165,8 +226,10 @@ class CaptureDriverTests(unittest.TestCase):
         self.engine.created = self.engine.removed = False
         self.engine.mutate_after_create = True
         self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(driver.OperationFailure) as failure:
             self.observe(proposal)
+        self.assertEqual(failure.exception.status["stage"], "pre-mutation")
+        self.assertFalse(failure.exception.status["up_executed"])
         self.assertFalse(self.engine.up)
         self.assertTrue(self.engine.removed)
 
@@ -185,9 +248,13 @@ class CaptureDriverTests(unittest.TestCase):
         proposal = json.dumps(self.observe()["difference_proposal"]).encode()
         self.engine.created = self.engine.removed = False
         self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(driver.OperationFailure) as failure:
             self.observe(proposal)
-        up = [argv for argv in self.engine.calls if "up" in argv]
+        self.assertEqual(failure.exception.status["stage"], "up-failed")
+        self.assertTrue(failure.exception.status["up_executed"])
+        self.assertFalse(failure.exception.status["up_succeeded"])
+        self.assertFalse(failure.exception.status["automatic_rollback"])
+        up = [argv for argv in self.engine.calls if "up" in argv and "--no-start" not in argv and "--help" not in argv]
         self.assertEqual(len(up), 1)
         self.assertEqual(up[0][up[0].index("up"):], ["up", "-d", "--no-deps", "--no-build", "--pull", "never", "--force-recreate", "--wait", "--wait-timeout", "120", "coolify"])
         self.assertNotIn("down", json.dumps(self.engine.calls))
@@ -215,6 +282,91 @@ class CaptureDriverTests(unittest.TestCase):
             driver.local_run(["docker", "compose", "up", "--wait-timeout", "120", "coolify"])
             self.assertEqual(run.call_args.kwargs["env"]["COMPOSE_REMOVE_ORPHANS"], "false")
             self.assertGreater(run.call_args.kwargs["timeout"], 120)
+
+    def test_partial_creation_before_target_id_is_discovered_and_cleaned(self):
+        self.engine.partial_create_failure = True
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.assertTrue(self.engine.removed)
+        self.assertEqual(len(self.engine.removed_ids), 1)
+        self.assertNotIn(self.engine.running_id, self.engine.removed_ids)
+
+    def test_unsupported_actual_create_help_fails_before_creation(self):
+        self.engine.create_help = b"--pull policy\n"
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.assertFalse(self.engine.created)
+
+    def test_unknown_dependency_owner_preserves_entire_disposable_set(self):
+        self.engine.unsafe_stub = True
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.assertFalse(self.engine.removed_ids)
+        self.assertEqual(len(self.engine.rows), 2)
+
+    def test_successful_apply_checks_exact_old_name_label_and_http200(self):
+        proposal = json.dumps(self.observe()["difference_proposal"]).encode()
+        self.engine.created = self.engine.removed = False
+        self.engine.fail_up = False
+        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        result = self.observe(proposal)
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["application_http_status"], 200)
+        self.assertEqual(self.engine.installed["Config"]["Labels"][driver.PREFIX + "replace"], "coolify")
+
+    def test_wrong_replacement_name_and_redirect_cannot_pass_post_apply(self):
+        proposal = json.dumps(self.observe()["difference_proposal"]).encode()
+        self.engine.created = self.engine.removed = False
+        self.engine.fail_up = False
+        self.engine.wrong_replace = True
+        self.plan.update(action="activate_management", freeze_receipt_sha256="4" * 64)
+        with self.assertRaises(driver.OperationFailure) as failure:
+            self.observe(proposal)
+        state = failure.exception.status
+        self.assertEqual(state["stage"], "post-up-contract-mismatch")
+        self.assertTrue(state["up_executed"] and state["up_succeeded"])
+        self.assertEqual(state["application_http_status"], 200)
+        self.assertEqual(state["installed_container_id"], "e" * 64)
+        self.assertRegex(state["post_up_inspect_sha256"], r"^[0-9a-f]{64}$")
+        persisted = json.loads((self.state / state["private_operation_state_id"] / "operation-status.json").read_bytes())
+        self.assertEqual(persisted["stage"], state["stage"])
+        self.assertNotIn("PRIVATE-SYNTHETIC-SECRET", json.dumps(persisted))
+        self.assertTrue((self.state / state["private_operation_state_id"] / "post-up-inspect.json").is_file())
+        self.engine.created = self.engine.removed = self.engine.wrong_replace = False
+        self.engine.http_status = b"302"
+        with self.assertRaises(driver.OperationFailure) as failure:
+            self.observe(proposal)
+        state = failure.exception.status
+        self.assertEqual(state["stage"], "http-failed")
+        self.assertEqual(state["application_http_status"], 302)
+        self.assertTrue(state["up_executed"] and state["up_succeeded"])
+        self.assertFalse(state["automatic_rollback"] or state["automatic_retry"])
+
+    def test_wrong_old_identity_or_name_and_unreviewed_compose_version_fail(self):
+        self.engine.running["Name"] = "/wrong-old-name"
+        with self.assertRaises(ValueError):
+            self.observe()
+
+        self.engine.running["Name"] = "/coolify"
+        self.engine.running["Id"] = "f" * 64
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.engine.running["Id"] = self.engine.running_id
+        self.engine.version = b"5.6.2\n"
+        self.plan["expected_chain_ticket"], _ = capture_chain([self.engine.compose], self.engine.env, "source", "coolify", self.engine.run)
+        with self.assertRaises(ValueError):
+            self.observe()
+
+    def test_independently_selected_platform_and_probe_label_must_agree(self):
+        self.engine.bad_selected_platform = True
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.assertFalse(self.engine.created)
+        self.engine.bad_selected_platform = False
+        self.engine.wrong_image_label = True
+        with self.assertRaises(ValueError):
+            self.observe()
+        self.assertFalse(self.engine.up)
 
 
 if __name__ == "__main__":

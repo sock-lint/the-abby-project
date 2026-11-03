@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from verify_activation_contract import APPLICATION_TEST, check_port_collisions, compare, contract, main, verify_health
+from verify_activation_contract import APPLICATION_TEST, COMPOSE_DEPENDENCIES_LABEL, check_port_collisions, compare, contract, differences, main, verify_health
 
 
 def inspect_fixture():
@@ -177,6 +177,60 @@ class ActivationContractTests(unittest.TestCase):
         before["Config"]["Env"] *= 2
         with self.assertRaises(ValueError):
             contract(before)
+
+    def test_generated_dependency_order_changes_pass_without_reviewed_difference(self):
+        before, after = inspect_fixture(), inspect_fixture()
+        before["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = "redis:service_healthy:false,postgres:service_started:true"
+        after["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = "postgres:service_started:true,redis:service_healthy:false"
+        compare(before, after, {"schema_version": 1, "changes": []})
+        self.assertEqual(contract(before), contract(after))
+        self.assertEqual(before["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL], "redis:service_healthy:false,postgres:service_started:true")
+
+    def test_generated_dependency_condition_restart_and_name_changes_remain_significant(self):
+        before = inspect_fixture()
+        before["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = "redis:service_healthy:false,postgres:service_started:true"
+        for value in ("postgres:service_started:true,redis:service_started:false",
+                      "postgres:service_started:true,redis:service_healthy:true",
+                      "postgres:service_started:true,redis-other:service_healthy:false"):
+            after = copy.deepcopy(before)
+            after["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                compare(before, after, {"schema_version": 1, "changes": []})
+
+    def test_generated_dependency_duplicates_conflicts_and_malformed_records_reject(self):
+        for value in ("redis:service_healthy:false,redis:service_healthy:false",
+                      "redis:service_healthy:false,redis:service_started:true",
+                      "redis:service_healthy", "redis:service_healthy:false:extra",
+                      "redis:unknown_condition:false", "redis:service_healthy:False",
+                      "redis:service_healthy:1", "redis:service_healthy:false,",
+                      ",redis:service_healthy:false", "redis:service_healthy:false, postgres:service_started:true",
+                      "bad/name:service_healthy:false", "redis\n:service_healthy:false", None, 123):
+            value_object = inspect_fixture()
+            value_object["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                contract(value_object)
+
+    def test_empty_generated_dependency_label_and_completed_condition_are_valid(self):
+        before = inspect_fixture()
+        before["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = ""
+        compare(before, copy.deepcopy(before), {"schema_version": 1, "changes": []})
+        before["Config"]["Labels"][COMPOSE_DEPENDENCIES_LABEL] = "_seed.job-1:service_completed_successfully:false"
+        compare(before, copy.deepcopy(before), {"schema_version": 1, "changes": []})
+
+    def test_only_generated_dependency_label_is_sorted_and_all_artifacts_hide_values(self):
+        marker = "SYNTHETIC-SECRET-NAME-DO-NOT-EMIT"
+        first = f"{marker}:service_healthy:false,redis:service_started:true"
+        second = f"redis:service_started:true,{marker}:service_healthy:false"
+        before, after = inspect_fixture(), inspect_fixture()
+        before["Config"]["Labels"].update({COMPOSE_DEPENDENCIES_LABEL: first, "ordinary-label": first})
+        after["Config"]["Labels"].update({COMPOSE_DEPENDENCIES_LABEL: second, "ordinary-label": second})
+        left, right = contract(before), contract(after)
+        actual = differences(left, right)
+        self.assertEqual([item[0] for item in actual], ["/Config/Labels/ordinary-label"])
+        approved = {"schema_version": 1, "changes": [{"path": path, "before": old, "after": new} for path, old, new in actual]}
+        compare(before, after, approved)
+        for artifact in (left, right, actual, approved):
+            self.assertNotIn(marker, json.dumps(artifact))
 
 
 if __name__ == "__main__":

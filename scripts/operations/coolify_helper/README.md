@@ -99,7 +99,8 @@ from current HEAD and call it approval, or reuse the old-head attestation.
 - `source`: exact `head`, full `root_tree`, `helper_subtree`, and `expected_base`.
 - A clean independent review by Claude of Codex-authored work, bound to that
   same source tuple and the SHA256 of its owner-held raw receipt.
-- MAIN's clean disposition of all eleven recorded findings, each with evidence.
+- MAIN's clean disposition of all sixteen recorded findings, including N1–N5,
+  each with evidence; missing or unresolved current findings reject.
 - Successful required hosted checks for that exact head/base, including
   `deployment-guards`, and `all_source_gates_clear=true`.
 - Clean tracked/untracked Git state, exact HEAD/root/helper trees, expected
@@ -266,8 +267,11 @@ activation.
 
 The driver itself queries the actual chain, derives a fresh owner-labeled
 network-none/port-free/private-mount-free recipe, and creates/inspects only its
-own never-started container. Original dependencies remain declared, with safe
-unstarted stub dependencies and `create --no-deps`. Preserve command/entrypoint
+own never-started container using the actually supported
+`up --no-start --no-deps --no-build --pull never --no-recreate`. Compose 5.6.1
+does not support `create --no-deps`. Required flags are checked against actual
+`up --help` before use. Original dependencies remain declared with safe stub
+definitions; the successful created set must contain management only. Preserve command/entrypoint
 null inheritance and every remaining field from actual Engine behavior. Prove
 that declared published ports, bind mounts, resolved external network and exact
 aliases match the fresh running service before reinserting those connectivity
@@ -278,12 +282,36 @@ VOLUME declarations, one external bridge and three aliases including the repeate
 MAC. No new address, static IPAM or firewall acceptance is implied by this data.
 
 Every other Config/HostConfig field remains from the actual probe, including all
-63 observed HostConfig fields and nullable defaults. The current Compose 5.6.1
+63 observed HostConfig fields. The only proved start-state default transition
+is Docker client/server 29.9.2, API 1.56, Linux/amd64: created
+`OomKillDisable=false` becomes running `null`. With no explicit OOM option,
+model only that exact transition before proposing the running contract. True,
+missing/unknown defaults, explicit OOM settings or unknown runtime versions
+reject; all other fields remain compared. Actual Docker client/server/context
+metadata is captured and bound in every chain ticket. The current Compose 5.6.1
 differs from the running instance's creator label 2.38.2; version/default changes
 must appear in the review diff. Only eleven explicitly enumerated generated
 Compose metadata fields may be projected from actual same-version config/hash/
-version/path observations. Unknown generated keys reject; ordinary/image labels
-stay compared. Never ignore a label prefix or assume the old creator version.
+version/path observations. The supported 5.6.1 explicit-name force-recreation
+transition adds exactly `com.docker.compose.replace` equal to the observed old
+name without its leading slash, **not** its old container ID. The old ID,
+name/project/service and declared explicit name must all bind to actual inspect;
+the replacement label appears in the proposed review diff and installed full
+comparison. Unknown versions or transition metadata reject. Actual
+`up --no-start --no-deps` supplies the dependency label semantics (empty on this
+version); no invented dependency label is substituted. Structured dependency
+label order alone is canonicalized, retaining every name/condition/restart bit.
+Unknown generated keys reject; ordinary/image labels stay compared. Never
+ignore a label prefix or assume the old creator version.
+
+On the proved Docker 29 OCI image store, the container's immutable image/index
+ID and `Config.Image` can differ from `com.docker.compose.image`, which records
+the selected platform manifest. Derive its expected value independently with
+actual `image inspect --platform linux/amd64` against that immutable index,
+validate OCI descriptors/IDs and matching full Config/RootFS, and bind the
+selected digest. The probe label is never its own authority. Wrong/unknown
+platforms, descriptors, selected identities or runtime versions reject. Preserve
+the original plan/container image ID; do not replace it with the label digest.
 
 Environment is a sorted key→SHA256(value) map; duplicate/conflicting keys reject.
 Binds, mounts, aliases and supported unordered multisets normalize order, while
@@ -338,8 +366,11 @@ The actual Engine health test must equal the official application test. A safe
 probe establishes defaults/health plus the restricted proved projection; it is
 never attached to production networks and never mounts production paths. Keep
 the private recipe and raw evidence for recovery review; remove only its exact
-owned never-started ID. Unexpected running state or ownership preserves the
-container for the operator. Default Compose JSON escapes literal dollars;
+owned never-started ID. Partial failure before an ID was assigned also discovers
+the exact token/project/service subset; validate every member's image/name,
+Created/PID0/zero StartedAt, network-none/no ports/no mounts before removing any.
+Unexpected running state or ownership preserves the entire set for the operator.
+Default Compose JSON escapes literal dollars;
 preserve one encoding layer during replay and reject an unescaped dollar.
 Never use `--no-interpolate`, invent health evidence or repeatedly decode until
 it passes. Isolated fixtures must validate this same driver/Compose version and
@@ -409,21 +440,46 @@ above first. Record exact controller-only file changes and restoration for both
 candidate and recovery. Initialization does not create these file flags.
 
 After initialization the held services must be verified sleeping, with no
-Horizon master/supervisor/worker or scheduler executor. Init legitimately queues
-`PullChangelog` on high and `CheckHelperImageJob` on default, so **immediate
-post-init empty queues are not expected**. Capture the actual bounded startup
-job set and payload hashes privately; prove no deployment, unknown or old work
-has appeared. The helper-error path can enqueue general-notification wrappers,
-channel send jobs and retries/delays, so the reviewed closure must include those
-conditional descendants rather than merely allowlisting two direct job types.
-Init also clears statuses/locks and marks outstanding execution rows; this is
-why the genuine PRE-init drain admits no exception. Never insert jobs manually,
-invoke `queue_next`, filter/pop arbitrary work or discard jobs to obtain a pass.
+Horizon master/supervisor/worker or scheduler executor. **The native flags do
+not suppress synchronous Init work.** Non-cloud Init calls
+`cleanup:stucked-resources` after Redis/name cleanup and before failing execution
+rows. That command can enqueue `CleanupHelperContainersJob` for functional
+servers and high-priority `DeleteResourceJob` for trashed/orphaned resources.
+`DeleteResourceJob` can stop applications/databases/services, remove volumes,
+configuration and records, dispatch Docker cleanup, and enqueue another default
+cleanup command wrapper. This closure is data-dependent and may recurse.
+Other Init branches can enqueue high-priority `CoolifyTask` network-disconnect/
+removal commands, and localhost-proxy compatibility can synchronously write,
+remove or reload Caddy configuration. Neither native service flag gates these
+direct actions.
+
+Init also queues `PullChangelog` and `CheckHelperImageJob`; helper-error
+notifications can create queued wrappers/channel send jobs and retries/delays.
+Therefore neither an exact-two-job allowlist nor an unconditional bounded
+housekeeping claim is valid. **Before installation or initialization**, obtain independently
+reviewed aggregate branch-state predicates for the exact pinned Init/commands/
+jobs, with resource and admission mutators closed. Prove destructive branches
+and direct proxy/network mutations absent and the remaining actual startup
+closure bounded, or obtain a separate scoped review of those exact mutations
+**before installation**, not merely before releasing Horizon. Bind actual
+DB/Redis database selection, prefixes, cache/lock clearing and all callsites/
+arguments/payload hashes. A class-wide unique helper-cleanup lock can suppress
+per-server admission, so dispatch-attempt counts are not accepted-job counts;
+the broad helper selector must be proven safe when it actually runs after Init
+has changed deployment statuses. Docker cleanup, queued command wrappers and
+service-status broadcasts also belong to the conditional descendant review.
+Do not invent count queries or assume job classes prove non-destructive behavior.
+Preserve actual job identity/payload hashes privately and reconcile every branch.
+Immediate post-init emptiness is not expected. Init's status/lock mutations are
+also why the genuine PRE-init drain admits no exception. Never skip Init, patch
+cleanup, insert jobs manually, invoke `queue_next`, filter/pop arbitrary work or
+discard jobs to obtain a pass.
 
 Keep the independently proven external admission gate and production producer
 holds while the owner clears actual cache maintenance, then deliberately releases
-normal Horizon to naturally complete only the reviewed startup housekeeping
-closure. Normal workers require maintenance off. Scheduler remains disabled;
+normal Horizon only after that independent branch-state/closure review permits
+natural completion of the exact observed startup work. Normal workers require
+maintenance off. Scheduler remains disabled;
 Horizon release is not a job-ID selector, so all competing producers/consumers
 and delayed/retry sources must already be accounted for. Unexpected work blocks
 release and requires review. After the known startup jobs naturally finish,
@@ -479,6 +535,18 @@ replacement is eligible for removal only after its exact recorded ID/name,
 ownership, stopped state and lack of admitted work are verified; preserve
 failure evidence first. Unknown or active state requires operator recovery,
 not deletion or retry.
+
+Read the durable `operation-status.json` under the reported private operation
+state ID. It records distinct pre-mutation, up-running/up-failed,
+post-up-contract-mismatch, http-failed and success stages. `up_executed` is
+persisted before invoking management recreation, and `up_succeeded` only after
+its successful return. Installed identity and private `post-up-inspect.json`
+with its SHA256 are persisted **before** contract comparison. A successful,
+HTTP-200 manager with a contract mismatch is a hold-and-inspect case; it does
+not imply startup failure or authorize rollback. The error receipt/exception
+preserves these facts rather than reporting every failure as pre-mutation.
+Unknown identity/health remains explicitly unresolved. No stage automatically
+retries, rolls back or releases admission holds.
 
 **Missing-manager recovery is a separate installation STOP.** The normal
 chain/probe driver requires a live baseline and unchanged connectivity; it does
@@ -546,3 +614,9 @@ base/source/startup guards and tests, and verify actual image/runtime behavior.
 Never transplant complete old job files or assume a reported version proves
 this derivative was installed. Retire it once a reviewed official release
 contains equivalent protection.
+
+Operational validation is currently **unresolved**: automatic security review
+stopped further live/network/service testing and installation. The reason given
+was possible cybersecurity risk without a specific command. Local synthetic
+compatibility tests and ordinary source CI/review do not clear that boundary;
+do not retry operational work through another tool, model, account or route.

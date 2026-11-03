@@ -18,6 +18,22 @@ import sys
 
 APPLICATION_TEST = ["CMD-SHELL", "curl --fail http://127.0.0.1:8080/api/health || exit 1"]
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+COMPOSE_DEPENDENCIES_LABEL = "com.docker.compose.depends_on"
+
+
+def _canonical_dependency_label(value):
+    """Compose emits this structured label from a Go map in arbitrary order."""
+    if type(value) is not str:
+        raise ValueError("invalid generated Compose dependency label")
+    if not value:
+        return ""
+    dependencies = {}
+    for record in value.split(","):
+        match = re.fullmatch(r"([A-Za-z0-9_.-]+):(service_started|service_healthy|service_completed_successfully):(true|false)", record)
+        if not match or match.group(1) in dependencies:
+            raise ValueError("invalid or duplicate generated Compose dependency")
+        dependencies[match.group(1)] = record
+    return ",".join(dependencies[name] for name in sorted(dependencies))
 
 
 def load_json(path):
@@ -61,6 +77,12 @@ def contract(value):
             raise ValueError("invalid or duplicate environment key")
         environment[key] = hashlib.sha256(item.encode()).hexdigest()
     config["Env"] = {}
+    labels = config.get("Labels")
+    if labels is not None:
+        if type(labels) is not dict or any(type(item) is not str for item in labels.values()):
+            raise ValueError("invalid Engine labels")
+        if COMPOSE_DEPENDENCIES_LABEL in labels:
+            labels[COMPOSE_DEPENDENCIES_LABEL] = _canonical_dependency_label(labels[COMPOSE_DEPENDENCIES_LABEL])
     if config.get("Hostname") == value["Id"][:12]:
         config["Hostname"] = "<engine-generated-hostname>"
     networks = {}

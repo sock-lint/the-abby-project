@@ -30,6 +30,10 @@ COMPOSE_CLIENT_POLICY = {
     "COMPOSE_PROFILES": "", "COMPOSE_MENU": "false", "COMPOSE_ANSI": "never",
     "COMPOSE_PROGRESS": "quiet",
 }
+TESTED_SERVER = {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64"}
+TESTED_CLIENT = {**TESTED_SERVER, "GitCommit": "a82e528"}
+OCI_INDEX = "application/vnd.oci.image.index.v1+json"
+OCI_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 
 
 def controlled_docker_environment():
@@ -81,6 +85,113 @@ def _unique_json(pairs):
     return result
 
 
+def observe_runtime(runner=_read_only_run):
+    """Bind actual Docker client/server metadata to the tested local semantics."""
+    try:
+        value = json.loads(runner(["docker", "version", "--format", "{{json .}}"]), object_pairs_hook=_unique_json)
+    except (ValueError, TypeError, UnicodeError):
+        raise ValueError("actual Docker runtime metadata unavailable") from None
+    if type(value) is not dict or type(value.get("Client")) is not dict or type(value.get("Server")) is not dict:
+        raise ValueError("incomplete Docker runtime metadata")
+    client, server = value["Client"], value["Server"]
+    if (any(server.get(key) != expected for key, expected in TESTED_SERVER.items()) or
+            any(client.get(key) != expected for key, expected in TESTED_CLIENT.items()) or
+            client.get("Experimental") is not None or type(client.get("Context")) is not str or not client["Context"]):
+        raise ValueError("unsupported Docker client or server runtime")
+    identity = {key: client.get(key) for key in (*TESTED_CLIENT, "Context", "Experimental")}
+    return {"schema_version": 1, "version_sha256": digest(value),
+            "client_identity_sha256": digest(identity), "server": copy.deepcopy(TESTED_SERVER)}
+
+
+def _runtime_proof(value):
+    if (type(value) is not dict or set(value) != {"schema_version", "version_sha256", "client_identity_sha256", "server"} or
+            type(value["schema_version"]) is not int or value["schema_version"] != 1 or value["server"] != TESTED_SERVER or
+            any(type(value[key]) is not str or not re.fullmatch(r"[0-9a-f]{64}", value[key]) for key in ("version_sha256", "client_identity_sha256"))):
+        raise ValueError("unsupported actual Docker runtime proof")
+
+
+def _one_image(raw):
+    try:
+        value = json.loads(raw, object_pairs_hook=_unique_json)
+    except (ValueError, TypeError, UnicodeError):
+        raise ValueError("actual image observation unavailable") from None
+    if type(value) is not list or len(value) != 1 or type(value[0]) is not dict:
+        raise ValueError("expected exactly one actual image")
+    return value[0]
+
+
+def _image_descriptor(image, media_type):
+    descriptor = image.get("Descriptor")
+    if (type(image.get("Id")) is not str or not re.fullmatch(r"sha256:[0-9a-f]{64}", image["Id"]) or
+            type(descriptor) is not dict or descriptor.get("mediaType") != media_type or descriptor.get("digest") != image["Id"] or
+            image.get("Os") != "linux" or image.get("Architecture") != "amd64" or image.get("Variant") not in (None, "") or
+            type(image.get("Config")) is not dict or type(image.get("RootFS")) is not dict):
+        raise ValueError("unsupported image platform or OCI descriptor")
+    if "platform" in descriptor:
+        platform = descriptor["platform"]
+        if (type(platform) is not dict or platform.get("os") != "linux" or platform.get("architecture") != "amd64" or
+                platform.get("variant") not in (None, "")):
+            raise ValueError("conflicting OCI descriptor platform")
+
+
+def selected_image_identity(default_candidate, declared_platform, runner=_read_only_run):
+    """Derive Compose's selected manifest identity from fresh actual CLI reads.
+
+    The safe probe's label is never authority for its expected value. Full image
+    Config and RootFS must agree across default and selected observations.
+    """
+    if declared_platform not in (None, "linux/amd64") or type(default_candidate) is not dict:
+        raise ValueError("unsupported declared image platform")
+    default_id = default_candidate.get("Id")
+    if type(default_id) is not str or not re.fullmatch(r"sha256:[0-9a-f]{64}", default_id):
+        raise ValueError("immutable default image required")
+    runtime = observe_runtime(runner)
+    help_output = runner(["docker", "image", "inspect", "--help"])
+    if type(help_output) is not bytes or re.search(rb"(?:^|\s)--platform(?:\s|=|$)", help_output) is None:
+        raise ValueError("actual image inspect platform selection unavailable")
+    actual_default = _one_image(runner(["docker", "image", "inspect", default_id]))
+    if actual_default != default_candidate:
+        raise ValueError("default image changed since actual observation")
+    descriptor = actual_default.get("Descriptor")
+    media_type = descriptor.get("mediaType") if type(descriptor) is dict else None
+    if media_type not in (OCI_INDEX, OCI_MANIFEST):
+        raise ValueError("unsupported default OCI image kind")
+    _image_descriptor(actual_default, media_type)
+    selected = _one_image(runner(["docker", "image", "inspect", "--platform", "linux/amd64", default_id]))
+    _image_descriptor(selected, OCI_MANIFEST)
+    if (selected["Config"] != actual_default["Config"] or selected["RootFS"] != actual_default["RootFS"] or
+            (media_type == OCI_MANIFEST and selected["Id"] != default_id) or
+            (media_type == OCI_INDEX and selected["Id"] == default_id)):
+        raise ValueError("selected image identity or full creation content differs")
+    evidence = {"schema_version": 1, "platform": "linux/amd64", "default_image_id": default_id,
+                "selected_image_id": selected["Id"], "selection": "index_to_manifest" if media_type == OCI_INDEX else "native_manifest",
+                "default_inspect_sha256": digest(actual_default), "selected_inspect_sha256": digest(selected),
+                "inspect_platform_help_sha256": hashlib.sha256(help_output).hexdigest(),
+                "docker_runtime_version_sha256": runtime["version_sha256"]}
+    return selected, selected["Id"], evidence
+
+
+def model_expected_running_defaults(projected, declared, runtimeProof):
+    """Model only the observed 29.9.2 created-False to started-None OOM default.
+
+    Actual root-owned disposable start/inspect proved this as the sole changed
+    HostConfig key. This is an expected started contract, not normalization of
+    installed observations, and no other fields are changed or ignored.
+    """
+    _runtime_proof(runtimeProof)
+    _service(declared)
+    if any(key in declared for key in ("oom_kill_disable", "oom_score_adj")):
+        raise ValueError("explicit OOM settings unsupported")
+    if type(projected) is not dict or type(projected.get("HostConfig")) is not dict or projected["HostConfig"].get("OomKillDisable") is not False:
+        raise ValueError("unexpected created OOM default")
+    state = projected.get("State", {})
+    if state.get("Status") != "created" or state.get("Running") is not False or type(state.get("Pid")) is not int or state["Pid"] != 0:
+        raise ValueError("expected never-started source for running-default model")
+    result = copy.deepcopy(projected)
+    result["HostConfig"]["OomKillDisable"] = None
+    return result
+
+
 def capture_chain(compose_files, env_file, project, service, runner=_read_only_run):
     """Bind ordered bytes to actual interpolated config/hash/version queries."""
     if (not isinstance(compose_files, (list, tuple)) or not 1 <= len(compose_files) <= 16 or
@@ -115,6 +226,7 @@ def capture_chain(compose_files, env_file, project, service, runner=_read_only_r
         rendered = json.loads(rendered_bytes, object_pairs_hook=_unique_json)
         service_hash = runner([*argv, "config", "--hash", service]).decode().strip()
         version = runner(["docker", "compose", "version", "--short"]).decode().strip()
+        runtime = observe_runtime(runner)
     except (UnicodeError, TypeError, json.JSONDecodeError) as error:
         raise ValueError("invalid actual Compose observation") from error
     if (type(rendered) is not dict or type(rendered.get("services")) is not dict or
@@ -128,7 +240,8 @@ def capture_chain(compose_files, env_file, project, service, runner=_read_only_r
     ticket = {"schema_version": 1, "chain": before, "project": project, "service": service,
               "project_directory": project_directory, "render_sha256": digest(rendered),
               "service_hash_output_sha256": hashlib.sha256(service_hash.encode()).hexdigest(),
-              "compose_version_sha256": hashlib.sha256(version.encode()).hexdigest()}
+              "compose_version_sha256": hashlib.sha256(version.encode()).hexdigest(),
+              "docker_runtime_version_sha256": runtime["version_sha256"]}
     return ticket, rendered
 
 
@@ -162,7 +275,8 @@ def _service(service):
 def safe_recipe(service, image_volumes, token):
     """Preserve dependencies and remaining settings in a disconnected recipe.
 
-    The driver supplies harmless dummy dependencies and uses create --no-deps
+    The driver supplies harmless dummy dependencies and uses the supported
+    up --no-start --no-deps path
     --pull never. The declared pull_policy remains available for comparison.
     This function never omits depends_on to make a comparison pass.
     """
@@ -282,7 +396,9 @@ def _network(running, baseline, proposed, definitions, mode):
         raise ValueError("one unchanged explicit network is required")
     key = next(iter(old_networks))
     definition = definitions[key]
-    if set(definition) != {"name", "external"} or definition["external"] is not True:
+    if (type(definition) is not dict or not {"name", "external"} <= set(definition) or
+            set(definition) - {"name", "external", "ipam"} or definition["external"] is not True or
+            type(definition.get("ipam", {})) is not dict or definition.get("ipam", {}) != {}):
         raise ValueError("existing external network with explicit name required")
     name = definition["name"]
     if (set(running["NetworkSettings"]["Networks"]) != {name} or

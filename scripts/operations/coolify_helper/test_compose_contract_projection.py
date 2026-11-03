@@ -12,6 +12,13 @@ from unittest.mock import patch
 import compose_contract_projection as projection
 
 
+def runtime_fixture():
+    return {"Client": {"Version": "29.9.2", "ApiVersion": "1.56", "GitCommit": "a82e528",
+                       "Os": "linux", "Arch": "amd64", "Context": "SYNTHETIC-PRIVATE-CONTEXT", "Experimental": None},
+            "Server": {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64",
+                       "KernelVersion": "synthetic-private-kernel"}}
+
+
 def fixtures():
     mounts = [{"type": "bind", "source": f"/synthetic/source{index}", "target": f"/synthetic/target{index}",
                "read_only": index == 0, "bind": {"create_host_path": True}} for index in range(7)]
@@ -89,6 +96,21 @@ class ProjectionTests(unittest.TestCase):
             projection.prove_and_reinsert(*args)
         with self.assertRaises(ValueError):
             projection.prove_and_reinsert(*fixtures(), endpoint_mode="existing_mac")
+
+    def test_compose_561_empty_external_network_ipam_is_supported_without_address_changes(self):
+        args = fixtures()
+        args[4]["coolify"]["ipam"] = {}
+        output = projection.prove_and_reinsert(*args)
+        self.assertEqual(output["NetworkSettings"], args[0]["NetworkSettings"])
+        self.assertIsNone(output["NetworkSettings"]["Networks"]["coolify"]["IPAMConfig"])
+        for value in (None, [], {"driver": "default"}, {"config": []}, {"config": [{"subnet": "192.0.2.0/24"}]}):
+            args[4]["coolify"]["ipam"] = value
+            with self.subTest(ipam=value), self.assertRaises(ValueError):
+                projection.prove_and_reinsert(*args)
+        args[4]["coolify"]["ipam"] = {}
+        args[4]["coolify"]["unknown_network_option"] = {}
+        with self.assertRaises(ValueError):
+            projection.prove_and_reinsert(*args)
 
     def test_existing_declared_ipam_is_preserved_but_new_static_pins_are_not_invented(self):
         args = fixtures()
@@ -203,9 +225,12 @@ class ChainTests(unittest.TestCase):
             path.write_text(json.dumps({"synthetic": index}))
         self.rendered = {"services": {"coolify": fixtures()[2]}}
         self.version, self.service_hash, self.calls = b"5.6.1\n", b"coolify " + b"a" * 64 + b"\n", []
+        self.runtime = runtime_fixture()
 
     def runner(self, argv):
         self.calls.append(argv)
+        if argv[:2] == ["docker", "version"]:
+            return json.dumps(self.runtime).encode()
         if "--format" in argv:
             return json.dumps(self.rendered).encode()
         if "--hash" in argv:
@@ -325,6 +350,161 @@ class ChainTests(unittest.TestCase):
             return result
         with self.assertRaisesRegex(ValueError, "Compose controls in project env file are unsupported"):
             projection.capture_chain(self.files, self.env, "source", "coolify", runner)
+
+    def test_actual_docker_client_and_server_metadata_drift_invalidates_ticket(self):
+        ticket, _ = self.capture()
+        self.assertEqual(ticket["docker_runtime_version_sha256"], projection.digest(self.runtime))
+        self.runtime["Client"]["Context"] = "different-private-context"
+        with self.assertRaises(ValueError):
+            self.recheck(ticket)
+        self.runtime = runtime_fixture()
+        self.runtime["Server"]["KernelVersion"] = "different-private-kernel"
+        with self.assertRaises(ValueError):
+            self.recheck(ticket)
+
+
+class RuntimeSemanticsTests(unittest.TestCase):
+    def runner(self, value):
+        def run(argv):
+            self.assertEqual(argv, ["docker", "version", "--format", "{{json .}}"])
+            return json.dumps(value).encode()
+        return run
+
+    def test_current_tested_runtime_is_observed_and_private_client_context_is_hashed(self):
+        value = runtime_fixture()
+        proof = projection.observe_runtime(self.runner(value))
+        self.assertEqual(proof["version_sha256"], projection.digest(value))
+        self.assertEqual(proof["server"], {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64"})
+        self.assertNotIn("SYNTHETIC-PRIVATE-CONTEXT", json.dumps(proof))
+        self.assertNotIn("synthetic-private-kernel", json.dumps(proof))
+
+    def test_untested_client_server_api_platform_commit_and_experimental_mode_reject(self):
+        for side, field, invalid in (("Client", "Version", "29.9.0"), ("Client", "ApiVersion", "1.55"),
+                                     ("Client", "GitCommit", "unknown"), ("Client", "Os", "windows"),
+                                     ("Client", "Arch", "arm64"), ("Client", "Experimental", True),
+                                     ("Server", "Version", "29.9.0"), ("Server", "ApiVersion", "1.55"),
+                                     ("Server", "Os", "windows"), ("Server", "Arch", "arm64")):
+            value = runtime_fixture()
+            value[side][field] = invalid
+            with self.subTest(side=side, field=field), self.assertRaises(ValueError):
+                projection.observe_runtime(self.runner(value))
+
+    def test_expected_started_oom_default_changes_only_exact_false_to_none(self):
+        projected = fixtures()[1]
+        projected["HostConfig"]["OomKillDisable"] = False
+        projected["HostConfig"]["SyntheticHostConfigField58"] = "must-remain-significant"
+        proof = projection.observe_runtime(self.runner(runtime_fixture()))
+        original = copy.deepcopy(projected)
+        output = projection.model_expected_running_defaults(projected, fixtures()[3], proof)
+        expected = copy.deepcopy(projected)
+        expected["HostConfig"]["OomKillDisable"] = None
+        self.assertEqual(output, expected)
+        self.assertEqual(projected, original)
+        self.assertEqual(len(output["HostConfig"]), 63)
+
+    def test_oom_true_none_missing_explicit_settings_or_wrong_runtime_cannot_normalize(self):
+        proof = projection.observe_runtime(self.runner(runtime_fixture()))
+        for invalid in (True, None, 0, "false", "missing"):
+            projected = fixtures()[1]
+            if invalid == "missing":
+                del projected["HostConfig"]["OomKillDisable"]
+            else:
+                projected["HostConfig"]["OomKillDisable"] = invalid
+            with self.subTest(value=invalid), self.assertRaises(ValueError):
+                projection.model_expected_running_defaults(projected, fixtures()[3], proof)
+        projected = fixtures()[1]
+        projected["HostConfig"]["OomKillDisable"] = False
+        declared = fixtures()[3]
+        declared["oom_kill_disable"] = False
+        with self.assertRaises(ValueError):
+            projection.model_expected_running_defaults(projected, declared, proof)
+        invalid_proof = copy.deepcopy(proof)
+        invalid_proof["server"]["Version"] = "29.9.0"
+        with self.assertRaises(ValueError):
+            projection.model_expected_running_defaults(projected, fixtures()[3], invalid_proof)
+        projected["State"] = {"Status": "running", "Running": True, "Pid": 123}
+        with self.assertRaises(ValueError):
+            projection.model_expected_running_defaults(projected, fixtures()[3], proof)
+
+
+class ImageSelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.default_id = "sha256:" + "1" * 64
+        self.selected_id = "sha256:" + "2" * 64
+        self.default = {"Id": self.default_id, "Descriptor": {"mediaType": projection.OCI_INDEX, "digest": self.default_id, "size": 1234},
+                        "Os": "linux", "Architecture": "amd64", "Config": {"Env": ["SECRET=PRIVATE-SYNTHETIC-IMAGE"], "User": "www-data"},
+                        "RootFS": {"Type": "layers", "Layers": ["sha256:" + "3" * 64]}}
+        self.selected = copy.deepcopy(self.default)
+        self.selected.update(Id=self.selected_id, Descriptor={"mediaType": projection.OCI_MANIFEST, "digest": self.selected_id, "size": 5678})
+        self.help = b"Options:\n      --platform string   Inspect a specific platform\n"
+        self.calls = []
+
+    def runner(self, argv):
+        self.calls.append(argv)
+        if argv[:2] == ["docker", "version"]:
+            return json.dumps(runtime_fixture()).encode()
+        if argv == ["docker", "image", "inspect", "--help"]:
+            return self.help
+        if argv == ["docker", "image", "inspect", self.default_id]:
+            return json.dumps([self.default]).encode()
+        if argv == ["docker", "image", "inspect", "--platform", "linux/amd64", self.default_id]:
+            return json.dumps([self.selected]).encode()
+        raise AssertionError("unexpected synthetic image query")
+
+    def select(self, platform=None):
+        return projection.selected_image_identity(copy.deepcopy(self.default), platform, self.runner)
+
+    def test_index_uses_actual_selected_manifest_id_with_full_content_bound_and_no_private_receipt(self):
+        selected, identity, evidence = self.select()
+        self.assertEqual(selected, self.selected)
+        self.assertEqual(identity, self.selected_id)
+        self.assertNotEqual(identity, self.default_id)
+        self.assertEqual(evidence["selection"], "index_to_manifest")
+        self.assertNotIn("PRIVATE-SYNTHETIC-IMAGE", json.dumps(evidence))
+        self.assertIn(["docker", "image", "inspect", "--platform", "linux/amd64", self.default_id], self.calls)
+
+    def test_native_manifest_identity_must_remain_the_same(self):
+        self.default["Descriptor"]["mediaType"] = projection.OCI_MANIFEST
+        self.selected = copy.deepcopy(self.default)
+        _, identity, evidence = self.select("linux/amd64")
+        self.assertEqual(identity, self.default_id)
+        self.assertEqual(evidence["selection"], "native_manifest")
+        self.selected.update(Id=self.selected_id, Descriptor={"mediaType": projection.OCI_MANIFEST, "digest": self.selected_id})
+        with self.assertRaises(ValueError):
+            self.select()
+
+    def test_unsupported_platform_missing_capability_or_ambiguous_descriptor_reject(self):
+        for platform in ("linux/arm64", "windows/amd64", "linux/amd64/v2", ""):
+            with self.subTest(platform=platform), self.assertRaises(ValueError):
+                self.select(platform)
+        self.help = b"Options without platform support\n"
+        with self.assertRaises(ValueError):
+            self.select()
+        self.help = b" --platform string\n"
+        for descriptor in (None, {}, {"mediaType": "unknown", "digest": self.default_id},
+                           {"mediaType": projection.OCI_INDEX, "digest": self.selected_id}):
+            self.default["Descriptor"] = descriptor
+            with self.subTest(descriptor=descriptor), self.assertRaises(ValueError):
+                self.select()
+
+    def test_wrong_selected_platform_forged_digest_config_and_rootfs_changes_reject(self):
+        original = copy.deepcopy(self.selected)
+        for mutate in (lambda i: i.update(Architecture="arm64"), lambda i: i.update(Os="windows"),
+                       lambda i: i["Descriptor"].update(digest=self.default_id),
+                       lambda i: i["Descriptor"].update(mediaType=projection.OCI_INDEX),
+                       lambda i: i["Config"].update(User="root"),
+                       lambda i: i["RootFS"].update(Layers=["sha256:" + "4" * 64]),
+                       lambda i: i["Descriptor"].update(platform={"os": "linux", "architecture": "arm64"})):
+            self.selected = copy.deepcopy(original)
+            mutate(self.selected)
+            with self.subTest(mutation=mutate), self.assertRaises(ValueError):
+                self.select()
+
+    def test_default_supplied_json_cannot_replace_fresh_actual_image_observation(self):
+        forged = copy.deepcopy(self.default)
+        forged["Config"]["User"] = "root"
+        with self.assertRaises(ValueError):
+            projection.selected_image_identity(forged, None, self.runner)
 
 
 if __name__ == "__main__":
