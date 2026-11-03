@@ -81,7 +81,8 @@ credentials, paid asset content, or exported deployment logs.
 
 ## Review binding and focused validation
 
-The former `99ce33ac`, `c8d10b60`, `92243170` and `34736af6` revisions are
+The former `99ce33ac`, `c8d10b60`, `b7a5335a`, `0ba82ffc`, `92243170` and
+`34736af6` revisions are
 **NOT CLEAN and must not be
 used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
 README-1 findings apply to their activation/recovery procedures. Later N1–N5,
@@ -137,8 +138,26 @@ Native Claude review of exact `34736af6`, completed `2026-11-03T22:54:04Z`,
 returned FINDINGS with one LOW `freeze-receipt-digest-never-checked`: the old
 driver checked only a 64-hex string. The raw-byte/path correction below requires
 fresh independent review. This LOW is not silently added to the twenty-ID MAIN
-gate. MAIN's separate `34736af6` disposition remains pending; neither review is
+gate. MAIN's formal `34736af6` disposition below is separate; neither review is
 represented as clean current-head approval.
+
+MAIN's later formal `34736af6` disposition is **NOT CLEAN** with two verified
+medium subfindings, `RB1A-H1` and `RB1A-H2`, under the existing
+RV366G-RB1-A gate. Static reading confirms the same omitted effects in
+`f17932c3`. StandaloneDocker creation has inline network effects, and the
+dispatched proxy/Sentinel actions have substantial execution descendants.
+Rows A13–A16 in [STARTUP_REVIEW.md](STARTUP_REVIEW.md) now give separate
+predicates, target/effect counts to verify and STOP rules. These subfindings do
+not expand the twenty mandatory IDs. Fresh review is required; no Native Claude
+or MAIN verdict for a different head is inferred.
+The full MAIN `34736af6` packet records 29 confirmed observations: 2 medium,
+18 low and 9 informational. Its two mandatory medium subfindings are addressed
+here for renewed review. Uncorrected low/informational observations remain in
+the coordinator-held raw trail; no blanket fixed/accepted disposition is made.
+Historical Native Claude review of `f17932c3` was CLEAN with empty findings at
+`2026-11-03T23:27:00Z`, from code reading only with no reviewer tests. MAIN's
+`f17932c3` disposition is separate and pending; neither applies automatically
+to this next head.
 
 Use Python 3, PHP 8, and Bash. During the current operational review hold, the
 allowed local subset is limited to harmless policy, constant-module, standard
@@ -515,7 +534,7 @@ unproven.** Prepare a concrete target list, bounded owner window, evidence and
 restore plan if owner actions are needed. This desktop lane must not change
 abby-loop state, take over its tasks, modify unrelated application auto-deploy
 settings, add credentials/connections, or silently change environment/network/
-webhook settings. MAIN holds PR366, PR359 and other merges capable of native
+webhook settings. MAIN holds PR367, PR366, PR359 and other merges capable of native
 auto-deployment. Merging this PR is not the repair: it triggers normal main
 CI/CD/webhooks, and does not install the management derivative.
 
@@ -568,6 +587,12 @@ pre-installation gates.** Follow the pinned-source branch/predicate/effects
 matrix in [STARTUP_REVIEW.md](STARTUP_REVIEW.md) for both candidate and recovery.
 All actual counts, targets and effects remain **UNVERIFIED**. The existing
 36-file/predicate observer is incomplete and cannot certify these gates.
+The pre-s6 debug branch can install development dependencies and run
+optimize-clear. With the pinned Redis cache store, optimize-clear includes a
+whole-effective-cache-database flush, not a prefix-only cleanup. Actual cache
+bindings and any queue/Horizon database collisions are UNVERIFIED. Keep verified
+backups/evidence before **any** startup or recovery; exit zero or HTTP health
+does not prove every native branch completed successfully.
 Native `db-migration` calls `migrate --force --isolated`; `MIGRATION_ENABLED`
 defaults true. Require an independently verified **zero pending migration** set
 for the exact image and actual database repository before recreation. Do not
@@ -578,8 +603,11 @@ Next `init-seeder` runs forced `ProductionSeeder` on every enabled startup;
 creates default rows, starts proxies and dispatches sentinel work. Its SSH
 directory seeder unconditionally deletes/recreates persisted key/mux roots and
 rewrites/chowns their contents; zero key rows do not remove that effect. OAuth
-settings can be deleted in bulk, CA creation can delete existing certificate
-rows, every server is a remote certificate-write target, and synchronous SSH
+settings can be deleted in bulk when rows exist but authentik is absent. That
+branch attempts to recreate a null provider against the pinned non-null schema,
+fails after deletion and swallows the exception; successful restoration must
+not be assumed. Actual schema/counts are UNVERIFIED. CA creation can delete
+existing certificate rows, every server is a remote certificate-write target, and synchronous SSH
 can happen before activity/job admission. Root-user, public-IP and other seeder
 branches also write state or use external services. Nightwatch is a separate
 longrun outside the Horizon/scheduler hold. Each source-defined conditional
@@ -588,6 +616,37 @@ persisted-host effects always require scoped review and verified backups before
 installation**. Use the exact targets/counts/side effects and execution order in
 the linked matrix, not only a class allowlist. Never skip native startup or
 silently edit service flags to pass.
+
+The explicit normal-create branch for still-missing StandaloneDocker 0 selects a
+**synchronous** created hook that
+inspects/creates the `coolify` network via SSH and runs
+`ConnectProxyToNetworksJob::dispatchSync`. That job can delete mux state,
+create destination-derived networks and connect the shared proxy. No Horizon
+consumer is needed for those effects. Distinguish Server's quiet default
+destination insertion, which does not run that hook, from the later explicit
+create predicate. Prove that creation predicate absent, **or** independently
+approve its ordered network/membership/host effects with verified restore
+evidence **before installation**.
+
+Queued `StartProxy` and `CheckAndStartSentinelJob` are not class-only harmless
+startup admissions. Their execution can synchronously rewrite proxy Compose and
+backup/prune files, change statuses, broadcast events and admit further tasks.
+Proxy commands can pull images, stop/remove the shared proxy, start it with
+orphan removal or deploy a stack, and reconnect networks. Completion listeners
+can rewrite redirect/dynamic ingress, dispatch version checking or forcibly
+remove a proxy found in Created state. Sentinel
+work can fetch external versions, remove/recreate its container with Docker
+socket and host-PID access, write persisted paths/settings and dispatch events.
+Removal and invalid-token repair can precede endpoint validation, so a later
+endpoint failure does not prove no mutation occurred.
+Review their exact execution/descendant predicates, private targets/counts,
+configuration/backup effects, privileges, events, ingress coverage and restore
+plan **before installation and before any normal Horizon release**. All actual
+targets/counts/effects remain UNVERIFIED. Worker holds do not defer inline
+hooks; after release, normal workers provide no class selector or protection
+from selected handler side effects. Shared-proxy changes can affect every
+application using that host ingress,
+so they are not a management-only or isolated-staging acceptance test.
 
 After initialization the held services must be verified sleeping, with no
 Horizon master/supervisor/worker or scheduler executor. **The native flags do
@@ -605,8 +664,9 @@ realtime/terminal ingress, as well as write/remove/reload Caddy configuration.
 Direct cleanup also deletes empty teams, soft-deleted servers, orphan deployment
 rows, trashed/orphan service children, scheduled tasks/backups and SSL records.
 Template fetch/file writes, telemetry/public-IP calls, name/email/proxy rewrites
-and restoration of an enabled daily control-DB backup record are separate
-branches. Neither native worker flag gates these actions.
+and restoring the trashed PostgreSQL 0 record followed conditionally by creating
+**enabled daily scheduled-backup 0** are separate branches. Neither native
+worker flag gates these actions.
 
 Init also queues `PullChangelog` and `CheckHelperImageJob`; helper-error
 notifications can create queued wrappers/channel send jobs and retries/delays.
@@ -678,7 +738,8 @@ The normal job resolves branch HEAD and can overwrite the row's commit; a
 requested commit parameter alone does not establish the tested revision. Do not
 create a new branch or alter protection under an implied permission. If safe selective admission cannot be
 proven, leave the hold in place and STOP for a reviewed plan. After this proof
-and MAIN acceptance, MAIN owns subsequent PR merges and production release;
+and every required gate passes, MAIN owns merge/release order **PR367 → PR366 →
+PR359** and production release;
 the owner restores only the recorded holds in the approved restore plan.
 
 ## Failed recreation and guarded rollback
@@ -762,7 +823,9 @@ The independent recovery review must bind exact base image ID, tested gate
 binds, the application health test, `pull_policy: never`, and any minimal
 reconciliation required to reproduce the **previous running** contract. Compare
 recovery against actual running state and against intended preserved state;
-review the inverse image/test diff and only these extra gate mounts. Recheck
+review the complete recovery contract with its image/test and extra gate mounts,
+plus the full repeated native startup-effects packet. Do not reduce recovery
+to an inverse image/test diff or infer no effects from preserved settings. Recheck
 health dollar encoding/actual probe test. Do not restore the known-incompatible
 6001 clause, drifted layout, mutable `${LATEST_IMAGE:-latest}` fallback, or an
 unreviewed change. Prevalidate port ownership and a safe complete recovery
