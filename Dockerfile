@@ -95,8 +95,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+# Native Python dependencies use wheels; keep their runtime libraries without
+# shipping a compiler or development headers in the application image.
 RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev gcc libjpeg-dev zlib1g-dev curl && \
+    libpq5 libjpeg62-turbo zlib1g curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

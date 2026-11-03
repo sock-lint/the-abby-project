@@ -37,6 +37,14 @@ even when the public image passes. GHCR credentials use a unique directory under
 job's runner temporary directory and are removed afterwards, leaving other
 repositories' Docker credentials alone.
 
+The Python image installs runtime libraries (`libpq5`, `libjpeg62-turbo`,
+`zlib1g`, and `curl`); native Python dependencies use wheels and do not need a
+compiler or development headers in the shipped image. For an image scan fix,
+verify the rebuilt package inventory and a fresh scan. Coolify and the public
+validation job have separate build caches, so changing or clearing only the CI
+cache does not establish that production has the fix. After deployment, the
+operator must verify the package inventory in the actual served image too.
+
 Backend tests run real PostgreSQL 16 with the disposable data directory on a
 1 GiB tmpfs. This preserves PostgreSQL transaction and locking checks while
 avoiding disk-sync stalls on the shared runner's storage. The explicit size
