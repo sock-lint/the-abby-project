@@ -150,6 +150,14 @@ class MovementSessionService:
             notes=clean_notes,
         )
 
+        from apps.egg_discoveries.services import credit_activity
+
+        credit_activity(
+            user, category="movement", source_kind="movement_session",
+            source_key=str(client_request_id) if client_request_id is not None else f"session:{session.pk}",
+            minutes=session.duration_minutes, occurred_on=session.occurred_on,
+        )
+
         if is_xp_eligible:
             cls._award_session(user, session)
 

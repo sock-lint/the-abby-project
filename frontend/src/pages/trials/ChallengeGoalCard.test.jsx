@@ -4,12 +4,34 @@ import { buildChallengeGoal } from '../../test/challenges';
 import ChallengeGoalCard, { ChallengeGoalDetail } from './ChallengeGoalCard';
 import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
 import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
+import retainedDiscoveryPromises from '../../../../contracts/api/fixtures/challenge-discovery-retained-promises.json';
 
 vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
 vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn() }));
 beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
+  it.each([false, true])('keeps the actual earlier egg detail out of Today pinning while preserving its promise (pinned: %s)', (pinned) => {
+    const goal = { ...retainedDiscoveryPromises.results[0], pinned };
+    const onPin = vi.fn();
+    renderWithProviders(<ChallengeGoalDetail goal={goal} onClose={() => {}} onPin={onPin} />, { withAuth: false });
+    expect(screen.queryByRole('button', { name: /^(?:Pin to Today|Unpin)$/ })).toBeNull();
+    expect(screen.getByText('Earlier egg rewards keep their saved progress. Your chosen discovery stays on Today.')).toBeInTheDocument();
+    expect(screen.getByText('3 / 8 activities')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Completion reward items' })).toHaveTextContent('Mushroom Egg');
+    expect(screen.getByRole('list', { name: 'Completion reward items' })).toHaveTextContent('Fire Potion');
+    expect(onPin).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('keeps ordinary detail pinning functional (pinned: %s)', async (pinned) => {
+    const goal = buildChallengeGoal({ pinned });
+    const onPin = vi.fn();
+    const { user } = renderWithProviders(<ChallengeGoalDetail goal={goal} onClose={() => {}} onPin={onPin} />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: pinned ? 'Unpin' : 'Pin to Today', exact: true }));
+    expect(onPin).toHaveBeenCalledWith(goal);
+    expect(screen.getByText(/Pinning only keeps this goal on Today/)).toBeInTheDocument();
+  });
+
   it.each([false, true])('shows and opens a personal parent goal’s future schedule (paused: %s)', async (paused) => {
     const goal = buildChallengeGoal({ repeat_weekly: true, schedule: { next_week: { paused } } });
     const select = vi.fn();

@@ -67,6 +67,26 @@ function setupMetadata() {
 
 describe('Progression lab', () => {
   beforeEach(() => server.use(http.get('*/api/challenges/discovery/', () => HttpResponse.json(sharedDiscovery))));
+  it.each([false, true])('reports whether egg discoveries are excluded before and after a simulation: enabled=%s', async (enabled) => {
+    const coverage = { ...metadata.coverage, ...(enabled ? { companion_acquisition_mode: 'discovery_unmodeled' } : {}) };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ is_staff: true }))),
+      http.get('*/api/rpg/progression-lab/', () => HttpResponse.json({ ...metadata, coverage })),
+    );
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, { ...report, coverage });
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await screen.findByRole('form', { name: 'Progression scenario' });
+    const warning = 'Egg discoveries are not included in this forecast. Companion, mount, and collection timelines are unavailable for discovery mode.';
+    expect(Boolean(screen.queryByText(warning))).toBe(enabled);
+    expect(simulation.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('region', { name: 'Simulation report' });
+    expect(Boolean(screen.queryByText(warning))).toBe(enabled);
+    expect(simulation.calls).toHaveLength(1);
+    expect(simulation.calls[0].body).toEqual(defaults);
+  });
+
   it('reads and refreshes Voyager feedback independently from anonymous simulation', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ is_staff: true }))),

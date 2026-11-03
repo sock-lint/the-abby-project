@@ -103,6 +103,7 @@ urlpatterns = [
     path("api/", include("apps.rpg.urls")),
     path("api/", include("apps.habits.urls")),
     path("api/", include("apps.pets.urls")),
+    path("api/egg-discoveries/", include("apps.egg_discoveries.urls")),
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),
     path("api/", include("apps.activity.urls")),

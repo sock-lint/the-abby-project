@@ -12,6 +12,7 @@ import { companionFormName } from '../../../companion/lifecycle';
 import { acquisitionRarity } from '../../../companion/rarity';
 import { ownedAppearanceStages } from '../../../companion/previewAccess';
 import SpeciesPortrait from './SpeciesPortrait';
+import DiscoveryAcquisitionHint from '../../../components/egg-discovery/DiscoveryAcquisitionHint';
 
 /**
  * BottomSheet detail view for a single species. Shows lore, food
@@ -20,7 +21,7 @@ import SpeciesPortrait from './SpeciesPortrait';
  * For a child (``ownership`` defined), unowned grown forms keep their
  * potion name and lock without loading artwork or naming the form.
  */
-export default function SpeciesDetailSheet({ species, onClose, ownership }) {
+export default function SpeciesDetailSheet({ species, onClose, ownership, discoveryEnabled = false }) {
   if (!species) return null;
   const ownedPotionIds = new Set(species.owned_mount_potion_ids || []);
   const eligible = (species.available_potions || []).filter(isCatalogAvailable);
@@ -146,6 +147,10 @@ export default function SpeciesDetailSheet({ species, onClose, ownership }) {
                 : `one of: ${eligible.map((p) => p.name).join(', ')}`}{' '}
             in the Hatchery.
           </p>
+          {discoveryEnabled && <div className="mt-3 space-y-3">{eligible.map((potion) => <section key={potion.id} aria-label={`${potion.name} egg discovery`} className="rounded-xl border border-ink-page-shadow p-3 space-y-2">
+            <h4 className="font-semibold text-body text-ink-primary">{potion.name} appearance</h4>
+            <DiscoveryAcquisitionHint offer={potion.acquisition_discovery} />
+          </section>)}</div>}
         </section>}
       </div>
     </BottomSheet>

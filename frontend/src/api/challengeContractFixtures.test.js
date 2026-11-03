@@ -43,6 +43,8 @@ import milestoneLocked from '../../../contracts/api/fixtures/challenges-mileston
 import milestoneReady from '../../../contracts/api/fixtures/challenges-milestone-ready.json';
 import untimedGoals from '../../../contracts/api/fixtures/challenges-untimed.json';
 import renamedTaxonomyDaily from '../../../contracts/api/fixtures/challenges-renamed-taxonomy-daily.json';
+import retainedDiscoveryPromises from '../../../contracts/api/fixtures/challenge-discovery-retained-promises.json';
+import discoveryLockedMilestone from '../../../contracts/api/fixtures/challenge-discovery-locked-milestone.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
@@ -52,6 +54,35 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('preserves the actual earlier egg promise marker and its original reward and measurements', async () => {
+    const read = spyHandler('get', /\/api\/challenges\//, retainedDiscoveryPromises);
+    server.use(read.handler);
+    const response = await getChallenges();
+    expect(response).toEqual(retainedDiscoveryPromises);
+    expect(response.results).toHaveLength(1);
+    expect(response.pin).toBe('goal:401');
+    expect(response.results[0]).toMatchObject({ id: 'goal:401', name: 'My earlier Ember Grove', legacy_egg_promise: true, progress: '3', target: '8', rewards: { items: [
+      { item_name: 'Mushroom Egg', quantity: 1 }, { item_name: 'Fire Potion', quantity: 1 },
+    ] } });
+    expect(read.calls).toHaveLength(1);
+    expect(read.calls[0]).toMatchObject({ method: 'GET', body: null });
+  });
+
+  it('preserves the actual non-egg milestone alternative as an exact hatch pair without opening a challenge', async () => {
+    const read = spyHandler('get', /\/api\/challenges\//, discoveryLockedMilestone);
+    server.use(read.handler);
+    const response = await getChallenges();
+    expect(response).toEqual(discoveryLockedMilestone);
+    expect(response.results).toEqual([]);
+    expect(response.locked_catalog[0]).toMatchObject({ name: 'Reading Voyager', milestone_eligibility: {
+      unlocked: false,
+      requirements: [{ kind: 'challenge', met: false, description: 'Complete Reading Companion, or hatch Base Chick.' }],
+      prerequisite_hatch_pairs: [{ species_id: 61, potion_id: 41, species_name: 'Chick', potion_name: 'Base' }],
+    } });
+    expect(read.calls).toHaveLength(1);
+    expect(read.calls[0]).toMatchObject({ method: 'GET', body: null });
+  });
+
   it.each([
     [404, unavailableGoalChild],
     [403, unavailableGoalParent],

@@ -13,6 +13,26 @@ from apps.rpg.catalog_support import (
 ELEMENTAL_POTIONS = frozenset({"fire", "ice"})
 
 
+def definition_uses_egg_discovery(definition, *, current=False):
+    """Only future global egg offers move to the selected discovery path.
+
+    Keep canonical identities available to saved retries, prerequisites and
+    authoring. This is offer admission, never a saved-promise payout filter.
+    """
+    from apps.egg_discoveries.policy import discovery_enabled
+
+    if not discovery_enabled():
+        return False
+    if current:
+        from .models import QuestRewardItem
+        # Admission calls this after locking the definition, so a cached
+        # projection from before a catalog writer cannot accept new egg loot.
+        return QuestRewardItem.objects.filter(
+            quest_definition_id=definition.pk, quest_definition__is_system=True, item__item_type="egg",
+        ).exists()
+    return definition.is_system and any(row.item.item_type == "egg" for row in definition.reward_items.all())
+
+
 class RetryCatalogBusy(ValueError):
     """No promise was accepted because reward catalog admission was contended."""
 
@@ -124,6 +144,8 @@ def definition_is_available(definition):
     """
     if not definition.is_system:
         return True
+    if definition_uses_egg_discovery(definition):
+        return False
     items = [row.item for row in definition.reward_items.all()]
     eggs = [item for item in items if item.item_type == "egg"]
     potions = [item for item in items if item.item_type == "potion" and (

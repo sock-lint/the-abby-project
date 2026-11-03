@@ -1,0 +1,76 @@
+{
+  "results": [],
+  "pin": null,
+  "recent_receipts": [],
+  "challenge_receipts": [],
+  "locked_catalog": [
+    {
+      "id": 100,
+      "name": "Reading Voyager",
+      "description": "Synthetic future reading milestone.",
+      "icon": "⚔️",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "quest_type": "collection",
+      "quest_type_display": "Collection Quest",
+      "target_value": 20,
+      "duration_days": 84,
+      "trigger_filter": {
+        "allowed_triggers": [
+          "reading_logged"
+        ]
+      },
+      "coin_reward": 0,
+      "xp_reward": 0,
+      "reward_items": [],
+      "skill_tags": [],
+      "required_badge": null,
+      "required_badge_name": null,
+      "prerequisite_quest": 99,
+      "prerequisite_quest_name": "Reading Companion",
+      "required_skill": null,
+      "required_skill_name": null,
+      "required_skill_level": 0,
+      "milestone_eligibility": {
+        "unlocked": false,
+        "requirements": [
+          {
+            "kind": "challenge",
+            "met": false,
+            "description": "Complete Reading Companion, or hatch Base Chick."
+          }
+        ],
+        "locked_reasons": [
+          "Complete Reading Companion, or hatch Base Chick."
+        ],
+        "prerequisite_hatch_pairs": [
+          {
+            "species_id": 61,
+            "potion_id": 41,
+            "species_name": "Chick",
+            "potion_name": "Base"
+          }
+        ]
+      },
+      "is_repeatable": false,
+      "is_system": true,
+      "is_cooperative": false,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true
+    }
+  ],
+  "daily_bonus": {
+    "date": "2026-10-10",
+    "timezone": "America/Phoenix",
+    "goal": "Complete an approved task or log 10 minutes of work or movement",
+    "progress_minutes": 0,
+    "completed": false,
+    "awarded": false,
+    "coin_reward": 10,
+    "xp_reward": 20,
+    "coins_awarded": 0,
+    "xp_awarded": 0,
+    "ends_at": "2026-10-11T00:00:00-07:00",
+    "receipt_id": null
+  }
+}

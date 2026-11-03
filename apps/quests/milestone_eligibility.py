@@ -4,6 +4,7 @@ Eligibility reads award nothing. Accepted goals keep their own frozen promise;
 these checks never revoke or rearm one of those goals.
 """
 from django.core.exceptions import ValidationError
+from django.db import OperationalError, connection, transaction
 from django.db.models import Q
 
 
@@ -75,6 +76,76 @@ def prerequisite_completion(user, prerequisite_id):
     return automatic.exists() or legacy.exists(), min(times) if times else None
 
 
+def discovery_prerequisite_pairs(prerequisite):
+    """Typed companion equivalents for a future retired global egg offer.
+
+    This bridge supplies eligibility only. It never completes the retired
+    challenge or changes an already accepted milestone's requirement.
+    """
+    from .availability import definition_uses_egg_discovery
+
+    if prerequisite.created_by_id is not None or not definition_uses_egg_discovery(prerequisite):
+        return []
+    items = [row.item for row in prerequisite.reward_items.select_related("item__pet_species", "item__potion_type")]
+    eggs = [item for item in items if item.item_type == "egg"]
+    potions = [item for item in items if item.item_type == "potion"]
+    # Untyped historical ingredients cannot establish an exact hatch pair.
+    if not potions or any(not item.pet_species_id for item in eggs) or any(not item.potion_type_id for item in potions):
+        return []
+    return [{"species_id": species_id, "potion_id": potion_id,
+             "species_name": species_name, "potion_name": potion_name}
+            for species_id, species_name in sorted({(item.pet_species_id, item.pet_species.name) for item in eggs})
+            for potion_id, potion_name in sorted({(item.potion_type_id, item.potion_type.name) for item in potions})]
+
+
+def _hatched_prerequisite_pairs(user, pairs):
+    from django.utils import timezone
+    from apps.pets.models import PetIncubation, UserMount, UserPet
+
+    if user is None:
+        return False
+    expected = {(pair["species_id"], pair["potion_id"]) for pair in pairs}
+    owned = set(UserPet.objects.filter(user=user).values_list("species_id", "potion_id"))
+    owned.update(UserMount.objects.filter(user=user).values_list("species_id", "potion_id"))
+    owned.update(PetIncubation.objects.filter(user=user, hatched_at__lte=timezone.now()).values_list(
+        "species_id", "potion_type_id",
+    ))
+    return expected <= owned
+
+
+def admit_discovery_prerequisite(definition):
+    """Fence fresh bridge ingredients without waiting behind a catalog edit.
+
+    A single savepoint owns every added lock, including the shared ingredient
+    fence. A busy prerequisite rolls them all back while source work survives.
+    """
+    from .availability import RetryCatalogBusy, lock_retry_reward_catalog
+    from .models import QuestDefinition, QuestRewardItem
+
+    try:
+        with transaction.atomic():
+            lock_retry_reward_catalog()
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
+                    # Raw relation edits need not lock their parent row. The
+                    # shared table fence also excludes INSERT/UPDATE/DELETE
+                    # until the newly accepted pair snapshot is committed.
+                    cursor.execute("LOCK TABLE " + connection.ops.quote_name(QuestRewardItem._meta.db_table)
+                                   + " IN SHARE MODE NOWAIT")
+            if connection.vendor == "postgresql" and definition.prerequisite_quest_id:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT id FROM " + connection.ops.quote_name(QuestDefinition._meta.db_table)
+                        + " WHERE id = %s FOR SHARE NOWAIT", [definition.prerequisite_quest_id],
+                    )
+                    cursor.fetchall()
+    except OperationalError as error:
+        cause = error.__cause__
+        if getattr(cause, "sqlstate", getattr(cause, "pgcode", None)) != "55P03":
+            raise
+        raise RetryCatalogBusy("Prerequisite rewards are changing. Your reading is saved; try your next Reading Adventure.") from error
+
+
 def prerequisite_unavailable(user, prerequisite_id, *, controls=None):
     """True once ``user`` can no longer complete a one-time prerequisite path.
 
@@ -95,6 +166,10 @@ def prerequisite_unavailable(user, prerequisite_id, *, controls=None):
             return False
         definition_ids = _equivalent_ids(prerequisite_id)
         definition = QuestDefinition.objects.filter(pk=prerequisite_id).first()
+        if definition is not None and discovery_prerequisite_pairs(definition):
+            # The exact companion can still be earned through discovery even
+            # when an old prerequisite attempt ended without completion.
+            return False
         canonical_id = (definition.superseded_by_id or definition.pk) if definition is not None else None
         prior = QuestDefinition.objects.filter(pk=canonical_id).values(
             "is_repeatable", "prerequisite_quest_id",
@@ -117,7 +192,7 @@ def prerequisite_unavailable(user, prerequisite_id, *, controls=None):
     return False
 
 
-def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, active_definitions=None):
+def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, active_definitions=None, accepted_gate=None):
     from apps.achievements.models import SkillProgress, UserBadge
 
     try:
@@ -151,13 +226,31 @@ def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, 
                 or Quest.objects.filter(definition_id__in=definition_ids, participants__user=user).exists()):
             requirements.append({"kind": "accepted", "met": False,
                                  "description": "This one-time challenge already has an accepted window."})
+    discovery_pairs = []
     if definition.prerequisite_quest_id:
         if facts is None:
             met, _ = prerequisite_completion(user, definition.prerequisite_quest_id) if user is not None else (False, None)
         else:
             met = definition.prerequisite_quest_id in facts["completed"]
-        requirements.append({"kind": "challenge", "met": met,
-                             "description": f"Complete {definition.prerequisite_quest.name}."})
+        if new_enrollment:
+            discovery_pairs = discovery_prerequisite_pairs(definition.prerequisite_quest)
+        elif (isinstance(accepted_gate, dict) and type(accepted_gate.get("version")) is int
+              and accepted_gate["version"] == 2):
+            frozen = accepted_gate.get("prerequisite_hatch_pairs")
+            if isinstance(frozen, list) and frozen and all(
+                isinstance(pair, dict) and type(pair.get("species_id")) is int and pair["species_id"] > 0
+                and type(pair.get("potion_id")) is int and pair["potion_id"] > 0
+                and isinstance(pair.get("species_name"), str) and isinstance(pair.get("potion_name"), str)
+                for pair in frozen
+            ):
+                discovery_pairs = frozen
+        if discovery_pairs:
+            met = met or _hatched_prerequisite_pairs(user, discovery_pairs)
+            companions = ", ".join(f"{pair['potion_name']} {pair['species_name']}" for pair in discovery_pairs)
+            description = f"Complete {definition.prerequisite_quest.name}, or hatch {companions}."
+        else:
+            description = f"Complete {definition.prerequisite_quest.name}."
+        requirements.append({"kind": "challenge", "met": met, "description": description})
     if definition.required_skill_id:
         from apps.achievements.taxonomy import available_skills
         available = not new_enrollment or available_skills().filter(pk=definition.required_skill_id).exists()
@@ -173,7 +266,8 @@ def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, 
         requirements.append({"kind": "badge", "met": met,
                              "description": f"Earn the {definition.required_badge.name} badge."})
     reasons = [row["description"] for row in requirements if not row["met"]]
-    return {"unlocked": not reasons, "requirements": requirements, "locked_reasons": reasons}
+    return {"unlocked": not reasons, "requirements": requirements, "locked_reasons": reasons,
+            **({"prerequisite_hatch_pairs": discovery_pairs} if discovery_pairs else {})}
 
 
 def retry_milestone_states(user, definitions, *, catalog, identities, legacy):
@@ -205,15 +299,32 @@ def retry_milestone_states(user, definitions, *, catalog, identities, legacy):
             user=user, badge_id__in={row.required_badge_id for row in definitions if row.required_badge_id},
         ).values_list("badge_id", flat=True)),
     }
+    # Each canonical identity's latest accepted attempt owns its gate policy,
+    # matching control_context's retry choice. V1 promises keep their strict
+    # original prerequisite; V2 retries reuse only their frozen exact pairs,
+    # even after discovery is disabled or the catalog bundle changes.
+    target_ids = {row.pk for row in definitions}
+    accepted_ids = {pk for pk, canonical in identities.items() if (canonical or pk) in target_ids}
+    gates = {}
+    for row in ChallengeOccurrence.objects.filter(
+        goal__user=user, goal__family_id=user.family_id, goal__is_catalog=True,
+        goal__catalog_definition_id__in=accepted_ids,
+    ).order_by("-starts_at", "-pk").values("goal__catalog_definition_id", "snapshot"):
+        definition_id = row["goal__catalog_definition_id"]
+        canonical = identities.get(definition_id) or definition_id
+        if canonical not in gates:
+            gates[canonical] = row["snapshot"].get("catalog_gate") if isinstance(row["snapshot"], dict) else None
     return {row.pk: milestone_eligibility(user, row, new_enrollment=False, facts=facts,
-                                        active_definitions=catalog)["unlocked"] for row in definitions}
+                                        active_definitions=catalog, accepted_gate=gates.get(row.pk))["unlocked"]
+            for row in definitions}
 
 
-def gate_snapshot(definition):
+def gate_snapshot(definition, *, prerequisite_hatch_pairs=None):
     return {"version": 1, "prerequisite_quest_id": definition.prerequisite_quest_id,
             "required_skill_id": definition.required_skill_id,
             "required_skill_level": definition.required_skill_level,
-            "required_badge_id": definition.required_badge_id}
+            "required_badge_id": definition.required_badge_id,
+            **({"version": 2, "prerequisite_hatch_pairs": prerequisite_hatch_pairs} if prerequisite_hatch_pairs else {})}
 
 
 def gated_definitions():

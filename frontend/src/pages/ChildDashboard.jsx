@@ -41,6 +41,7 @@ import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
+import EggDiscoveryCard from '../components/dashboard/EggDiscoveryCard';
 import { useSpace } from '../hooks/useSpace';
 
 const VISIBLE_LOG_CAP = 5;
@@ -68,6 +69,8 @@ export default function ChildDashboard({ data, reload }) {
   } = data || {};
 
   const activePet = stableData?.pets?.find((p) => p.is_active) || null;
+  const visiblePinnedGoal = pinnedGoal?.legacy_egg_promise === true ? null : pinnedGoal;
+  const currentChallengeGoals = (challenges?.results || []).filter((goal) => goal.legacy_egg_promise !== true);
 
   // Audit M8: surface fast-action errors instead of silently swallowing
   // them. Pre-fix, ``.catch(() => {})`` masked 400s ("you've already
@@ -264,10 +267,11 @@ export default function ChildDashboard({ data, reload }) {
         </section>
       )}
 
+      <EggDiscoveryCard refreshKey={data} />
       <ErrorAlert message={challengesError} />
       {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
-      {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
-      {!challengesLoading && !challengesError && <ExploreChallengesLink goals={challenges?.results || []} pinnedGoal={pinnedGoal} />}
+      {!challengesLoading && (!challengesError || visiblePinnedGoal) && <PinnedChallengeCard goal={visiblePinnedGoal} />}
+      {!challengesLoading && !challengesError && <ExploreChallengesLink goals={currentChallengeGoals} pinnedGoal={visiblePinnedGoal} />}
 
       <DeckleDivider glyph="flourish-corner" />
 

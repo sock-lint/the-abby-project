@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   consumeInventoryItem,
   getCharacterProfile,
@@ -217,8 +217,9 @@ export default function Inventory() {
           Inventory
         </h1>
         <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-          Find item drops through project work, chores, homework, and challenges. Each item shows its rarity.
+          Your earned supplies and rewards appear here. Each item shows its rarity.
         </div>
+        <Link to="/quests?tab=trials" className="inline-flex min-h-11 items-center text-body font-semibold text-sheikah-teal-deep">Find egg rewards in Challenges</Link>
         <BoostStrip profile={profile} className="mt-3" />
       </header>
 
@@ -269,7 +270,7 @@ export default function Inventory() {
             {/* Same vocabulary as the Hatchery's equivalent empty state —
                 a kid bouncing between Bestiary and Treasury was reading two
                 different names for one earning loop. */}
-            <div>No items yet. Find item drops through project work, chores, homework, and challenges.</div>
+            <div>No items yet. Your earned supplies and rewards will appear here.</div>
             <div className="font-script text-body text-ink-whisper mt-2 not-italic">
               Hatch eggs with potions, feed your pets, personalize your profile, and use items for boosts and other effects.
             </div>

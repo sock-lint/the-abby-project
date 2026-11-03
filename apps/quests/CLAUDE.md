@@ -8,6 +8,27 @@ legacy assignments; Family requests retain same-family child supervision.
 A parent's catalog detail openings belong to that parent's own goals and remain
 outside child-only discovery and Voyager observation cohorts. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+When egg discovery is enabled, new system challenges containing any egg reward
+are unavailable through automatic enrollment, catalog offers, legacy starts and
+rerolls. Canonical identities remain available to authoring, prerequisites and
+accepted retries. Existing occurrence snapshots, initial standing windows,
+saved later windows and legacy campaigns retain exact payouts; unsaved later
+recurring egg windows stop, including egg promises retained by an older goal
+after definition reward links change. Private parent goals and unrelated
+bonuses retain their rules. Enabled projections mark retained system egg
+promises with `legacy_egg_promise: true` for presentation without changing pins
+or awarding anything.
+
+New milestone offers can meet a retired global egg prerequisite by its original
+completion or by hatching/owning every exact typed egg+potion pair it promised.
+Pending incubation and inventory alone do not qualify. The next trusted fresh
+reading receipt still opens the milestone window, and all skill/badge gates
+remain required. New acceptances freeze version-2 gate metadata with the exact
+pair alternative; its later explicit retries retain those frozen pairs. Saved
+V1 windows and their strict original retry requirements are unchanged; no
+retired quest completion, XP or history is invented. Untyped
+or private prerequisites receive no inferred substitute.
+
 Saved legacy participant IDs and contributions survive household moves. API,
 pulse and MCP projections pass the observer's family to participant serializers;
 current labels are visible only within that family. Departed members use

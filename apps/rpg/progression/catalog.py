@@ -9,6 +9,7 @@ from types import MappingProxyType
 
 from django.db.models import Q
 
+from apps.egg_discoveries.policy import discovery_enabled
 from apps.achievements.availability import BadgeGoalAvailability
 from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies
@@ -132,6 +133,7 @@ class Catalog:
     fingerprint: str
     source_categories: Mapping = field(default_factory=dict)
     source_skills: Mapping = field(default_factory=dict)
+    egg_discovery_enabled: bool = False
 
     def __post_init__(self):
         for name in ("skills", "items", "pools", "pairs", "badges", "quests", "excluded_badges",
@@ -276,6 +278,7 @@ def snapshot_catalog():
     skills, items = list(skill_records.values()), item_records
     # A digest of the exact accepted catalog makes a saved forecast comparable.
     serialized = {
+        "egg_discovery_enabled": discovery_enabled(),
         "categories": categories,
         "source_categories": sorted(source_categories.items()),
         "source_skills": [(category_id, name, skill_id)
@@ -344,7 +347,7 @@ def snapshot_catalog():
     }
     digest = hashlib.sha256(json.dumps(_plain(serialized), sort_keys=True, default=str).encode()).hexdigest()
     return Catalog({s.pk: s for s in skills}, items, pools, pairs, badges, quests, dict(excluded), digest,
-                   source_categories, source_skills)
+                   source_categories, source_skills, discovery_enabled())
 
 
 def load_catalog():

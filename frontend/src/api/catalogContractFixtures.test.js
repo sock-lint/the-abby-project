@@ -20,6 +20,7 @@ import elementalInventory from '../../../contracts/api/fixtures/catalog-icons-el
 import elementalChallenges from '../../../contracts/api/fixtures/catalog-icons-elemental-challenges.json';
 import elementalCatalog from '../../../contracts/api/fixtures/pets-elemental-supported-catalog.json';
 import hatcheryDiscovery from '../../../contracts/api/fixtures/pets-hatchery-discovery.json';
+import enabledDiscovery from '../../../contracts/api/fixtures/codex-discovery-enabled.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
@@ -32,6 +33,17 @@ import retainedCategoryBadges from '../../../contracts/api/fixtures/badges-retai
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('transports enabled discovery offers and saved earlier rewards using their exact appearance', async () => {
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(enabledDiscovery)));
+    const codex = await getPetCodex();
+    expect(codex).toEqual(enabledDiscovery);
+    expect(codex.egg_discovery_enabled).toBe(true);
+    const appearance = (species, potion) => codex.species.find((row) => row.slug === species).available_potions.find((row) => row.slug === potion);
+    expect(appearance('chick', 'base').acquisition_discovery).toMatchObject({ key: 'chick-egg:base', eligible: true, tier: 'ordinary', path: '/quests?tab=trials' });
+    expect(appearance('meshtint-dragon', 'base').acquisition_discovery).toMatchObject({ eligible: false, tier: 'rare', unavailable_reason: 'Hatch two different companions to unlock rare discoveries.' });
+    expect(appearance('meshtint-mushroom', 'fire').acquisition_challenges).toMatchObject([{ offer_available: false, attempt: { id: 'goal:401', name: 'My earlier Ember Grove', progress: '3', target: '8' } }]);
+  });
+
   it('transports exact guaranteed acquisition paths without replacing accepted progress with current targets', async () => {
     server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(hatcheryDiscovery)));
     const codex = await getPetCodex();

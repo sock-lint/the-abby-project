@@ -173,7 +173,8 @@ class PetCodexView(APIView):
 
     def get(self, request):
         user = request.user
-        from .discovery import acquisition_challenges
+        from .discovery import acquisition_challenges, acquisition_discoveries
+        from apps.egg_discoveries.policy import discovery_enabled
 
         species_qs = [species for species in PetSpecies.objects.prefetch_related("available_potions").order_by("name") if pet_is_available(species)]
 
@@ -210,7 +211,9 @@ class PetCodexView(APIView):
         return Response({
             "species": PetCodexEntrySerializer(entries, many=True, context={
                 "acquisition_challenges": acquisition_challenges(user, personal=is_personal_space(request)),
+                "acquisition_discoveries": acquisition_discoveries(user),
             }).data,
+            "egg_discovery_enabled": discovery_enabled(),
             "potions": PotionTypeSerializer(potions_qs, many=True).data,
             "totals": {
                 "species": total_species,

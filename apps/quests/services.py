@@ -116,7 +116,9 @@ class QuestService:
             definition = definitions_visible_to(user).get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
-        from .availability import definition_is_available
+        from .availability import definition_is_available, definition_uses_egg_discovery
+        if definition_uses_egg_discovery(definition):
+            raise ValueError("Choose an egg in Discoveries to earn it through your activities. Saved challenges keep their rewards.")
         if not definition_is_available(definition):
             raise ValueError("This challenge needs companion artwork that is not currently available.")
         if definition.is_cooperative:
@@ -126,6 +128,8 @@ class QuestService:
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)
+        if definition_uses_egg_discovery(definition, current=True):
+            raise ValueError("Choose an egg in Discoveries to earn it through your activities. Saved challenges keep their rewards.")
         from .progress_sources import require_current_progress_source
         require_current_progress_source(definition)
         definition_ids = equivalent_definition_ids(definition)
@@ -223,7 +227,9 @@ class QuestService:
             definition = definitions_visible_to(users[0]).get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
-        from .availability import definition_is_available
+        from .availability import definition_is_available, definition_uses_egg_discovery
+        if definition_uses_egg_discovery(definition):
+            raise ValueError("Choose an egg in Discoveries to earn it through your activities. Saved challenges keep their rewards.")
         if not definition_is_available(definition):
             raise ValueError("This challenge needs companion artwork that is not currently available.")
         if (definition.trigger_filter or {}).get("distinct_active_days") is True:
@@ -231,6 +237,8 @@ class QuestService:
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)
+        if definition_uses_egg_discovery(definition, current=True):
+            raise ValueError("Choose an egg in Discoveries to earn it through your activities. Saved challenges keep their rewards.")
         from .progress_sources import require_current_progress_source
         require_current_progress_source(definition)
         definition_ids = equivalent_definition_ids(definition)

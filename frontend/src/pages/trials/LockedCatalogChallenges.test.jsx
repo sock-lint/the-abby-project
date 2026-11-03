@@ -2,8 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { renderWithProviders } from '../../test/render';
 import LockedCatalogChallenges from './LockedCatalogChallenges';
+import discoveryLockedMilestone from '../../../../contracts/api/fixtures/challenge-discovery-locked-milestone.json';
+import { spyHandler } from '../../test/spy';
+import { server } from '../../test/server';
 
 describe('Pending catalog milestone previews', () => {
+  it('shows the actual alternative hatch requirement without starting, pinning or completing the future milestone', async () => {
+    const write = spyHandler('post', /\/api\//, {});
+    server.use(write.handler);
+    const { user } = renderWithProviders(<LockedCatalogChallenges definitions={discoveryLockedMilestone.locked_catalog} />, { withAuth: false });
+    const comingNext = within(screen.getByRole('region', { name: 'Coming next' }));
+    expect(comingNext.getByText('Complete Reading Companion, or hatch Base Chick.')).toBeVisible();
+    expect(comingNext.getByText('Not yet met')).toBeVisible();
+    expect(comingNext.queryByRole('progressbar')).toBeNull();
+    await user.click(comingNext.getByRole('button', { name: 'View requirements for Reading Voyager' }));
+    const details = within(screen.getByRole('dialog', { name: 'Reading Voyager requirements' }));
+    expect(details.getByText('Complete Reading Companion, or hatch Base Chick.')).toBeVisible();
+    expect(details.getByText(/No deadline is running yet/)).toHaveTextContent('84 days after it starts.');
+    expect(details.queryByRole('button', { name: /start|pin|begin/i })).toBeNull();
+    expect(write.calls).toHaveLength(0);
+  });
+
   it('uses confirmed requirement flags rather than inferring an unlock from skill numbers', async () => {
     const definition = { id: 77, name: 'Reading Voyager', duration_days: 56,
       required_skill: 4, required_skill_level: 1,

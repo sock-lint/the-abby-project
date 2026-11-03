@@ -7,6 +7,7 @@ import ProgressBar from '../../../components/ProgressBar';
 import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
 import { rosterFamily } from '../../../companion/sharedRosterRelease';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
+import DiscoveryAcquisitionHint from '../../../components/egg-discovery/DiscoveryAcquisitionHint';
 
 // This is presentation metadata, never an inventory entry or a hatch request.
 // A server-approved family must also match the exact registered artwork identity.
@@ -38,7 +39,7 @@ function appearanceStatus(species, potion, stable, incubation, collectionUnavail
   return !stable || collectionUnavailable || incubationUnavailable ? 'Collection status unavailable' : 'Not collected';
 }
 
-function ChallengeProgress({ challenge, potion, species }) {
+function ChallengeProgress({ challenge, potion, species, preserved = false }) {
   const attempt = challenge.attempt;
   const progress = Number(attempt?.progress);
   const target = Number(attempt?.target);
@@ -51,7 +52,7 @@ function ChallengeProgress({ challenge, potion, species }) {
   return <li className="rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 space-y-2">
     <div className="flex flex-wrap items-baseline justify-between gap-2">
       <h4 className="font-semibold text-body text-ink-primary">{attempt?.name || challenge.name}</h4>
-      <span className="text-caption text-ink-secondary">{attempt ? status : challenge.offer_available ? 'Guaranteed reward' : 'Offer unavailable'}</span>
+      <span className="text-caption text-ink-secondary">{attempt ? status : preserved ? 'Saved reward' : challenge.offer_available ? 'Guaranteed reward' : 'Offer unavailable'}</span>
     </div>
     <p className="text-caption text-ink-secondary">
       {challenge.offer_available
@@ -65,7 +66,8 @@ function ChallengeProgress({ challenge, potion, species }) {
     </>}
     {!attempt && <p className="text-caption text-ink-secondary">
       {Number.isFinite(offerTarget) && offerTarget > 0 ? 'Challenge target: ' + offerTarget + '. ' : ''}
-      {challenge.offer_available ? 'No saved attempt yet; matching activities count automatically.' : 'Check the current requirements in Challenges.'}
+      {preserved ? 'Your earlier enrollment is saved. Matching activities keep counting toward its original reward.'
+        : challenge.offer_available ? 'No saved attempt yet; matching activities count automatically.' : 'Check the current requirements in Challenges.'}
     </p>}
     {attempt?.retry_available && <p className="text-caption text-ink-secondary">You can try again from Challenges.</p>}
     <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep"
@@ -86,6 +88,7 @@ export default function HatcheryDiscovery({
     || potions.find((entry) => entry.slug === 'base') || potions[0];
   const item = species && previewEgg(species);
   const challenges = potion?.acquisition_challenges || [];
+  const discoveryEnabled = catalog?.egg_discovery_enabled === true;
   const collected = potions.filter((entry) =>
     appearanceStatus(species, entry, stable, incubation, stableError, incubationError) === 'Owned').length;
 
@@ -132,11 +135,13 @@ export default function HatcheryDiscovery({
             <p className="text-body text-ink-secondary">
               Hatching uses one natural {species.name} egg and one {potion.name} potion. The chosen appearance stays with your companion as it grows.
             </p>
+            {discoveryEnabled && <DiscoveryAcquisitionHint offer={potion.acquisition_discovery} />}
+            {discoveryEnabled && challenges.length > 0 && <h4 className="font-semibold text-body text-ink-primary">Earlier egg rewards</h4>}
             {challenges.length ? <ul className="space-y-3" aria-label={potion.name + ' ' + species.name + ' challenges'}>
               {challenges.map((challenge) => <ChallengeProgress key={challenge.definition_id + ':' + (challenge.attempt?.id || 'offer')}
-                challenge={challenge} potion={potion} species={species} />)}
-            </ul> : <p className="text-body text-ink-secondary">Visit Challenges to find current egg and potion rewards.</p>}
-            {!challenges.length && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep"
+                challenge={challenge} potion={potion} species={species} preserved={discoveryEnabled} />)}
+            </ul> : !discoveryEnabled && <p className="text-body text-ink-secondary">Visit Challenges to find current egg and potion rewards.</p>}
+            {!discoveryEnabled && !challenges.length && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep"
               to="/quests?tab=trials">View challenge rewards</Link>}
           </div>
         </div>

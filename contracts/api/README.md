@@ -1,5 +1,27 @@
 # Shared API response fixtures
 
+Egg discovery envelopes include frozen `species_slug` and `potion_slug` for
+exact appearance navigation. The real `codex-discovery-enabled.json` producer
+also binds `egg_discovery_enabled` and nullable per-potion
+`acquisition_discovery` (`key`, `path`, `name`, `eligible`,
+`unavailable_reason`, `tier`). Discovery-enabled Codex reads retain earlier
+accepted challenges without advertising new system egg offers. Disabled Codex
+responses use false/null for these fields; parent catalog rows stay unchanged.
+The native Hatchery producer and React catalog/Hatchery tests verify both modes.
+Enabled challenge rows use optional `legacy_egg_promise: true` for retained
+system egg rewards; parent goals and disabled responses remain unmarked.
+
+`egg-discovery-{catalog,ordinary-active,rare-missed,rare-guaranteed,delivery-pending,paused,season-retained,disabled}.json`
+are real authenticated self-scoped discovery preview responses. They preserve
+server requirements, cumulative category minutes, immutable search outcomes,
+the fifth-search guarantee and its exact granted ingredient receipt. The
+pending-delivery example retains its winning search without claiming a grant;
+an explicit retry delivers once without another roll. The seasonal example
+remains resumable after its start window. Disabled responses
+are empty and reads award nothing. Producer:
+`config.tests.test_egg_discovery_api_contract_fixtures`; React consumer:
+`src/api/eggDiscoveryContractFixtures.test.jsx`. Both run in required PR checks.
+
 `badges-retained-category-tie.json` retains an actually earned mastery badge
 after its current and retained category identities compete. The producer checks
 native failure on the tie, hides an unearned copy, preserves raw criteria and

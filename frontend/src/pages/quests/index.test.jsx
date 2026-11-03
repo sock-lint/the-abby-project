@@ -65,7 +65,7 @@ describe('QuestsHub', () => {
     expect(overview.querySelector('[data-folio-verso="true"]')).not.toBeNull();
     expect(overview.querySelector('[data-folio-recto="true"]')).not.toBeNull();
     expect(screen.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('All matching challenges keep progressing in the background. Pinning simply keeps one on Today.')).toBeInTheDocument();
+    expect(screen.getByText('Your matching goals and bonuses keep progressing through your usual activities. Pinning keeps one on Today.')).toBeInTheDocument();
   });
 
   it('renders the Tasks hub with Homework selected by default', async () => {

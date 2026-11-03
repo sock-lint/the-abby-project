@@ -65,6 +65,81 @@ class ReachableManualAdmissionTests(TestCase):
             list_goals(self.child)
         self.assertFalse(ChallengeGoal.objects.filter(catalog_definition=definition).exists())
 
+    def test_changed_active_category_waits_for_a_fresh_request_to_admit_it(self):
+        from apps.quests.goals import list_goals
+        from apps.quests.models import ChallengeGoal
+        from apps.quests.reference_locks import admit_definition_identity
+
+        definition = self.definition(["habit_log"])
+        category = SkillCategory.objects.create(name="Newly selected active category")
+        current_filter = {"allowed_triggers": ["habit_log"], "skill_category_id": category.pk}
+
+        def change_rules_after_choice_admission(selected):
+            admit_definition_identity(selected)
+            QuestDefinition.objects.filter(pk=selected.pk).update(trigger_filter=current_filter)
+
+        with patch("apps.quests.reference_locks.admit_definition_identity", side_effect=change_rules_after_choice_admission):
+            list_goals(self.child)
+        self.assertFalse(ChallengeGoal.objects.filter(catalog_definition=definition).exists())
+        # A fresh request admits the now-current category in the normal order;
+        # refusing a stale offer must not permanently retire a valid rule.
+        list_goals(self.child)
+        goal = ChallengeGoal.objects.get(catalog_definition=definition, user=self.child)
+        self.assertEqual(goal.trigger_filter, current_filter)
+
+    def test_changed_required_skill_waits_for_a_fresh_request_to_admit_it(self):
+        from apps.achievements.models import Skill
+        from apps.quests.goals import ingest_activity
+        from apps.quests.models import ChallengeGoal
+        from apps.quests.reference_locks import admit_definition_identity
+
+        category = SkillCategory.objects.create(name="Required skill admission")
+        original = Skill.objects.create(name="Originally admitted reading skill", category=category)
+        replacement = Skill.objects.create(name="Newly selected reading skill", category=category)
+        for skill in (original, replacement):
+            SkillProgress.objects.create(user=self.child, skill=skill, level=1, xp_points=100)
+        definition = self.definition(["reading_logged"], required_skill=original, required_skill_level=1)
+
+        def change_required_skill_after_choice_admission(selected):
+            admit_definition_identity(selected)
+            QuestDefinition.objects.filter(pk=selected.pk).update(required_skill=replacement)
+
+        with patch("apps.quests.reference_locks.admit_definition_identity", side_effect=change_required_skill_after_choice_admission):
+            ingest_activity(self.child, "required-skill-fence", "before-readmission", "reading_logged", fresh_milestone=True)
+        self.assertFalse(ChallengeGoal.objects.filter(catalog_definition=definition).exists())
+        ingest_activity(self.child, "required-skill-fence", "after-readmission", "reading_logged", fresh_milestone=True)
+        goal = ChallengeGoal.objects.get(catalog_definition=definition, user=self.child)
+        self.assertEqual(goal.catalog_gate_snapshot["required_skill_id"], replacement.pk)
+        self.assertEqual(goal.occurrences.get().progress, 1)
+
+    def test_scalar_refresh_keeps_the_admitted_skill_and_reward_link_snapshots(self):
+        from apps.achievements.models import Skill
+        from apps.quests.goals import list_goals
+        from apps.quests.models import ChallengeGoal, QuestRewardItem, QuestSkillTag
+        from apps.quests.reference_locks import admit_definition_identity
+
+        category = SkillCategory.objects.create(name="Admitted link snapshots")
+        original = Skill.objects.create(name="Originally admitted award skill", category=category)
+        replacement = Skill.objects.create(name="Unadmitted replacement award skill", category=category)
+        old_food = ItemDefinition.objects.create(name="Originally offered food", item_type="food")
+        new_food = ItemDefinition.objects.create(name="Replacement food", item_type="food")
+        definition = self.definition(["habit_log"])
+        QuestSkillTag.objects.create(quest_definition=definition, skill=original, xp_weight=1)
+        QuestRewardItem.objects.create(quest_definition=definition, item=old_food, quantity=2)
+
+        def replace_links_after_choice_admission(selected):
+            admit_definition_identity(selected)
+            QuestSkillTag.objects.filter(quest_definition=selected).delete()
+            QuestRewardItem.objects.filter(quest_definition=selected).delete()
+            QuestSkillTag.objects.create(quest_definition=selected, skill=replacement, xp_weight=3)
+            QuestRewardItem.objects.create(quest_definition=selected, item=new_food, quantity=7)
+
+        with patch("apps.quests.reference_locks.admit_definition_identity", side_effect=replace_links_after_choice_admission):
+            list_goals(self.child)
+        goal = ChallengeGoal.objects.get(catalog_definition=definition, user=self.child)
+        self.assertEqual(goal.skill_tags, [{"skill_id": original.pk, "xp_weight": 1}])
+        self.assertEqual(goal.reward_items, [{"item_id": old_food.pk, "quantity": 2}])
+
     def setUp(self):
         household = make_family(
             "Manual challenge admission",

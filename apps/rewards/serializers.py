@@ -78,7 +78,8 @@ class RewardWriteSerializer(serializers.ModelSerializer):
             })
         if fulfillment_kind != Reward.FulfillmentKind.REAL_WORLD and item_definition and attrs.get("is_active", getattr(self.instance, "is_active", True)):
             from apps.rpg.catalog_support import item_is_available
-            if not item_is_available(item_definition):
+            from apps.egg_discoveries.policy import legacy_egg_acquisition_allowed
+            if not legacy_egg_acquisition_allowed(item_definition) or not item_is_available(item_definition):
                 raise serializers.ValidationError({
                     "item_definition": "This item is not currently available for new rewards.",
                 })

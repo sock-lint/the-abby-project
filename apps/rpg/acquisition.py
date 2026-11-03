@@ -19,6 +19,8 @@ def sources_for_request(request):
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.quests.progress_sources import has_progress_source
     from apps.rewards.models import Reward
+    from apps.rewards.availability import reward_is_available
+    from apps.egg_discoveries.policy import discovery_enabled
     from .models import CharacterProfile, DropTable, ItemDefinition
     from .catalog_support import random_item_is_available
     from .coin_policy import RANDOM_POUCH_REPLACEMENTS, resolve_random_pouch
@@ -26,6 +28,8 @@ def sources_for_request(request):
 
     user = request.user
     result = defaultdict(list)
+    discovery_on = discovery_enabled()
+    egg_item_ids = set(ItemDefinition.objects.filter(item_type="egg").values_list("pk", flat=True)) if discovery_on else set()
     earned = set(UserBadge.objects.filter(user=user).values_list("badge_id", flat=True))
     unavailable_goals = set(ChallengeGoal.objects.filter(
         user=user, repeat_days=0, repeat_weekly=False, occurrences__awarded_at__isnull=False,
@@ -45,6 +49,14 @@ def sources_for_request(request):
         if goal.pk in unavailable_goals or goal.starts_at > now:
             continue
         current = goal.current_windows[0] if goal.current_windows else None
+        if (current is None and discovery_on
+                and any(row.get("item_id") in egg_item_ids for row in goal.reward_items)):
+            # Enrollment accepted cycle zero. Later unsaved windows are new
+            # offers and cannot advertise another egg after the transition.
+            from apps.quests.goals import _occurrence_window
+
+            if _occurrence_window(goal, now)[0] != _occurrence_window(goal, goal.starts_at)[0]:
+                continue
         # An explicit retry has its own frozen window beyond the original
         # goal deadline. Only fall back to that deadline without a saved window.
         if (current is None and goal.ends_at is not None and goal.ends_at <= now
@@ -109,9 +121,16 @@ def sources_for_request(request):
     offers = Reward.objects.filter(
         family=user.family, is_active=True, fulfillment_kind__in=["digital_item", "both"],
         item_definition__isnull=False,
-    ).exclude(stock=0).order_by("name", "pk")
+    ).exclude(stock=0).select_related("item_definition__pet_species", "item_definition__potion_type").order_by("name", "pk")
     for offer in offers:
-        result[offer.item_definition_id].append({"kind": "shop", "name": offer.name, "path": "/rewards"})
+        if reward_is_available(offer):
+            result[offer.item_definition_id].append({"kind": "shop", "name": offer.name, "path": "/rewards"})
+    if discovery_on:
+        from apps.egg_discoveries.catalog import offers_for
+
+        for offer in offers_for(user):
+            if offer.unavailable_reason is None:
+                result[offer.egg.pk].append({"kind": "discovery", "name": "Choose an egg discovery", "path": "/quests?tab=trials"})
     level = CharacterProfile.objects.filter(user=user).values_list("level", flat=True).first() or 0
     replacements = {item.slug: item for item in ItemDefinition.objects.filter(
         slug__in=RANDOM_POUCH_REPLACEMENTS.values(),

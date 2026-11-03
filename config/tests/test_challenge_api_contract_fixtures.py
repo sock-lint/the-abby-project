@@ -1177,7 +1177,10 @@ class RealChallengeMigrationTests(unittest.TestCase):
             assert not getattr(settings, "MIGRATION_MODULES", {})
             assert connection.vendor == "sqlite" and connection.settings_dict["NAME"] == ":memory:"
             executor = MigrationExecutor(connection)
-            targets = [node for node in executor.loader.graph.leaf_nodes() if node[0] not in {"quests", "movement"}]
+            # Discovery request retention depends on movement's newer UUID
+            # field, which does not exist in this historical starting schema.
+            targets = [node for node in executor.loader.graph.leaf_nodes()
+                       if node[0] not in {"quests", "movement", "egg_discoveries"}]
             targets += [("quests", "0004_dailychallenge"), ("movement", "0003_dailycountermodel_rebase")]
             executor.migrate(targets)
             old_apps = executor.loader.project_state(targets).apps
@@ -1238,6 +1241,8 @@ class RealChallengeMigrationTests(unittest.TestCase):
                 assert list(upgraded.objects.order_by("pk").values(*columns)) == rows, name
             for name in ["ChallengeGoal", "ChallengeOccurrence", "ChallengeActivity", "ChallengeContribution", "DailyBonus"]:
                 assert new_apps.get_model("quests", name).objects.count() == 0, name
+            for name in ["EggDiscovery", "DiscoveryActivityCredit", "DiscoverySearch", "DiscoveryRequest", "PracticeSession"]:
+                assert new_apps.get_model("egg_discoveries", name).objects.count() == 0, name
             saved_movement = new_apps.get_model("movement", "MovementSession").objects.get(pk=100)
             assert saved_movement.distance_meters is None and saved_movement.client_request_id is None
             # The first automatic list retains saved progress and creates only

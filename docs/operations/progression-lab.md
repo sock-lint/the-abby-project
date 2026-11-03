@@ -166,6 +166,14 @@ aggregate results and bounded example journey.
   it is not the median child. Its event count and truncation flag distinguish
   the bounded displayed history from the complete aggregate simulation.
 
+When Egg discoveries are enabled, the Lab excludes new random and system egg
+sources. It does not model chosen discoveries or their indirect badge, Coin,
+XP and care effects; companion, mount and collection timelines are unavailable
+for that mode. The page and report show this limitation explicitly. Saved
+reports retain their earlier rules; changing modes invalidates their current
+decision binding. Use the bounded effort comparison in the egg discovery plan
+for discovery requirements, not a Lab pet completion forecast.
+
 Read the coverage and audit sections with every report. Unsupported mechanics
 are explicit exclusions, not zero rewards or consumed content. A forecast
 without the intended global catalog loaded is not an estimate of that catalog.

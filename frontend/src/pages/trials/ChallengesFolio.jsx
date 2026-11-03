@@ -16,7 +16,7 @@ function GoalDisclosure({ title, children, onOpenChange, controlledOpen }) {
   const expanded = controlledOpen ?? open;
   return (
     <details open={controlledOpen} className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/40 p-4" onToggle={(event) => { setOpen(event.currentTarget.open); onOpenChange?.(event.currentTarget.open); }}>
-      <summary data-challenge-disclosure={title === 'Browse bonus challenges' ? 'bonus' : 'history'} className="font-body font-bold text-body text-ink-primary cursor-pointer min-h-11 flex items-center gap-2">
+      <summary data-challenge-disclosure={title === 'Browse bonus challenges' ? 'bonus' : title.startsWith('Earlier egg rewards') ? 'earlier-eggs' : 'history'} className="font-body font-bold text-body text-ink-primary cursor-pointer min-h-11 flex items-center gap-2">
         {title}
         <ChevronDown size={16} aria-hidden="true" className={`ml-auto shrink-0 transition-transform motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} />
       </summary>
@@ -29,8 +29,10 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
   const [browsing, setBrowsing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
-  const focus = challengeFocus(goals, pinnedGoal);
-  const bonusGoals = goals.filter((goal) => goal.status === 'active' && goal.origin !== 'parent' && goal.id !== focus.pinned?.id);
+  const earlierEggGoals = goals.filter((goal) => goal.legacy_egg_promise === true);
+  const currentGoals = goals.filter((goal) => goal.legacy_egg_promise !== true);
+  const focus = challengeFocus(currentGoals, pinnedGoal);
+  const bonusGoals = currentGoals.filter((goal) => goal.status === 'active' && goal.origin !== 'parent' && goal.id !== focus.pinned?.id);
   const retryable = focus.history.filter((goal) => goal.retry?.allowed === true);
   const historyRows = historyFilter === 'retryable' ? retryable : focus.history;
   const cardProps = { timezone, onSelect, onPin, onRetry, busy, isParent, isPersonalParent };
@@ -48,7 +50,7 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
       progressPct={focus.pinnedProgress}
       progressLabel={focus.pinned ? `${focus.pinned.name} · ${goalProgress(focus.pinned)}` : undefined}
     >
-      <p className="font-body text-body text-ink-secondary">All matching challenges keep progressing in the background. Pinning simply keeps one on Today.</p>
+      <p className="font-body text-body text-ink-secondary">Your matching goals and bonuses keep progressing through your usual activities. Pinning keeps one on Today.</p>
       {toolbar}
       {focus.pinned && <section className="space-y-3" aria-label="Pinned challenge">
         <ChapterRubric index={sectionIndex++} name="Pinned to Today" />
@@ -80,6 +82,12 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
         <BonusChallengeBrowser goals={bonusGoals} renderCards={cards} timezone={timezone} />
       </GoalDisclosure>}
       <LockedCatalogChallenges definitions={lockedCatalog} sectionIndex={sectionIndex++} />
+      {earlierEggGoals.length > 0 && <GoalDisclosure title={`Earlier egg rewards · ${earlierEggGoals.length}`}>
+        <p className="font-body text-body text-ink-secondary">Your saved egg rewards keep their original requirements and rewards. You can finish them alongside your chosen discovery.</p>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          {earlierEggGoals.map((goal) => <ChallengeGoalCard key={goal.id} goal={goal} {...cardProps} onPin={undefined} />)}
+        </div>
+      </GoalDisclosure>}
       {retryable.length > 0 && <div className="space-y-2"><p className="font-body text-caption text-ink-secondary">{retryable.length} ended {retryable.length === 1 ? 'challenge can' : 'challenges can'} be tried again with a fresh period. Each challenge&apos;s bonus can be earned once.</p><Button variant="secondary" onClick={() => { setHistoryFilter('retryable'); setHistoryOpen(true); }}>Find challenges to try again</Button></div>}
       <GoalDisclosure title={`History · ${focus.history.length}`} controlledOpen={historyOpen} onOpenChange={setHistoryOpen}>
         {(retryable.length > 0 || historyFilter !== 'all') && <SelectField label="Show history" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)}><option value="all">All completed and ended challenges</option><option value="retryable">Can try again</option></SelectField>}

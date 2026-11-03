@@ -359,18 +359,21 @@ class ProgressionCatalogParityTests(TestCase):
             slug=f"parity-trip-frame-{index}", name=f"Trip frame {index}",
             item_type="cosmetic_frame", rarity="common", coin_value=5,
         ) for index in range(2)]
-        for item in cosmetics:
-            DropTable.objects.create(trigger_type="expedition_returned", item=item, weight=1)
+        for index, item in enumerate(cosmetics, start=1):
+            DropTable.objects.create(trigger_type="expedition_returned", item=item, weight=index)
 
-        def first_positive(entries, *, weights, k):
-            return [next(entry for entry, weight in zip(entries, weights) if weight > 0)]
+        def lowest_positive(entries, *, weights, k):
+            # Native pools sort by authored weight; snapshots sort by PK.
+            # Pin the same draw independently of either iteration order.
+            return [min((entry for entry, weight in zip(entries, weights) if weight > 0),
+                        key=lambda entry: entry.item_id)]
 
-        with patch("apps.pets.expeditions.random.choices", side_effect=first_positive):
+        with patch("apps.pets.expeditions.random.choices", side_effect=lowest_positive):
             actual = ExpeditionService._roll_loot(child, "standard")
         trial = Trial({**CONFIG, "expedition_tier": "standard"}, load_catalog(), 1)
         pair, (species, potion) = next(iter(trial.catalog.pairs.items()))
         trial.pets[pair] = SimPet(species, potion, 100, True)
-        with patch.object(trial.rng, "choices", side_effect=first_positive):
+        with patch.object(trial.rng, "choices", side_effect=lowest_positive):
             trial.launch_expeditions()
         self.assertEqual(trial.pending_expeditions[0]["items"], [row["item_id"] for row in actual["items"]])
         self.assertEqual(len(set(trial.pending_expeditions[0]["items"])), 2)

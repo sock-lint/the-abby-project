@@ -34,7 +34,8 @@
               },
               "path": "/quests?tab=trials&goal=goal%3A406"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         },
         {
           "id": 42,
@@ -52,7 +53,8 @@
               "attempt": null,
               "path": "/quests?tab=trials"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         },
         {
           "id": 43,
@@ -70,7 +72,8 @@
               "attempt": null,
               "path": "/quests?tab=trials"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         }
       ],
       "discovered": false,
@@ -102,7 +105,8 @@
           "name": "Base",
           "color_hex": "#8B7355",
           "rarity": "common",
-          "acquisition_challenges": []
+          "acquisition_challenges": [],
+          "acquisition_discovery": null
         },
         {
           "id": 42,
@@ -128,7 +132,8 @@
               },
               "path": "/quests?tab=trials&goal=goal%3A403"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         },
         {
           "id": 43,
@@ -146,7 +151,8 @@
               "attempt": null,
               "path": "/quests?tab=trials"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         }
       ],
       "discovered": false,
@@ -178,7 +184,8 @@
           "name": "Base",
           "color_hex": "#8B7355",
           "rarity": "common",
-          "acquisition_challenges": []
+          "acquisition_challenges": [],
+          "acquisition_discovery": null
         },
         {
           "id": 42,
@@ -204,7 +211,8 @@
               },
               "path": "/quests?tab=trials&goal=goal%3A401"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         },
         {
           "id": 43,
@@ -230,7 +238,8 @@
               },
               "path": "/quests?tab=trials&goal=goal%3A402"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         }
       ],
       "discovered": false,
@@ -262,7 +271,8 @@
           "name": "Base",
           "color_hex": "#8B7355",
           "rarity": "common",
-          "acquisition_challenges": []
+          "acquisition_challenges": [],
+          "acquisition_discovery": null
         },
         {
           "id": 42,
@@ -280,7 +290,8 @@
               "attempt": null,
               "path": "/quests?tab=trials"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         },
         {
           "id": 43,
@@ -298,7 +309,8 @@
               "attempt": null,
               "path": "/quests?tab=trials"
             }
-          ]
+          ],
+          "acquisition_discovery": null
         }
       ],
       "discovered": false,
@@ -315,6 +327,7 @@
       ]
     }
   ],
+  "egg_discovery_enabled": false,
   "potions": [
     {
       "id": 41,

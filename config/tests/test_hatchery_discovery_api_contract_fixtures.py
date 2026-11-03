@@ -4,10 +4,13 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.core.cache import cache
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
 from apps.achievements.models import SkillProgress
+from apps.egg_discoveries.models import DiscoveryActivityCredit, DiscoveryRequest, DiscoverySearch, EggDiscovery, PracticeSession
 from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.quests.goals import _snapshot
 from apps.quests.models import (
@@ -33,7 +36,7 @@ PATHS = (
 
 
 @override_settings(
-    ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None,
+    ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None, EGG_DISCOVERY_ENABLED=False,
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
 )
 class HatcheryDiscoveryApiResponseFixtureTests(APITestCase):
@@ -137,6 +140,7 @@ class HatcheryDiscoveryApiResponseFixtureTests(APITestCase):
             ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal, ChallengeOccurrence,
             ChallengePin, Quest, QuestParticipant, CoinLedger, SkillProgress, DropLog,
             CharacterProfile, UserInventory, UserPet, UserMount, PetIncubation,
+            DiscoveryActivityCredit, DiscoveryRequest, DiscoverySearch, EggDiscovery, PracticeSession,
         )
         return {model._meta.label: list(model.objects.order_by("pk").values()) for model in models}
 
@@ -157,6 +161,9 @@ class HatcheryDiscoveryApiResponseFixtureTests(APITestCase):
         body = self.assert_response_fixture(
             self.client.get("/api/pets/codex/"), "pets-hatchery-discovery.json",
         )
+        self.assertIs(body["egg_discovery_enabled"], False)
+        self.assertTrue(all(potion["acquisition_discovery"] is None for species in body["species"]
+                            for potion in species["available_potions"]))
         self.assertTrue(all("acquisition_challenges" not in potion for potion in body["potions"]))
         choices = self.discoveries(body)
         for definition_id, name, species, potion, target, days in PATHS:
@@ -228,8 +235,117 @@ class HatcheryDiscoveryApiResponseFixtureTests(APITestCase):
         self.client.force_authenticate(self.child)
         self.assertEqual(self.client.get("/api/pets/species/catalog/").status_code, 403)
 
+    @override_settings(EGG_DISCOVERY_ENABLED=True, EGG_DISCOVERY_SEASONS={})
+    def test_enabled_codex_fixture_preserves_earlier_promise_and_exact_discovery_choices_without_writes(self):
+        active = self.saved_attempt("Ember Grove", 1, target=8, frozen_name="My earlier Ember Grove")
+        # A random supported egg used to be a possible path. Discovery now
+        # owns new collection; the accepted occurrence remains fulfillable.
+        self.species["meshtint-dragon"].rarity = "rare"
+        self.species["meshtint-dragon"].save(update_fields=["rarity"])
+        ItemDefinition.objects.create(
+            id=81, slug="discovery-common-food", name="Discovery Common Food",
+            item_type="food", rarity="common", icon="F",
+        )
+        before = self.state()
+        with CaptureQueriesContext(connection) as queries:
+            body = self.assert_response_fixture(
+                self.client.get("/api/pets/codex/"), "codex-discovery-enabled.json",
+            )
+        writes = [row["sql"] for row in queries if row["sql"].lstrip().upper().startswith(
+            ("INSERT", "UPDATE", "DELETE", "REPLACE"),
+        )]
+        self.assertEqual(writes, [])
+        self.assertIs(body["egg_discovery_enabled"], True)
+        potions = {(species["slug"], potion["slug"]): potion
+                   for species in body["species"] for potion in species["available_potions"]}
+        ordinary = potions["chick", "base"]
+        self.assertEqual(ordinary["acquisition_discovery"], {
+            "key": "chick-egg:base", "path": "/quests?tab=trials", "name": "Chick Egg · Base",
+            "tier": "ordinary", "eligible": True, "unavailable_reason": None,
+        })
+        self.assertEqual(ordinary["acquisition_challenges"], [])
+        rare = potions["meshtint-dragon", "base"]
+        self.assertEqual(rare["acquisition_discovery"], {
+            "key": "meshtint-dragon-egg:base", "path": "/quests?tab=trials", "name": "Dragon Egg · Base",
+            "tier": "rare", "eligible": False,
+            "unavailable_reason": "Hatch two different companions to unlock rare discoveries.",
+        })
+        self.assertEqual(rare["acquisition_challenges"], [])
+        earlier = potions["meshtint-mushroom", "fire"]["acquisition_challenges"]
+        self.assertEqual(len(earlier), 1)
+        self.assertFalse(earlier[0]["offer_available"])
+        self.assertEqual(earlier[0]["attempt"], {
+            "id": f"goal:{active.pk}", "name": "My earlier Ember Grove", "status": "active",
+            "progress": "3", "target": "8", "ends_at": active.ends_at.isoformat(), "retry_available": False,
+        })
+        self.assertEqual(sum(len(potion["acquisition_challenges"]) for potion in potions.values()), 1)
+        self.assertTrue(all(potion["acquisition_discovery"] is not None for potion in potions.values()))
+        self.assertEqual(self.client.get("/api/pets/codex/").json(), body)
+        self.assertEqual(self.client.get("/api/pets/codex/", {"user_id": self.outsider.pk}).json(), body)
+        self.assertEqual(self.state(), before)
+
     def test_codex_authentication_still_precedes_discovery(self):
         before = self.state()
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.get("/api/pets/codex/").status_code, 401)
+        self.assertEqual(self.state(), before)
+
+    @override_settings(EGG_DISCOVERY_ENABLED=True, EGG_DISCOVERY_SEASONS={})
+    def test_enabled_challenge_fixture_marks_retained_promises_without_new_enrollment_or_payout(self):
+        active = self.saved_attempt("Ember Grove", 1, target=8, frozen_name="My earlier Ember Grove")
+        ChallengeEnrollment.objects.create(
+            user=self.child, starts_at=shared.FIXED_NOW - timedelta(days=90), timezone_name="America/Phoenix",
+        )
+        ChallengePin.objects.create(user=self.child, occurrence=active)
+        before = self.state()
+        with CaptureQueriesContext(connection) as queries:
+            body = self.assert_response_fixture(
+                self.client.get("/api/challenges/"), "challenge-discovery-retained-promises.json",
+            )
+        self.assertEqual(len(body["results"]), 1)
+        row = body["results"][0]
+        self.assertEqual((row["id"], row["name"], row["progress"], row["target"], row["status"]),
+                         (f"goal:{active.pk}", "My earlier Ember Grove", "3", "8", "active"))
+        self.assertIs(row["legacy_egg_promise"], True)
+        self.assertIs(row["pinned"], True)
+        self.assertEqual({item["item_id"] for item in row["rewards"]["items"]},
+                         {self.eggs["meshtint-mushroom"].pk, self.ingredients["fire"].pk})
+        self.assertEqual(row["reward_receipt"]["status"], "pending")
+        self.assertEqual(body["locked_catalog"], [])
+        self.assertEqual(body["recent_receipts"], [])
+        self.assertEqual([query["sql"] for query in queries if query["sql"].lstrip().upper().startswith(
+            ("INSERT", "UPDATE", "DELETE", "REPLACE"),
+        )], [])
+        self.assertEqual(self.client.get("/api/challenges/").json(), body)
+        self.assertEqual(self.state(), before)
+
+    @override_settings(EGG_DISCOVERY_ENABLED=True, EGG_DISCOVERY_SEASONS={})
+    def test_enabled_locked_milestone_fixture_exposes_exact_hatch_alternative_without_enrolling(self):
+        target = QuestDefinition.objects.create(
+            id=100, name="Reading Voyager", description="Synthetic future reading milestone.",
+            quest_type="collection", target_value=20, duration_days=84, is_system=True,
+            prerequisite_quest=self.definitions["Reading Companion"],
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+        )
+        ChallengeEnrollment.objects.create(
+            user=self.child, starts_at=shared.FIXED_NOW - timedelta(days=90), timezone_name="America/Phoenix",
+        )
+        ChallengePin.objects.create(user=self.child)
+        before = self.state()
+        body = self.assert_response_fixture(
+            self.client.get("/api/challenges/"), "challenge-discovery-locked-milestone.json",
+        )
+        self.assertEqual(body["results"], [])
+        self.assertEqual([row["id"] for row in body["locked_catalog"]], [target.pk])
+        eligibility = body["locked_catalog"][0]["milestone_eligibility"]
+        self.assertIs(eligibility["unlocked"], False)
+        self.assertEqual(eligibility["requirements"], [{
+            "kind": "challenge", "met": False,
+            "description": "Complete Reading Companion, or hatch Base Chick.",
+        }])
+        self.assertEqual(eligibility["prerequisite_hatch_pairs"], [{
+            "species_id": self.species["chick"].pk, "potion_id": self.potions["base"].pk,
+            "species_name": "Chick", "potion_name": "Base",
+        }])
+        self.assertEqual(self.client.get("/api/challenges/").json(), body)
         self.assertEqual(self.state(), before)

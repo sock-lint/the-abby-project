@@ -221,7 +221,7 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
     definitions = list(queryset.select_related("prerequisite_quest", "required_skill", "required_badge").prefetch_related(
         "skill_tags__skill", "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
     ))
-    from .availability import definition_is_available
+    from .availability import definition_is_available, definition_uses_egg_discovery
     from .milestone_eligibility import (
         gate_snapshot, has_milestone_gate, milestone_eligibility, prerequisite_completion,
     )
@@ -251,7 +251,8 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         # Reads and retries cannot accept a milestone offer or start its clock.
         # This boundary was captured under the user lock before the fresh fact
         # could complete a predecessor or earn its completion rewards.
-        if gated and (gate_activity is None or not milestone_eligibility(user, definition)["unlocked"]):
+        eligibility = milestone_eligibility(user, definition) if gated and gate_activity is not None else None
+        if gated and (eligibility is None or not eligibility["unlocked"]):
             continue
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
@@ -264,9 +265,37 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             continue
         from .reference_locks import admit_definition_choices, admit_definition_identity
         try:
+            admitted_required_skill_id = definition.required_skill_id
             admit_definition_choices(definition)
             admit_definition_identity(definition)
+            # Compare with the choices admitted before the identity wait.
+            # Refreshing first would silently adopt an unadmitted category.
             require_current_progress_source(definition)
+            if definition_uses_egg_discovery(definition, current=True):
+                continue
+            # Identity admission may have waited behind a writer that changed
+            # a normal prerequisite into an egg prerequisite, or added a gate.
+            # Its preliminary eligibility must never become a saved promise.
+            # Retain the prefetched skill/reward links whose choices were
+            # admitted; a scalar refresh must not adopt replacement links.
+            definition.refresh_from_db(fields=[field.name for field in definition._meta.concrete_fields])
+            if definition.required_skill_id != admitted_required_skill_id:
+                continue  # A fresh request can admit the new skill in order.
+            gated = has_milestone_gate(definition)
+            if (definition.is_cooperative or (gated_only and not gated)
+                    or (gated and gate_activity is None) or not definition_is_available(definition)
+                    or (definition.required_badge_id and definition.required_badge_id not in earned)):
+                continue
+            if gated:
+                eligibility = milestone_eligibility(user, definition)
+                if not eligibility["unlocked"]:
+                    continue
+                if eligibility.get("prerequisite_hatch_pairs"):
+                    from .milestone_eligibility import admit_discovery_prerequisite
+                    admit_discovery_prerequisite(definition)
+                    eligibility = milestone_eligibility(user, definition)
+                    if not eligibility["unlocked"]:
+                        continue
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy
             # windows and existing goals retain their reward references.
@@ -309,7 +338,9 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             "coin_reward": definition.coin_reward, "xp_reward": definition.xp_reward,
             "skill_tags": [{"skill_id": tag.skill_id, "xp_weight": tag.xp_weight} for tag in definition.skill_tags.all()],
             "reward_items": [{"item_id": reward.item_id, "quantity": reward.quantity} for reward in definition.reward_items.all()],
-            "catalog_gate_snapshot": gate_snapshot(definition) if gated else {},
+            "catalog_gate_snapshot": gate_snapshot(
+                definition, prerequisite_hatch_pairs=eligibility.get("prerequisite_hatch_pairs"),
+            ) if gated else {},
             "catalog_gate_activity_id": gate_activity.pk if gated else None,
         })
         if gated and created:
@@ -400,6 +431,19 @@ def _occurrence(goal, at):
             ).first()
             if definition is None:
                 return None
+            from apps.egg_discoveries.policy import discovery_enabled
+            if discovery_enabled():
+                from apps.rpg.models import ItemDefinition
+                from .availability import definition_uses_egg_discovery
+                # The initial standing window and every saved later window
+                # retain their promise. An unopened later egg cycle is a new
+                # offer, including when its old goal still promises an egg
+                # after the definition's current reward links have changed.
+                if (definition_uses_egg_discovery(definition)
+                        or ItemDefinition.objects.filter(
+                            pk__in=[row["item_id"] for row in goal.reward_items], item_type="egg",
+                        ).exists()):
+                    return None
             if ((definition.trigger_filter or {}).get("reward_policy_version") == 2
                     and definition.duration_days != goal.repeat_days):
                 # A changed cadence needs a separately accepted schedule;
@@ -787,6 +831,7 @@ def qualifying_triggers(snapshot, *, legacy=False):
 
 
 def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None, controls=None):
+    from apps.egg_discoveries.policy import discovery_enabled
     from .controls import control_context, retry_state, schedule_payload
     if controls is None:
         controls = control_context(occurrence.goal.user)
@@ -807,6 +852,7 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
         elif occurrence.ends_at is not None and timezone.now() >= occurrence.ends_at:
             status = "expired"
     receipt = occurrence.reward_receipt
+    reward_items = _reward_preview(snapshot, item_catalog, item_details_cache)
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
         "goal_definition_id": occurrence.goal_id, "qualifying_triggers": qualifying_triggers(snapshot),
@@ -815,6 +861,8 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
         "closed_reason": occurrence.closed_reason or None,
         "schedule": schedule_payload(occurrence.goal, controls),
         "origin": "catalog" if occurrence.goal.is_catalog else "parent",
+        **({"legacy_egg_promise": True} if discovery_enabled() and occurrence.goal.is_catalog
+           and any(row.get("item_type") == "egg" for row in reward_items) else {}),
         "first_details_opened_at": (occurrence.first_details_opened_at.isoformat()
                                     if occurrence.goal.is_catalog and occurrence.first_details_opened_at else None),
         "catalog_repeatable": bool(occurrence.goal.is_catalog and (
@@ -826,7 +874,7 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
         "ends_at": occurrence.ends_at.isoformat() if occurrence.ends_at else None,
         "completed_at": occurrence.completed_at.isoformat() if occurrence.completed_at else None,
         "timezone": occurrence.goal.timezone_name,
-        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot, item_catalog, item_details_cache)},
+        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": reward_items},
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),
@@ -844,6 +892,7 @@ def _pin_id(pin):
 
 
 def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None, observer_family_id=None):
+    from apps.egg_discoveries.policy import discovery_enabled
     definition = quest.definition
     key = f"legacy:{quest.pk}"
     from .serializers import QuestRewardItemSerializer
@@ -862,6 +911,8 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
         "retry": {"allowed": False, "reason": "not_catalog", "latest_attempt_id": None},
         "retry_of": None, "closed_reason": None, "schedule": None,
         "origin": "legacy",
+        **({"legacy_egg_promise": True} if discovery_enabled() and definition.is_system
+           and any(row.get("item_type") == "egg" for row in items) else {}),
         "first_details_opened_at": None, "catalog_repeatable": False,
         "catalog_icon": challenge_catalog_icon(definition),
         "metric": "damage" if definition.quest_type == "boss" else "count", "target": str(quest.effective_target),

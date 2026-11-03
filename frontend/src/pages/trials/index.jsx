@@ -18,6 +18,7 @@ import { ChallengeGoalDetail } from './ChallengeGoalCard';
 import ChallengesFolio from './ChallengesFolio';
 import GoalScheduleControls from './GoalScheduleControls';
 import { REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
+import EggDiscoveryPanel from './EggDiscoveryPanel';
 
 function TrackedChallengeDetail({ user, onConfirmed, ...props }) {
   const { isPersonalSpace } = useSpace();
@@ -122,6 +123,7 @@ function TrialsWorkspace({ context }) {
   const cardProps = { timezone, onSelect: (goal) => { setActionError(''); setSelectedId(goal.id); }, onPin: isParent ? undefined : handlePin, onRetry: handleRetry, busy, canAct: !isParent };
   return (
     <div className="space-y-5">
+      <EggDiscoveryPanel />
       {searchParams.has('scroll') && <p className="font-body text-caption text-ink-secondary">You can track challenges without spending a scroll. Your saved scroll stays in Inventory.</p>}
       <ErrorAlert message={error || actionError} />
       {error && <Button variant="secondary" onClick={reload}>Try again</Button>}

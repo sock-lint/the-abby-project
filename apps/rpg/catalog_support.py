@@ -259,10 +259,12 @@ def available_items(queryset):
 
 def random_item_is_available(item):
     """Keep earned-only rewards out of new random grants, retaining ownership."""
+    from apps.egg_discoveries.policy import legacy_egg_acquisition_allowed
+
     metadata = _value(item, "metadata")
     if _value(item, "item_type") == "potion" and _value(potion_type_for_item(item), "slug") in {"fire", "ice"}:
         return False
-    return item_is_available(item) and not (
+    return legacy_egg_acquisition_allowed(item) and item_is_available(item) and not (
         isinstance(metadata, Mapping) and metadata.get("no_random_drop") is True
     )
 

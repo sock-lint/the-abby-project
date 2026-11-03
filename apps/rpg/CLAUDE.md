@@ -4,6 +4,18 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 
 ## Supported-art catalog (October 2026)
 
+When Egg Discovery is enabled, `apps.egg_discoveries.policy` separately retires
+new egg acquisition through ordinary/accomplishment draws, Mystery Boxes,
+shops and development grants. `random_item_is_available` applies that policy
+before choosing a candidate; remaining food, potion, cosmetic and utility
+rewards retain their existing rules. Owned Mystery Boxes keep their count,
+rarity and random-item effect and use the current non-egg pool; an empty pool
+fails without consuming the box. Do not gate `item_is_available` or
+`inventory.grant_item`: saved inventory, accepted claims and discovery delivery
+must remain fulfillable. Acquisition hints retain saved challenge windows and
+accepted first cycles, omit unsaved later egg cycles and link eligible exact
+eggs to Discovery. Disabling Discovery restores prospective legacy offers.
+
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,

@@ -156,6 +156,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
           species={species.find((entry) => entry.id === selected.id) || selected}
           onClose={() => setSelected(null)}
           ownership={ownership}
+          discoveryEnabled={data?.egg_discovery_enabled === true}
         />
       )}
     </div>

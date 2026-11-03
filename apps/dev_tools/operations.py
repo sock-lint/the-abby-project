@@ -42,6 +42,7 @@ def force_drop(
     """Write ``DropLog`` + ``UserInventory`` directly. Bypasses RNG."""
     from apps.rpg.models import DropLog, ItemDefinition, UserInventory
     from apps.rpg.catalog_support import available_items, item_is_available
+    from apps.egg_discoveries.policy import legacy_egg_acquisition_allowed
 
     if not rarity and not slug:
         raise OperationError("Must pass rarity or slug.")
@@ -52,7 +53,8 @@ def force_drop(
         except ItemDefinition.DoesNotExist as e:
             raise OperationError(f"No ItemDefinition with slug={slug!r}") from e
     else:
-        pool = available_items(ItemDefinition.objects.filter(rarity=rarity))
+        pool = [candidate for candidate in available_items(ItemDefinition.objects.filter(rarity=rarity))
+                if legacy_egg_acquisition_allowed(candidate)]
         if not pool:
             raise OperationError(
                 f"No ItemDefinition rows at rarity={rarity!r}. "
@@ -60,7 +62,7 @@ def force_drop(
             )
         item = random.choice(pool)
 
-    if not item_is_available(item):
+    if not legacy_egg_acquisition_allowed(item) or not item_is_available(item):
         raise OperationError("This item is not currently available for new drops.")
 
     for _ in range(count):
@@ -552,6 +554,10 @@ def grant_hatch_ingredients(
     from apps.pets.models import PetSpecies, PotionType
     from apps.rpg.models import ItemDefinition, UserInventory
     from apps.rpg.catalog_support import pet_is_available
+    from apps.egg_discoveries.policy import legacy_egg_acquisition_allowed
+
+    if not legacy_egg_acquisition_allowed({"item_type": "egg"}):
+        raise OperationError("Choose an egg discovery to earn new hatch ingredients.")
 
     try:
         species = PetSpecies.objects.get(slug=species_slug)
