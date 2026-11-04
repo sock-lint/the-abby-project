@@ -82,7 +82,7 @@ credentials, paid asset content, or exported deployment logs.
 ## Review binding and focused validation
 
 The former `99ce33ac`, `c8d10b60`, `b7a5335a`, `0ba82ffc`, `92243170` and
-`34736af6` revisions are
+`34736af6` and `09bc7fa2` revisions are
 **NOT CLEAN and must not be
 used to install**. MAIN's H1, H2, M1–M5 and subsequent ACT-1, ACT-2, SG-1 and
 README-1 findings apply to their activation/recovery procedures. Later N1–N5,
@@ -156,8 +156,20 @@ here for renewed review. Uncorrected low/informational observations remain in
 the coordinator-held raw trail; no blanket fixed/accepted disposition is made.
 Historical Native Claude review of `f17932c3` was CLEAN with empty findings at
 `2026-11-03T23:27:00Z`, from code reading only with no reviewer tests. MAIN's
-`f17932c3` disposition is separate and pending; neither applies automatically
-to this next head.
+formal `f17932c3` disposition at `2026-11-03T23:39:12Z` accepted the opaque
+receipt-integrity component but remained overall NOT CLEAN for the two carryover
+medium findings, with residual 4 LOW/4 INFO review data. Neither applies
+automatically to this next head.
+
+MAIN's final `09bc7fa2` disposition at `2026-11-04T00:09:33Z` is **NOT CLEAN**:
+0 high, 1 verified medium, 10 low and 11 informational observations. Inline
+network H1 is fixed; H2 remains partial for `RV366J-H2-1`, an already-running
+Sentinel's recurring push/admission and descendant closure. The new A17–A18
+requirements remain under the existing RV366G-RB1-A/H2 gate; mandatory IDs stay
+twenty. Native Claude's clean `09bc7fa2` code-only review is historical for this
+new head and does not clear MAIN or runtime gates. Uncorrected low/informational
+observations retain their actual review qualifications; no blanket disposition
+or new operational authorization is inferred.
 
 Use Python 3, PHP 8, and Bash. During the current operational review hold, the
 allowed local subset is limited to harmless policy, constant-module, standard
@@ -541,12 +553,26 @@ CI/CD/webhooks, and does not install the management derivative.
 The owner must confirm a reviewed hold covering **all** deployment admission
 sources: abby-loop and other merge producers, all control-plane automatic and
 preview webhooks, hosted pipelines, manual/API/CLI operators and recurring
-producers. Verify admission closure independently and show it persists across
+producers, including **already-running Sentinel agents and their push routes**.
+Verify admission closure independently and show it persists across
 management recreation, until explicit staging-only release. Maintenance mode
 alone is insufficient: `webhooks/*` is exempt, and maintenance state may not
 persist through initialization. Do not discard queued production work to make
 the gate pass. If persistence cannot be proven, STOP and propose the additional
 technical gate for separate review/approval; no blanket permission is implied.
+
+Sentinel is a nonqueue producer: worker flags or a stopped Horizon do not stop
+its HTTP pushes, controller heartbeat/cache writes or job admissions. Its
+hostgateway/published-port endpoint can avoid Traefik; the actual endpoint,
+port, routes and proposed fence coverage are UNVERIFIED, and this does not claim
+bypass of every future boundary. Before relying on any empty samples, prove
+producer absence/a durable nonqueue hold **or** obtain the finite reviewed
+emission/admission-window and bounded-descendant proof in
+[STARTUP_REVIEW.md A17–A18](STARTUP_REVIEW.md#recurring-sentinel-producer-and-acceptance-window).
+Cover existing agents even if their startup check does nothing, and maintain
+the selected proof through recreation, cache clear, worker release, staging and
+recovery. This runbook authorizes no agent stop, push/heartbeat, flag, route,
+fence, token or queue change.
 
 Within that owner-approved hold, check HTTP 200 and fresh disk/runtime hashes,
 stop scheduler/admission producers and close/drain nginx **and** PHP-FPM
@@ -697,13 +723,25 @@ discard jobs to obtain a pass.
 Keep the independently proven external admission gate and production producer
 holds while the owner clears actual cache maintenance, then deliberately releases
 normal Horizon only after that independent branch-state/closure review permits
-natural completion of the exact observed startup work. Normal workers require
-maintenance off. Scheduler remains disabled;
+natural completion of the exact observed startup work **and** A17–A18's recurring
+producer/admission proof covers the release. Existing Sentinel can keep producing
+even when CheckAndStartSentinelJob makes no change. Its first/null cached hash,
+changed container state or effective force interval can admit PushServerUpdateJob;
+cache flush can rearm that first-hash path. The job can synchronously execute
+the full shared-proxy restart/configuration closure with `StartProxy::run(async:false)`
+and create storage/resource/database-proxy/log-drain/status descendants. Review
+those actual predicates, targets, counts and effects, not only a startup job list.
+Normal workers require maintenance off. Scheduler remains disabled;
 Horizon release is not a job-ID selector, so all competing producers/consumers
 and delayed/retry sources must already be accounted for. Unexpected work blocks
-release and requires review. After the known startup jobs naturally finish,
-prove all queues/executions empty twice before authorizing the single staging
-request. Keep application discovery disabled indefinitely until a new explicit
+release and requires review. Reconcile the known startup work and every emission,
+direct write, admission and descendant in the independently reviewed hold/window,
+then repeat the queue/execution checks within that proven scope before authorizing
+the single staging request. **Two empty samples between pushes do not prove
+quiescence or global drain.** A finite window supports only its explicitly
+reviewed acceptance, not unbounded future admissions. Missing coverage, an
+unjustified emission bound or an unexpected descendant is a STOP. Keep
+application discovery disabled indefinitely until a new explicit
 human instruction, including after hold restoration; no production deployment is a
 startup or repair test.
 

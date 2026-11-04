@@ -13,6 +13,12 @@ network effects) and `RB1A-H2` (proxy/Sentinel execution descendants). The same
 omissions persist in the `f17932c3` matrix. Rows A13–A16 expand those specific
 effects for renewed review; they do not report actual branch counts or clear
 installation or worker release.
+MAIN's final `09bc7fa2` disposition is NOT CLEAN with verified medium
+`RV366J-H2-1`: the inline-network subfinding is fixed, but proxy/Sentinel scope
+is partial because an **already-running Sentinel is a recurring nonqueue
+producer**. Rows A17–A18 and the acceptance-window requirements below cover this
+additional scope under the existing RV366G-RB1-A/H2 gate; mandatory IDs remain
+twenty. Fresh review and actual evidence are still required.
 
 The s6 sequence reaches database migration, then seeding, then `app:init`
 before nginx/PHP-FPM become ready. Literal Horizon/scheduler holds prevent
@@ -108,7 +114,7 @@ propagation is a STOP, not proof of safe emptiness.
 | A5. `PopulateSshKeysDirectorySeeder` unconditionally deletes/recreates the `ssh-keys` and `ssh-mux` filesystem roots, then writes keys and recursively changes ownership; errors are swallowed. | Both roots, every selected private-key file and chown target. The disk names resolve to `storage/app/ssh/{keys,mux}`; the pinned upstream bind maps these to persisted host `/data/coolify/ssh/{keys,mux}`. Actual bindings still require proof. Directory deletion occurs even with zero key rows. | Mandatory exact host-path/entry/ownership review and verified SSH-state backup/restore before every recreation. Zero rows, unchanged key hashes or no error output do not remove this destructive branch. |
 | A6. [OauthSettingSeeder, lines 30–68](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/database/seeders/OauthSettingSeeder.php#L30): settings count and existence of `authentik`; track each provider separately. | Only existing rows with **no authentik** select deletion of all OAuth rows. The recreation loop shadows the old row with a new model and assigns its still-null provider to itself. Against the [pinned non-null unique provider definition](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/database/migrations/2024_03_11_150013_create_oauth_settings.php#L17), the first save fails after deletion; the exception is swallowed and the later missing-provider loop is not reached. The other branch (no rows **or** authentik present) attempts update-or-create for ten providers and returns. Actual schema/counts/outcomes are UNVERIFIED. | Require the destructive predicate absent or separately approve exact deletion/failed-recreation effects and DB backup. Do not assume restoration succeeds or that every branch wipes settings. The update-or-create branch still needs scoped target/observer review. |
 | A7. `CaSslCertSeeder`: missing CA record per server, and its loop over **every Server**, without functional/enabled filtering. | Missing CA invokes SSL generation, including deletion of that server's certificate rows with null resource type/id before creating the CA. Every server remains a remote certificate-write target: directory creation, recursive SSL-directory chown/chmod, CA-file removal/rewrite and final file mode. `remote_process` attempts synchronous multiplexed-SSH setup/reuse before activity creation and high-priority `CoolifyTask` admission; a new ControlMaster is conditional. Record directory members, certificate-delete targets, connection attempts, activities and accepted jobs separately. | Review all servers/remote paths and SSL/SSH/DB backups before recreation. Existing CA records do not suppress the all-server rewrite loop. Worker flags do not prevent synchronous SSH. |
-| A8. [SentinelSeeder, lines 13–25](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/database/seeders/SentinelSeeder.php#L13) and [ServerSetting, lines 189–229](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Models/ServerSetting.php#L189): empty token/custom URL fields. | Empty token generates and saves quietly; empty URL generates and saves quietly, using localhost, then FQDN, public IPv4, public IPv6 precedence. Only a still-empty generated URL selects `is_sentinel_enabled=false` and an ordinary save. Record each target/value fingerprint and subsequent job/observer effect separately. | Prove actual branch values/effects or obtain scoped review. Do not publish tokens or claim zero changes from total server count or sentinel-enabled alone. |
+| A8. [SentinelSeeder, lines 13–25](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/database/seeders/SentinelSeeder.php#L13) and [ServerSetting, lines 189–229](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Models/ServerSetting.php#L189): empty token/custom URL fields. | Empty token generates and saves quietly; empty URL generates and saves quietly, using localhost, then FQDN, public IPv4, public IPv6 precedence. Only a still-empty generated URL selects `is_sentinel_enabled=false` and an ordinary save. Record opaque private credential/target references and subsequent job/observer effects separately. | Prove actual branch values/effects or obtain scoped review. Do not hash/publish actual tokens or claim zero changes from total server count or sentinel-enabled alone. |
 | A9. [RootUserSeeder, lines 18–73](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/database/seeders/RootUserSeeder.php#L18): User 0 absent and truthy effective `ROOT_USER_EMAIL`/`ROOT_USER_PASSWORD`, plus `ROOT_USERNAME`. | Exact prospective root-user/team relationship and registration-setting writes; DNS/password/HIBP validation can make external requests. Bind the actual dependency code before approving that behavior. | Prove the creation predicate absent or obtain separate root-bootstrap/security/egress review. Do not supply test credentials or silently change registration/inputs to pass. |
 | A10. [CheckProxy, lines 19–104](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Actions/Proxy/CheckProxy.php#L19) and [configuration backfill, lines 25–43/98–108](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Actions/Proxy/GetProxyConfiguration.php#L25). | `isFunctional=false` can delete the mux file; build-server with proxy clears proxy and saves. Then null/NONE/force-stop predicates may return; selected status checks synchronously use SSH and save status. Missing/invalid saved configuration can select mkdir/read/backfill/DB writes, default generation and dashboard cache writes, before downstream proxy-start admissions. | Review each ordered branch and exact server/proxy/config/cache/SSH targets even if no queue consumer starts. No read-only claim based on the method name, early-return expectation or worker hold. |
 | A11. ProductionSeeder and Init each call [get_public_ips, lines 1749–1784](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/bootstrap/helpers/shared.php#L1749). | Bind both callsites, external `ifconfig.io` requests and InstanceSettings address updates, with expected values/egress privately reviewed. | An existing settings row does not eliminate unconditional invocation. Unknown request/write behavior blocks startup approval. |
@@ -140,6 +146,68 @@ removal and a token DB mutation. StartSentinel dispatches `SentinelRestarted`, a
 broadcast event with a team-private channel when team ID exists; include exact
 event arguments, channels and descendant/broadcast admissions. Do not expose
 tokens or assume an endpoint failure means no effects occurred.
+
+## Recurring Sentinel producer and acceptance window
+
+This applies to agents that already run, independently of any startup job
+starting/restarting an agent. A no-op CheckAndStartSentinelJob is not an absent
+producer predicate. Horizon/scheduler holds do not stop external push requests,
+synchronous controller heartbeat/cache writes or new job admissions.
+Native request guards still apply: authentication/token, subscription,
+functional-server and data-shape checks precede accepted-push heartbeat. The
+functional false path can delete mux state; rejection/audit effects are not
+proof of no writes. The pinned maintenance exemption lists webhooks and API
+health, not this Sentinel route; a proven active maintenance hold can block
+it, but cache clear or maintenance release cannot be assumed to preserve that
+closure. Actual middleware/cache/route state remains UNVERIFIED.
+
+Disabling metrics alone is not producer absence: StartSentinel's
+`COLLECTOR_ENABLED` flag is distinct from its `PUSH_ENDPOINT` and
+`PUSH_INTERVAL_SECONDS`. Existing agent state, behavior, configuration and
+transport must be bound separately.
+
+| Branch / read-only predicate to establish | Expected targets/count and effects to review | STOP / required disposition before acceptance |
+| --- | --- | --- |
+| A17. **RV366J-H2-1:** Every existing or startup-created Sentinel whose configured PUSH_ENDPOINT can reach management's [POST `/api/v1/sentinel/push`](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/routes/api.php#L208). Bind agent image/version/container/server, running state, endpoint/cadence, opaque private authentication reference and every actual route/admission path. | StartSentinel passes endpoint/host-gateway mapping; localhost URL generation uses `http://host.docker.internal:8000`, and pinned production Compose maps default host APP_PORT 8000 to management 8080. That path can avoid Traefik. After its native request guards, the [controller always updates accepted-push heartbeat synchronously](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Http/Controllers/Api/SentinelController.php#L93). Under a ten-second cache lock/block-five policy, a null/changed sorted name/state hash **or absent force key** selects admission; lock timeout skips it. Hash TTL is one day; force TTL defaults to 300 seconds, not the agent push cadence. Cache clear can rearm it. Count emissions/requests/direct writes/admissions separately; all actual bindings/counts are UNVERIFIED. | Prove this producer absent or durably held outside the queue across the operation, **or** obtain the finite-window proof below. Worker holds, enabled flag alone, startup-job list or two empty samples do not close it. Do not hash/print credentials or infer every future fence is bypassed: evaluate the exact hostgateway/published-port route against the proposed boundary. |
+| A18. **RV366J-H2-1:** Every [PushServerUpdateJob](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Jobs/PushServerUpdateJob.php#L139) selected by A17, including force/first-hash cases when no agent restart occurs. Bind opaque callsite/data-shape references, effective queue connection, server/proxy/container state and descendants in execution order. | Per-server WithoutOverlapping expiry-30/dontRelease constrains execution; admission is not guaranteed execution or a concurrent restart. Storage cache/possible storage job runs **before** the empty-containers return. Resource/DB status/proxy/log-drain descendants remain possible. If proxy should run, was not found and CheckProxy selects start, [async:false StartProxy runs inline](https://github.com/coollabsio/coolify/blob/c793d60e64e16e27ac0b8d7ee22d48b7c7622cf2/app/Jobs/PushServerUpdateJob.php#L669), including A14–A15 shared-proxy effects and team notification; the found-proxy branch can queue network connections under an effective cache interval (default 3600). Review Start/StopDatabaseProxy, ContainerRestarted, additional-server ComplexStatusCheck and StartLogDrain predicates. All targets/counts/outcomes are UNVERIFIED. | Prove selected mutation/descendant predicates absent or independently approve their exact bounded effects, targets, backups/restore evidence before installation, normal worker release, staging or recovery acceptance. Bind queued versus sync execution: worker holds do not prevent sync-connection handling; later queued execution still performs inline proxy effects. No raw request/job payloads or credentials belong in evidence. |
+
+For A18, bind each actual descendant queue: StartDatabaseProxy uses deployment
+queue selection (self-hosted high/cloud deployments), while StopDatabaseProxy
+and StartLogDrain select high. Their action files do not establish a common
+per-server overlap lock. ConnectProxyToNetworksJob has its own per-server
+expiry-60/dontRelease lock; that is not the ten-second throttle suggested by its
+comment. The periodic admission guard is the separate PushServerUpdate cache
+key (default interval 3600). Do not turn these distinct locks/cache guards into
+a guaranteed rate bound or shared serialization proof. Actual connections,
+queue names, lock state, admissions and effects remain UNVERIFIED.
+
+Before claiming a drain, bounded startup closure or staging/recovery acceptance,
+independently approve and verify **one** of these concrete alternatives:
+
+- A durable **nonqueue producer/admission hold**, or proven producer absence,
+  covering every bound agent and push route through pre-drain, recreation,
+  cache maintenance clear, normal worker release, staging and recovery. Bind
+  existing agents as well as possible new starts and hostgateway/published-port
+  paths; closure of a Traefik route alone is not this proof.
+- An explicitly finite reviewed emission/admission observation window with
+  trusted start/end, complete agent/endpoint/cadence coverage, a justified upper
+  bound on emissions, requests, admitted jobs/retries and direct/recursive
+  descendants, and reconciled actual counts and effects for that window.
+  Use verified agent image/version and retry/cadence behavior; the controller's
+  default 300-second force TTL is not a bound on agent emissions.
+  Include first-push/cache-reset and effective force-interval behavior, in-flight
+  requests, competing producers/consumers and the end boundary. Specify exactly
+  what acceptance that window supports; do not extrapolate indefinite
+  quiescence or silently release unreviewed future admissions outside it.
+
+**Two empty queue/execution samples between pushes are not quiescence.** They
+remain only snapshots inside the separately proven hold or reviewed finite
+window. No sampled zero, startup job no-op, HTTP 200 or completed job class can
+substitute for complete producer/admission and descendant accounting. Missing
+coverage, an unjustified bound, unexpected push/admission/mutation or incomplete
+reconciliation is a STOP with existing holds retained. This document authorizes
+no heartbeat/push, agent stop, flag/token/route/fence change or queue operation;
+any needed hold/change requires its own targeted owner-approved plan.
 
 ## B: Init, cleanup and direct proxy effects
 
