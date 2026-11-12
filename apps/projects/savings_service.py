@@ -209,9 +209,12 @@ class SavingsGoalService:
                 notify(goal.user, title="Savings goal reached!",
                     message=f"You reached your goal: {goal.title}.{coins_txt}",
                     notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
-                    link="/treasury?tab=hoards")
+                    link=("/treasury?tab=hoards&space=personal" if goal.user.role == "parent"
+                          else "/treasury?tab=hoards"))
                 notify_parents(title=f"{get_display_name(goal.user)} completed a savings goal",
                     message=f"{goal.title} (${goal.target_amount})",
-                    notification_type=NotificationType.SAVINGS_GOAL_COMPLETED, about_user=goal.user)
+                    notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
+                    link=f"/family?child={goal.user_id}" if goal.user.role == "child" else "/family",
+                    about_user=goal.user)
         except Exception:
             logger.exception("Savings goal %s: notification failed", goal.pk)

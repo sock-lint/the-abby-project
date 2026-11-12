@@ -1,0 +1,9 @@
+{
+  "id": 901,
+  "title": "Woodland Wolf evolved into a mount!",
+  "message": "Base Woodland Wolf is ready to ride.",
+  "notification_type": "pet_evolved",
+  "is_read": false,
+  "created_at": "2026-10-18T19:00:00-07:00",
+  "link": "/bestiary?tab=mounts&space=personal"
+}

@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor } from '../../test/render';
+import * as Sentry from '@sentry/react';
+import { act, renderWithProviders, screen, waitFor } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import { buildParent, buildUser } from '../../test/factories';
 import { buildDailyBonus } from '../../test/challenges';
+import { GATEWAY_RETRY_DELAY_MS } from '../../api/client';
+import { DEFERRED_RECOVERY_DELAY_MS } from '../../hooks/useApi';
 import DailyChallengeCard from './DailyChallengeCard';
 
 beforeEach(() => { server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser()))); });
@@ -36,6 +39,32 @@ describe('Today’s automatic bonus', () => {
     renderWithProviders(<DailyChallengeCard />);
     expect(await screen.findByRole('heading', { name: "Today's bonus" })).toBeInTheDocument();
     expect(get.calls).toHaveLength(1);
+  });
+
+  // THE-ABBY-PROJECT-41: the standalone card shares GET /api/challenges/, so a
+  // deploy-window HTML 200 must wait out the window instead of being reported.
+  describe('during a deploy window', () => {
+    const html = () => new HttpResponse('<!doctype html><title>starting</title>', {
+      status: 200, headers: { 'content-type': 'text/html' },
+    });
+    beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('shows the bonus without reporting when the proxy recovers after the client retry', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/challenges/', () => {
+        calls += 1;
+        return calls <= 2 ? html() : HttpResponse.json({ results: [], pin: null, daily_bonus: buildDailyBonus() });
+      }));
+      renderWithProviders(<DailyChallengeCard />);
+      await act(() => vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS));
+      await waitFor(() => expect(calls).toBe(2));
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      await act(() => vi.advanceTimersByTimeAsync(DEFERRED_RECOVERY_DELAY_MS));
+      expect(await screen.findByRole('heading', { name: "Today's bonus" })).toBeInTheDocument();
+      expect(calls).toBe(3);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
   });
 
   it('preserves earlier claimed bonuses without inventing zero-valued receipt totals', async () => {

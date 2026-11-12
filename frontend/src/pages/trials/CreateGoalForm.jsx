@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { createChallengeGoal, getAllSkills, listMovementTypes } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import useMountedRef from '../../hooks/useMountedRef';
@@ -25,29 +25,36 @@ const INITIAL = {
   start_date: '', end_date: '', repeat_weekly: false, coin_reward: '10', xp_reward: '0', skill_tags: [],
 };
 
-export default function CreateGoalForm({ children = [], initialChildId, onCreated, requestOpen = false, onRequestConsumed }) {
+export default function CreateGoalForm({ children = [], initialChildId, selfUser, onCreated, requestOpen = false, onRequestConsumed }) {
+  const activeChildren = useMemo(() => children.filter((child) => child.is_active !== false), [children]);
+  const selfAvailable = Boolean(selfUser?.id) && selfUser?.is_active !== false;
+  const initialForm = selfUser ? { ...INITIAL, user_id: String(selfUser.id), trigger_type: 'habit_log', coin_reward: '0' } : INITIAL;
+  const activities = selfUser ? ACTIVITIES.filter(([id]) => id !== 'homework_complete') : ACTIVITIES;
   const mounted = useMountedRef();
   const skillErrorId = useId();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(INITIAL);
+  const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
   const [savedConflict, setSavedConflict] = useState(false);
   const [requestId, setRequestId] = useState(createRequestId);
   useEffect(() => {
-    if (!requestOpen || !children.length) return;
-    const child = children.find((row) => String(row.id) === String(initialChildId)) || children[0];
+    if (!requestOpen || (selfUser ? !selfAvailable : !activeChildren.length)) return;
+    const child = selfUser || activeChildren.find((row) => String(row.id) === String(initialChildId)) || activeChildren[0];
     setForm((previous) => ({ ...previous, user_id: String(child.id) }));
     setOpen(true);
     onRequestConsumed?.();
-  }, [requestOpen, children, initialChildId, onRequestConsumed]);
+  }, [requestOpen, activeChildren, initialChildId, selfUser, selfAvailable, onRequestConsumed]);
   const fetchTypes = useCallback(() => open ? listMovementTypes() : Promise.resolve([]), [open]);
   const fetchSkills = useCallback((signal) => open ? getAllSkills({ signal }) : Promise.resolve([]), [open]);
   const { data: typesData, loading: typesLoading, error: typesError, reload: reloadTypes } = useApi(fetchTypes, [open]);
   const { data: skillsData, loading: skillsLoading, refreshing: skillsRefreshing, error: skillsError, reload: reloadSkills } = useApi(fetchSkills, [open]);
   const types = normalizeList(typesData);
   const skills = normalizeList(skillsData);
+  const targetAvailable = selfUser
+    ? selfAvailable && String(selfUser.id) === form.user_id
+    : activeChildren.some((child) => String(child.id) === form.user_id);
   const wantsXp = Number(form.xp_reward) > 0;
   const skillsPending = skillsLoading || skillsRefreshing;
   const movement = form.trigger_type === 'movement_session';
@@ -66,6 +73,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
 
   const submit = async (event) => {
     event.preventDefault();
+    if (!targetAvailable) return;
     if (wantsXp && (skillsPending || skillsError)) return;
     if (wantsXp && !form.skill_tags.length) {
       setErrors({ skill_tags: 'Choose a skill to receive the XP bonus.' });
@@ -91,7 +99,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
       const created = await createChallengeGoal(payload);
       if (!mounted.current) return;
       setOpen(false);
-      setForm(INITIAL);
+      setForm(initialForm);
       setRequestId(createRequestId());
       setSavedConflict(false);
       onCreated?.(created, form.user_id);
@@ -104,6 +112,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
         setError('This challenge was already saved with different details. Your challenges have been refreshed so you can review it.');
         onCreated?.(null);
       } else {
+        setSavedConflict(false);
         setError(Object.keys(fields).length ? 'Check the highlighted fields.' : err?.response?.error || err.message || 'Could not create the challenge.');
       }
     } finally {
@@ -111,25 +120,26 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
     }
   };
 
-  if (!children.length) return null;
+  if (selfUser ? !selfAvailable : !activeChildren.length) return null;
   return (
     <>
       <Button onClick={() => {
-        const child = children.find((row) => String(row.id) === String(initialChildId)) || children[0];
-        patch({ user_id: form.user_id || String(child.id) });
+        const child = selfUser || activeChildren.find((row) => String(row.id) === String(initialChildId)) || activeChildren[0];
+        patch({ user_id: targetAvailable ? form.user_id : String(child.id) });
         setOpen(true);
       }}>Create challenge</Button>
       {open && <BottomSheet title="Create a challenge" onClose={() => setOpen(false)} disabled={saving} dirty footer={(
-        <ModalActions formId="create-challenge-goal" fullWidth onClose={() => setOpen(false)} submitLabel="Create challenge" savingLabel="Creating…" saving={saving} submitDisabled={!form.user_id || (movement && !form.movement_type_id) || (wantsXp && (skillsPending || Boolean(skillsError)))} />
+        <ModalActions formId="create-challenge-goal" fullWidth onClose={() => setOpen(false)} submitLabel="Create challenge" savingLabel="Creating…" saving={saving} submitDisabled={!targetAvailable || (movement && !form.movement_type_id) || (wantsXp && (skillsPending || Boolean(skillsError)))} />
       )}>
         <form id="create-challenge-goal" onSubmit={submit} className="space-y-4">
           <fieldset disabled={saving} className="space-y-4 min-w-0">
-          <p className="font-body text-body text-ink-secondary">Choose measurable work for a child. Progress and the completion bonus are automatic.</p>
-          <SelectField label="Child" value={form.user_id} onChange={set('user_id')} error={errors.user_id} required>
-            {children.map((child) => <option key={child.id} value={child.id}>{child.display_label || child.display_name || child.username}</option>)}
-          </SelectField>
+          <p className="font-body text-body text-ink-secondary">{selfUser ? 'Choose a personal activity goal. Your recorded activity and completion bonus are tracked automatically.' : 'Choose measurable work for a child. Progress and the completion bonus are automatic.'}</p>
+          {!selfUser && <SelectField label="Child" value={targetAvailable ? form.user_id : ''} onChange={set('user_id')} error={errors.user_id} required>
+            <option value="">Choose a child…</option>
+            {activeChildren.map((child) => <option key={child.id} value={child.id}>{child.display_label || child.display_name || child.username}</option>)}
+          </SelectField>}
           <SelectField label="Activity" value={form.trigger_type} onChange={(event) => patch({ trigger_type: event.target.value, metric: 'count', unit: 'actions' })} error={errors.trigger_type}>
-            {ACTIVITIES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            {activities.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </SelectField>
           {form.trigger_type === 'reading_logged' && <p className="text-caption text-ink-secondary">A Daily Reading Adventure counts once per family day after 10 cumulative reading minutes. Extra sessions and edits do not add another count.</p>}
           {movement && <>
@@ -178,7 +188,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
           </section>
           <ErrorAlert message={error} />
           {savedConflict && <Button variant="secondary" onClick={() => {
-            setForm({ ...INITIAL, user_id: form.user_id });
+            setForm({ ...initialForm, user_id: form.user_id });
             setRequestId(createRequestId());
             setErrors({});
             setError('');

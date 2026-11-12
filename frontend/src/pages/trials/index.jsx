@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { pinChallenge, retryChallenge, unpinChallenge } from '../../api';
+import { useSpace } from '../../hooks/useSpace';
 import { getToken } from '../../api/client';
 import useChildContext from '../../hooks/useChildContext';
 import ChildContext from '../../components/family/ChildContext';
@@ -19,7 +20,8 @@ import GoalScheduleControls from './GoalScheduleControls';
 import { REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
 
 function TrackedChallengeDetail({ user, onConfirmed, ...props }) {
-  useChallengeOpening(props.goal, { user, onConfirmed });
+  const { isPersonalSpace } = useSpace();
+  useChallengeOpening(props.goal, { user, onConfirmed, personal: isPersonalSpace });
   return <ChallengeGoalDetail {...props} />;
 }
 
@@ -33,6 +35,8 @@ export default function Trials() {
 function TrialsWorkspace({ context }) {
   const mounted = useMountedRef();
   const { user, isParent, children = [], targetUserId, selectChild } = context;
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const [searchParams, setSearchParams] = useSearchParams();
   const targetChild = isParent ? targetUserId : undefined;
   const { data, goals, pinnedGoal, loading, error, reload, setData } = useChallenges({ userId: targetChild });
@@ -122,19 +126,19 @@ function TrialsWorkspace({ context }) {
       <ErrorAlert message={error || actionError} />
       {error && <Button variant="secondary" onClick={reload}>Try again</Button>}
       {selected && <TrackedChallengeDetail key={selected.id} user={user} onConfirmed={confirmOpening} goal={selected} {...cardProps} actionError={actionError} onClose={() => { setSelectedId(''); setActionError(''); }}
-        futureControls={isParent && <GoalScheduleControls goal={selected} onChanged={handleScheduleChanged} onReload={reload} />} />}
+        futureControls={isParentAccount && <GoalScheduleControls goal={selected} onChanged={handleScheduleChanged} onReload={reload} />} />}
       <ChallengesFolio
-        goals={goals} lockedCatalog={data?.locked_catalog ?? []} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
+        goals={goals} lockedCatalog={data?.locked_catalog ?? []} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent} isPersonalParent={personalParent}
         dailyBonus={!isParent && <DailyChallengeCard challenge={data?.daily_bonus ?? null} />}
-        toolbar={isParent && <div className="flex flex-wrap items-end gap-3">
-          <ChildContext children={children} selectedChildId={targetChild} onSelect={selectChild} />
-          <CreateGoalForm children={children} initialChildId={targetChild} onCreated={handleCreated}
+        toolbar={isParentAccount && <div className="flex flex-wrap items-end gap-3">
+          {isParent && <ChildContext children={children} selectedChildId={targetChild} onSelect={selectChild} />}
+          <CreateGoalForm selfUser={personalParent ? user : undefined} children={children} initialChildId={targetChild} onCreated={handleCreated}
             requestOpen={searchParams.get('new') === '1'} onRequestConsumed={() => {
               const next = new URLSearchParams(searchParams);
               next.delete('new');
               setSearchParams(next, { replace: true });
             }} />
-          <FamilyChallengeForm children={children} onAssigned={() => window.dispatchEvent(new Event(CHALLENGES_CHANGED))} />
+          {isParent && <FamilyChallengeForm children={children} onAssigned={() => window.dispatchEvent(new Event(CHALLENGES_CHANGED))} />}
         </div>}
       />
     </div>

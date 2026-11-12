@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -7,6 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin, RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
@@ -90,6 +94,8 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         if family is None:
             return Chore.objects.none()
         qs = Chore.objects.prefetch_related("skill_tags__skill").filter(family=family)
+        if is_personal_space(self.request):
+            qs = qs.filter(assigned_to=user)
         if user.role == "parent":
             # Parents can filter to just pending proposals for the review queue.
             if self.request.query_params.get("pending") == "true":
@@ -138,7 +144,13 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 about_user=user,
             )
         else:
-            chore = serializer.save(created_by=user, family=user.family)
+            extras = {"created_by": user, "family": user.family}
+            if is_personal_space(self.request):
+                assigned = serializer.validated_data.get("assigned_to")
+                if assigned is not None and assigned.pk != user.pk:
+                    raise ValidationError({"assigned_to": "My space chores must be assigned to you."})
+                extras.update(assigned_to=user, reward_amount=0)
+            chore = serializer.save(**extras)
             _apply_skill_tags(chore, tags)
 
     @transaction.atomic
@@ -147,6 +159,11 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         # omitting leaves the existing tag set alone (common for minor
         # edits that don't re-save the whole form).
         tags = serializer.validated_data.pop("skill_tags", None)
+        if is_personal_space(self.request):
+            assigned = serializer.validated_data.get("assigned_to")
+            if assigned is not None and assigned.pk != self.request.user.pk:
+                raise ValidationError({"assigned_to": "My space chores must be assigned to you."})
+            serializer.validated_data.update(assigned_to=self.request.user, reward_amount=0)
         chore = serializer.save()
         if tags is not None:
             _apply_skill_tags(chore, tags)
@@ -184,14 +201,40 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         # annotated with tap availability.
         if request.query_params.get("pending") == "true":
             return super().list(request, *args, **kwargs)
-        if user.role == "child":
+        if user.role == "child" or is_personal_space(request):
             chores = ChoreService.get_available_chores(user)
+            available_ids = {chore.pk for chore in chores}
+            if is_personal_space(request):
+                # The personal catalog also manages off-week, inactive and
+                # completed one-time chores. Only service rows are actionable.
+                retained = list(self.get_queryset().filter(
+                    pending_parent_review=False,
+                ).exclude(pk__in=available_ids))
+                if retained:
+                    from config.submission_timing import submission_context
+                    today = submission_context(user)[2]
+                    monday = today - timedelta(days=today.weekday())
+                    completions = ChoreCompletion.objects.filter(
+                        user=user, chore_id__in=[chore.pk for chore in retained],
+                    ).exclude(status=ChoreCompletion.Status.REJECTED).filter(
+                        Q(chore__recurrence=Chore.Recurrence.ONE_TIME, completed_date=today)
+                        | Q(chore__recurrence=Chore.Recurrence.DAILY, completed_date=today)
+                        | Q(chore__recurrence=Chore.Recurrence.WEEKLY, completed_date=monday),
+                    ).order_by("chore_id", "-created_at", "-pk").values("chore_id", "pk", "status")
+                    latest = {}
+                    for completion in completions:
+                        latest.setdefault(completion["chore_id"], completion)
+                    for chore in retained:
+                        completion = latest.get(chore.pk)
+                        chore.today_completion_status = completion["status"] if completion else None
+                        chore.today_completion_id = completion["pk"] if completion else None
+                chores.extend(retained)
             data = []
             for chore in chores:
-                serialized = ChoreSerializer(chore).data
-                serialized["is_available"] = not chore.is_done_today
-                serialized["today_status"] = chore.today_completion_status
-                serialized["today_completion_id"] = chore.today_completion_id
+                serialized = self.get_serializer(chore).data
+                serialized["is_available"] = chore.pk in available_ids and not chore.is_done_today
+                serialized["today_status"] = getattr(chore, "today_completion_status", None)
+                serialized["today_completion_id"] = getattr(chore, "today_completion_id", None)
                 data.append(serialized)
             return Response(data)
         return super().list(request, *args, **kwargs)
@@ -202,6 +245,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         try:
             completion = ChoreService.submit_completion(
                 request.user, chore, notes=request.data.get("notes", ""),
+                personal=is_personal_space(request),
             )
         except ChoreNotAvailableError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -264,7 +308,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 link="/chores",
             )
 
-        return Response(ChoreSerializer(chore).data)
+        return Response(self.get_serializer(chore).data)
 
 
 class ChoreCompletionViewSet(

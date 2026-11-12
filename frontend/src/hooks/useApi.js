@@ -39,6 +39,54 @@ export function friendlyErrorMessage(err) {
   return err?.message || 'Something went wrong.';
 }
 
+// A deploy swaps containers for longer than api/client.js's one paused retry,
+// so an opted-in read (`retryGateway`) can still come back as an HTML 200 or a
+// gateway status. The client hands that failure over as `err.deferredReport`
+// instead of capturing it; the first load of a page waits this long, tries
+// once more, and reports only if the proxy is still failing.
+export const DEFERRED_RECOVERY_DELAY_MS = 6000;
+
+function abortableSleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (!signal) {
+      setTimeout(resolve, ms);
+      return;
+    }
+    if (signal.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+export async function callWithDeferredRecovery(apiFn, signal) {
+  try {
+    return await apiFn(signal);
+  } catch (err) {
+    if (!err?.deferredReport) throw err;
+    await abortableSleep(DEFERRED_RECOVERY_DELAY_MS, signal);
+    try {
+      return await apiFn(signal);
+    } catch (retryErr) {
+      if (retryErr?.deferredReport && !signal?.aborted) {
+        Sentry.captureException(retryErr.deferredReport.error, {
+          extra: { ...retryErr.deferredReport.extra, deferredRecoveryAttempts: 2 },
+        });
+      }
+      throw retryErr;
+    }
+  }
+}
+
 export function useApi(apiFn, deps = []) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +122,7 @@ export function useApi(apiFn, deps = []) {
     try {
       // Pass the signal through — endpoint functions that opt in can abort;
       // those that ignore the argument are unaffected.
-      const result = await apiFn(controller.signal);
+      const result = await callWithDeferredRecovery(apiFn, controller.signal);
       if (!mountedRef.current || controller.signal.aborted) return;
       dataRef.current = result;
       setData(result);

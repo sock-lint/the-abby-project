@@ -35,13 +35,14 @@ NOTES = [
 
 
 @transaction.atomic
-def record_details_opened(actor, goal_id):
+def record_details_opened(actor, goal_id, *, allow_parent=False):
     """Record one self-scoped presentation without materializing any goal."""
     try:
         current = lock_user(actor)
     except get_user_model().DoesNotExist:
         raise PermissionDenied("Active children may record their own detail openings only.") from None
-    if (not current.is_active or current.role != "child"
+    if (not current.is_active or current.role != actor.role
+            or (current.role != "child" and not (allow_parent and current.role == "parent"))
             or current.family_id != getattr(actor, "family_id", None)):
         raise PermissionDenied("Active children may record their own detail openings only.")
     match = re.fullmatch(r"goal:([1-9][0-9]{0,18})", goal_id or "")

@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.mcp_server.catalog import audit_catalog_rows, catalog_queryset, catalog_row
+from apps.mcp_server.catalog import audit_catalog_rows, catalog_queryset, catalog_rows
 from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.quests.reward_items import freeze_legacy_quest_promises
 from apps.rpg.authoring_archive import ensure_active_capacity, locked_author, require_writable
@@ -445,8 +445,7 @@ def describe_workbench(actor):
     catalog, findings, any_incomplete = {}, [], False
     for section, objects in rows.items():
         catalog[section] = []
-        for obj in objects:
-            data = catalog_row(section, obj)
+        for obj, data in zip(objects, catalog_rows(section, objects), strict=True):
             if section in MODELS:
                 key = (obj._meta.label_lower, obj.pk)
                 editable = all(mapping.get(key, actor.family_id) == actor.family_id for mapping in (claims, overrides))

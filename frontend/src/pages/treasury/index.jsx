@@ -1,3 +1,4 @@
+import { useSpace } from '../../hooks/useSpace';
 import ChapterHub from '../../components/layout/ChapterHub';
 import Payments from '../Payments';
 import Timecards from '../Timecards';
@@ -13,19 +14,26 @@ import Forge from '../forge';
  *   · Satchel (Inventory — drops, cosmetics, consumables)
  */
 export default function TreasuryHub() {
+  const { isParentAccount, isPersonalSpace, isFamilySpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   return (
     <ChapterHub
       title="Rewards"
-      kicker="Track earnings, spend coins, and set savings goals"
+      kicker={isFamilySpace ? 'Manage family payments, timecards, rewards, and 3D prints'
+        : personalParent ? 'Spend your coins and manage your collection' : 'Track earnings, spend coins, and set savings goals'}
       glyph="wax-seal"
-      defaultTabId="coffers"
+      defaultTabId={personalParent ? 'bazaar' : 'coffers'}
       tabs={[
-        { id: 'coffers', label: 'Payments', render: () => <Payments /> },
-        { id: 'wages',   label: 'Timecards', render: () => <Timecards /> },
+        ...(!personalParent ? [
+          { id: 'coffers', label: 'Payments', render: () => <Payments /> },
+          { id: 'wages', label: 'Timecards', render: () => <Timecards /> },
+        ] : []),
         { id: 'bazaar',  label: 'Shop', render: () => <Rewards /> },
-        { id: 'forge',   label: '3D Prints', render: () => <Forge /> },
-        { id: 'satchel', label: 'Inventory', render: () => <Inventory /> },
-        { id: 'hoards',  label: 'Savings goals', render: () => <HoardsTab /> },
+        ...(!personalParent ? [{ id: 'forge', label: '3D Prints', render: () => <Forge /> }] : []),
+        ...(!isFamilySpace ? [
+          { id: 'satchel', label: 'Inventory', render: () => <Inventory /> },
+          { id: 'hoards', label: 'Savings goals', render: () => <HoardsTab /> },
+        ] : []),
       ]}
     />
   );

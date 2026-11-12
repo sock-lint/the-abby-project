@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin, ParentWritePermissionMixin,
@@ -33,7 +34,7 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
         family = getattr(self.request.user, "family", None)
         if family is None:
             return Reward.objects.none()
-        if self.request.user.role == "parent":
+        if self.request.user.role == "parent" and not is_personal_space(self.request):
             return Reward.objects.filter(family=family)
         return available_rewards(Reward.objects.filter(family=family, is_active=True))
 

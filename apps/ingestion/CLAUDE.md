@@ -21,6 +21,7 @@ Instructables scrapes cached in Redis 24h via `fetch_cached()`.
 - `ProjectIngestViewSet` at `/api/projects/ingest/` — async job kickoff + status polling.
 - Commit endpoint resolves `ResourceDraft.step_index` (0-based) to real `ProjectStep` FKs after creating the steps.
 - Commit locks the owner-scoped job and is safe to retry: a committed job returns its existing project with HTTP 200; the first commit returns 201. Committed jobs cannot be discarded, and a deleted committed project produces 409 instead of creating a replacement.
+- In My space (`X-Abby-Space: personal`), commit assigns the current parent and forces the project bonus and hourly override to zero, marking the hourly zero as an internal personal default so a later Family reassignment can use the child's normal rate. Explicit Family rates remain authoritative. Other assignees are rejected. Retrying a Family import assigned elsewhere returns 404 instead of exposing or reassigning its project; ordinary Family imports keep their assignment and pay fields.
 - The worker claims only pending/failed jobs without a linked project in one conditional update. Running, ready, committed, and discarded deliveries skip the pipeline. Results/errors are saved only while the job remains running without a project, preserving discard/commit/deletion during execution; failed retries retain their prior draft.
 
 ## Frontend preview

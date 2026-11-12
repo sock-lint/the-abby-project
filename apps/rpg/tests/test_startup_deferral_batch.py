@@ -250,7 +250,7 @@ class StartupDeferralBatchTests(TestCase):
             source["subjects"].append({"name": "Deferred subject", "category": "Cooking"})
             source["skills"] = [
                 {"name": "Dependent", "category": "Cooking", "description": "Changed dependent", "locked": False,
-                 "prereqs": [{"skill": "Heat Control", "level": 9}]},
+                 "prereqs": [{"skill": "Heat Control", "level": 5}]},
                 {"name": "Heat Control", "category": "Cooking", "subject": "Deferred subject", "description": "Changed target"},
             ]
             self.write(directory, "skill_tree.yaml", source)

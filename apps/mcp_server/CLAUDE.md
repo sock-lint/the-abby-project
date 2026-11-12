@@ -217,6 +217,11 @@ saved-state-only audit and self/family pins. Reads never call materializing
 `list_goals`. Saved rows include retry eligibility, closed-attempt reasons,
 qualifying triggers and versioned future-week setup through the shared payload;
 the audit batches this metadata without creating attempts or weekly promises.
+Goal preview/create and pin/unpin retain fresh actor and target authority under
+Family then sorted member locks through validation, saved-result recovery and
+serialization. Exact goal-creation UUID recovery checks the original family,
+target and normalized request before applying new-goal date/reference eligibility;
+an expired custom period does not prevent recovery or open a new paid window.
 Explicit retry and schedule changes use `rpg_management.py` with confirmed
 `mcp:write` operations. The `challenges.py` reader `get_voyager_feedback` accepts only empty
 `params` and returns the bounded current-family aggregate, saved policy groups,
@@ -314,6 +319,14 @@ receipt contract remains unchanged.
 `list_challenges` supports bounded signed modern/legacy continuation pages, and
 `get_challenge` reads exact saved IDs. Both retain current-account locks and
 saved-state-only serialization. Pagination never calls materializing `list_goals`.
+The list and pin/unpin tools accept only self or a parent's same-family child;
+co-parent targets return not found, matching challenge detail and REST supervision.
+The existing MCP wire
+contract keeps `daily_bonus: null` for parent targets, including default self
+and explicit self reads. Child self reads and parent-selected child reads retain
+the child's bonus projection. A parent's My space bonus is available through
+the personal REST workspace; broadening the shared bonus service must not
+silently change this household-audit field.
 Catalog new-choice availability also uses native automatic-trigger support;
 retained unsupported definitions remain inspectable with explicit reasons.
 

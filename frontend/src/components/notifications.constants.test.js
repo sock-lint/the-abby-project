@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOTIFICATION_TYPE_META, metaForNotification } from './notifications.constants.js';
+import { NOTIFICATION_TYPE_META, destinationForNotification, metaForNotification } from './notifications.constants.js';
 
 // Hand-maintained mirror of apps/notifications/models.py::NotificationType.
 // If the backend adds a new value, add it here AND add a row to
@@ -46,5 +46,70 @@ describe('notification type meta', () => {
   it('returns to the journal for a family response', () => {
     expect(metaForNotification({ notification_type: 'journal_reply' }).defaultRoute)
       .toBe('/chronicle?tab=journal');
+  });
+});
+
+describe('notification destinations across parent spaces', () => {
+  it.each(['pet_evolved', 'expedition_returned'])('keeps an ambiguous historical %s out of the parent’s own pets', notification_type => {
+    expect(destinationForNotification({ notification_type, link: '/bestiary?tab=mounts' }, { isParentAccount: true }))
+      .toEqual({ space: 'family', target: '/family' });
+  });
+
+  it.each(['pet_evolved', 'expedition_returned'])('uses the explicit owner hint for a new personal %s', notification_type => {
+    const link = '/bestiary?tab=mounts&space=personal';
+    expect(destinationForNotification({ notification_type, link }, { isParentAccount: true }))
+      .toEqual({ space: 'personal', target: link });
+  });
+
+  it('retains the exact child’s Family destination', () => {
+    expect(destinationForNotification({ notification_type: 'pet_evolved', link: '/family?child=7' }, { isParentAccount: true }))
+      .toEqual({ space: 'family', target: '/family?child=7' });
+  });
+
+  it.each(['pet_evolved', 'expedition_returned'])('preserves a child’s historical %s route', notification_type => {
+    expect(destinationForNotification({ notification_type, link: '/bestiary?tab=mounts' }))
+      .toEqual({ space: null, target: '/bestiary?tab=mounts' });
+  });
+
+  it.each([
+    ['chore_submitted', '/bestiary?space=personal', 'family'],
+    ['badge_earned', '/atlas?tab=badges', 'personal'],
+  ])('preserves non-pet %s destinations', (notification_type, link, space) => {
+    expect(destinationForNotification({ notification_type, link }, { isParentAccount: true })).toEqual({ space, target: link });
+  });
+
+  it.each([
+    ['journal_reply', '/chronicle?tab=journal&space=personal', 'personal', '/chronicle?tab=journal&space=personal'],
+    ['journal_reply', '/chronicle?tab=grades&child=7&space=family', 'family', '/chronicle?tab=grades&child=7&space=family'],
+    ['journal_reply', '/chronicle?tab=journal', 'family', '/family'],
+    ['savings_goal_completed', '', 'family', '/family'],
+    ['savings_goal_completed', '/treasury?tab=hoards', 'personal', '/treasury?tab=hoards'],
+    ['savings_goal_completed', '/treasury?tab=hoards&space=personal', 'personal', '/treasury?tab=hoards&space=personal'],
+    ['chore_approved', '/chores?space=personal', 'personal', '/chores?space=personal'],
+    ['chore_approved', '/chores', 'personal', '/chores'],
+    ['chore_approved', '', 'personal', '/quests?tab=duties'],
+    ['project_approved', '/projects/123?space=personal', 'personal', '/projects/123?space=personal'],
+    ['milestone_completed', '/projects/123?space=personal', 'personal', '/projects/123?space=personal'],
+  ])('routes known parent %s audiences from %s', (notification_type, link, space, target) => {
+    expect(destinationForNotification({ notification_type, link }, { isParentAccount: true })).toEqual({ space, target });
+  });
+
+  it.each(['project_approved', 'milestone_completed'])('keeps legacy %s notifications in their current space', notification_type => {
+    expect(destinationForNotification({ notification_type, link: '/projects/123' }, { isParentAccount: true }))
+      .toEqual({ space: null, target: '/projects/123' });
+  });
+
+  it('preserves a child’s project destination when the receipt has a personal hint', () => {
+    const link = '/projects/123?space=personal';
+    expect(destinationForNotification({ notification_type: 'milestone_completed', link }))
+      .toEqual({ space: null, target: link });
+  });
+
+  it.each([
+    'https://outside.example/bestiary?space=personal', '//outside.example/bestiary?space=personal',
+    '/quests?space=personal', '/bestiary?space=personal&space=family',
+  ])('does not accept a personal pet hint on an ambiguous or unrelated link: %s', link => {
+    expect(destinationForNotification({ notification_type: 'pet_evolved', link }, { isParentAccount: true }))
+      .toEqual({ space: 'family', target: '/family' });
   });
 });

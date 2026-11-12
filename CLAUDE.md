@@ -446,6 +446,17 @@ from automatic cleanup candidates.
 
 ## Automatic challenges
 
+Parent participation uses the existing parent account and reward pipelines.
+`X-Abby-Space: personal` narrows participating REST endpoints to the current
+parent's own records through `config/participation.py`; it grants no authority.
+Family behavior remains the default for clients without the hint. Personal
+dashboard/heartbeat carry own progression, and parent-created personal chores
+auto-confirm only exact self assignments with zero money snapshots. Children
+retain the existing approval workflow. The read-only child overview at
+`/api/children/<id>/overview/` is parent/family-scoped, bounded to 100 rows per
+collection, and contains no private journal bodies. See
+[Family and My space](docs/family-and-my-space.md).
+
 Matching saved activities advance every eligible goal; a pin only features one
 on Today. Challenges have a period, the daily bonus pays automatically once per
 family-local day, and badges remain permanent recognition. Parent distance goals
@@ -487,6 +498,9 @@ Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guar
 - RPG orchestrator: `apps/rpg/services.py` — `GameLoopService.on_task_completed` is the single entry point. Extend by adding a new step to this method. See [`apps/rpg/CLAUDE.md`](apps/rpg/CLAUDE.md).
 - Project completion rewards: ordinary project create/update/delete is parent-only; children submit through the dedicated action and retain step/time-tracking actions. `Project.save()` commits status and the `ProjectCompletionRewardReceipt` together with XP, Coins, money and completion effects. One receipt per project prevents another award after retries, reopening or reassignment; REST and MCP share the signal's payout. The historical backfill records prior completed status/timestamps or project-linked completion payment/activity evidence without changing balances.
 - Milestone completion rewards: `ProjectMilestone.save()` commits the status and one permanent `MilestoneCompletionRewardReceipt` with XP, money and completion effects. Reopening, reassignment and concurrent completions cannot pay again. The backfill recognizes completed status/timestamps and correctly typed `milestone.complete` activity; project-wide ledger rows cannot identify a milestone. MCP uses the signal's XP once and retains its existing bonus Coins only for the first receipt, in the same transaction.
+- Personal REST milestone creation, editing and completion force `bonus_amount` to zero before saving, including existing self-assigned milestones. Personal project approval likewise clears its bonus and hourly override. Completion still grants its one-time progression; historical cash entries remain unchanged. Family authoring and payouts retain their existing behavior.
+- New personal projects and imports mark the forced zero rate with internal `hourly_rate_is_personal_default`. Personal editing/approval preserves an existing explicit Family zero, and marks only an already inherited zero or a newly forced nonzero/null rate. Family REST and MCP assignment changes clear only that inherited override when no rate is supplied, including unassignment, so later child work uses the child's normal rate. Explicit Family rates (zero, positive or null) clear provenance and remain authoritative; omitted metadata and same-owner edits preserve it. Both clients use `apps/projects/assignment.py` under their source locks. Apply migration `0026` before serving; existing rows default false without rewriting rates or rewards. This flag controls reassignment defaults only and is not a cash-eligibility guard. Personal writes retain zero because native timecard generation is role-neutral, even though scheduled and MCP generation select children.
+- Project detail exposes `hourly_rate_is_personal_default` read-only so Family forms clear only an inherited rate and omit untouched personal defaults on save. Parent personal challenge awards carry a server-owned domain/owner/source identity through nested activity scopes. `apps/activity/access.py` filters those events before list/detail responses; shared child review and co-parent routine activity remain available. Modern and legacy personal challenge instances and named Coin history use self-or-child MCP boundaries. Shared catalogs and aggregate accounting remain available; unknown generic historical activity is not classified by its text. Keep the full legacy payout implementation in the fingerprint-inspected `QuestService._award_quest_rewards` when adding scopes.
 - RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
 - 3D printing: `apps/printing/matching.py` (the deterministic request↔job contract), `apps/printing/jobs.py::PrinterJobTracker.handle` (one merged MQTT report in, timeline rows out), `apps/printing/listener.py` + `management/commands/run_printer_listener.py` (the single connection), `apps/printing/fanout.py` (how everything else reads printer state) → see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md).
 - MCP server: `apps/mcp_server/` — 280 tools across 39 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).

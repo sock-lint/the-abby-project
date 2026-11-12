@@ -84,8 +84,11 @@ _MAX_YAML_BYTES = 200_000
 _MANIFEST_FILENAME = ".manifest.json"
 
 
-def _serialized_pack(function):
+def _serialized_pack(function=None, *, completed_publication=False):
     """Recheck the author, then coordinate the entire file operation across workers."""
+    if function is None:
+        return lambda wrapped: _serialized_pack(wrapped, completed_publication=completed_publication)
+
     @wraps(function)
     def wrapped(params):
         actor = require_staff_parent()
@@ -94,6 +97,10 @@ def _serialized_pack(function):
             try:
                 if hasattr(params, "pack"):
                     _validate_pack_name(params.pack)
+                    if completed_publication:
+                        replay = _completed_publication_replay(params, fresh_actor)
+                        if replay is not None:
+                            return replay
                     root = _packs_root()
                     if not root.exists() and function.__name__ not in {"write_pack_file", "draft_pack_entries"}:
                         # A missing read must not create lock or pack directories.
@@ -571,6 +578,28 @@ def delete_content_pack(params: DeleteContentPackIn) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _completed_publication_replay(params, actor):
+    """Replay only a saved completed receipt, independently of disposable files.
+
+    The caller retains fresh household authority. Native publication repeats
+    receipt ownership and digest checks under its normal catalog/receipt locks;
+    unpublished previews still require the serialized, family-owned source.
+    """
+    from apps.rpg.content.loader import ContentPackError
+    from apps.rpg.content.publication import publish_content_pack
+    from apps.rpg.models import ContentPackPublication
+
+    if not ContentPackPublication.objects.filter(
+        pk=params.preview_id, actor=actor, family_id=actor.family_id, pack=params.pack,
+        published_at__isnull=False,
+    ).exists():
+        return None
+    try:
+        return publish_content_pack(None, params.pack, actor, params.preview_id, params.content_digest)
+    except ContentPackError as error:
+        raise MCPValidationError(str(error)) from error
+
+
 def _publication_call(function, params, **kwargs):
     from apps.rpg.content.loader import ContentPackError
     actor = require_staff_parent()
@@ -598,7 +627,7 @@ def preview_content_pack(params: PreviewContentPackIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-@_serialized_pack
+@_serialized_pack(completed_publication=True)
 def publish_content_pack(params: PublishContentPackIn) -> dict[str, Any]:
     """Atomically apply one reviewed revision and retain its durable audit receipt.
 

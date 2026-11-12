@@ -1,5 +1,13 @@
 # Reading
 
+Parents participate on their own account in My space. REST requests carrying
+`X-Abby-Space: personal` default to the authenticated parent and reject another
+`user_id`; shelf/log/discovery writes use the same server-owned daily reward,
+UUID replay and account locks as child reading. Parent-owned reading records
+are readable and editable only by that parent, including from Family requests.
+Family continues to select a child explicitly for supervised reading and book
+suggestions; personal requests cannot send family suggestions.
+
 `ReadingBook` is a child's shelf entry; `ReadingSession` records reading or
 listening against one of that child's books. Reading is self-reported. The
 daily Reading Adventure rewards ten cumulative minutes of newly logged reading
@@ -14,7 +22,7 @@ The web endpoints are `/api/reading-books/`, `/api/reading-sessions/`,
 session and family-suggestion lists use standard DRF pagination. Parents can
 view their family's records, select a
 child using `user_id`, and create or correct entries for that child. Parents
-must explicitly select a same-family child for creates, summaries, and
+in Family must explicitly select a same-family child for creates, summaries, and
 recommendations. Children only access their own shelf and log. Session lists
 also accept a `book` ID filter.
 
@@ -139,7 +147,7 @@ through eligible picks six at a time. Responses include `basis`, `total`,
 Discovery feedback GET returns this reader's `{catalog_id, choice}` rows. POST
 with `not_interested` or `already_read` upserts the unique user/catalog preference
 and hides that title; an empty `choice` clears it for Undo. These are idempotent
-preferences, with no shelf insertion, session or reward. Parents must select a
+preferences, with no shelf insertion, session or reward. Parents in Family must select a
 same-family child with `user_id`; children can act only for themselves.
 
 Only parents create family suggestions, supplying a same-family child

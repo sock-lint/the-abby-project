@@ -7,6 +7,7 @@ import PageShell from '../components/layout/PageShell';
 import TabList from '../components/layout/TabList';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import { normalizeList } from '../utils/api';
 import ManagePanel from './achievements/ManagePanel';
 import SkillTreeView from './achievements/SkillTreeView';
@@ -20,7 +21,8 @@ import SkillTreeView from './achievements/SkillTreeView';
  * here because ManagePanel is a single cross-cutting admin surface).
  */
 export default function Achievements() {
-  const { isParent, user } = useRole();
+  const { user } = useRole();
+  const { isFamilySpace: isParent } = useSpace();
   const {
     data: categoriesData, loading, error, reload: reloadCategories,
   } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));

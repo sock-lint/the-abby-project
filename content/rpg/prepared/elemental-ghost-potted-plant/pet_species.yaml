@@ -1,0 +1,24 @@
+# Unregistered preparation: exact accepted runtime support is required before activation.
+species:
+- slug: meshtint-ghost
+  name: Ghost
+  icon: 🐾
+  sprite_key: meshtint-ghost
+  description: A companion with baby, middle and grown forms
+  available_potions:
+  - base
+  - fire
+  - ice
+  egg_rarity: rare
+  egg_coin_value: 3
+- slug: meshtint-potted-plant
+  name: Seed
+  icon: 🐾
+  sprite_key: meshtint-potted-plant
+  description: A companion with baby, middle and grown forms
+  available_potions:
+  - base
+  - fire
+  - ice
+  egg_rarity: common
+  egg_coin_value: 3

@@ -23,9 +23,11 @@ const evaluationStage = evaluation ? stagedElementalRelease(
 if (evaluation && !evaluationStage) throw new Error('Exact elemental evaluation bindings are unavailable.');
 const canonicalBeeBat = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
 const canonicalSnakeCrab = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-snake-hermit-crab');
+const canonicalGhostPlant = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-ghost-potted-plant');
 const available = (familyId, canonical) => Boolean(canonical || evaluationStage?.release.family_id === familyId);
 const beeBatAvailable = available('abby-elemental-bee-bat', canonicalBeeBat);
 const snakeCrabAvailable = available('abby-elemental-snake-hermit-crab', canonicalSnakeCrab);
+const ghostPlantAvailable = available('abby-elemental-ghost-potted-plant', canonicalGhostPlant);
 const usesEvaluation = (family) => Boolean(evaluation && elementalFamilyId(family.slug) === evaluation.pin.family_id);
 // Canonical checks leave these real components on their ordinary active-lock defaults.
 const elementalProps = (family) => usesEvaluation(family) ? { elemental: evaluationStage } : {};
@@ -42,6 +44,10 @@ const families = [
     { slug: 'meshtint-snake', sprite_key: 'meshtint-snake', name: 'Snake', egg: 'meshtint-snake-egg' },
     { slug: 'meshtint-hermit-crab', sprite_key: 'meshtint-hermit-crab', name: 'Hermit Crab', egg: 'meshtint-hermit-crab-egg' },
   ] : []),
+  ...(ghostPlantAvailable ? [
+    { slug: 'meshtint-ghost', sprite_key: 'meshtint-ghost', name: 'Ghost', egg: 'meshtint-ghost-egg' },
+    { slug: 'meshtint-potted-plant', sprite_key: 'meshtint-potted-plant', name: 'Potted Plant', egg: 'meshtint-potted-plant-egg' },
+  ] : []),
 ];
 const stages = ['baby', 'middle', 'grown'];
 const potionFor = (slug) => ({ id: slug === 'base' ? 901 : slug === 'fire' ? 902 : 903, slug,
@@ -50,7 +56,8 @@ const storageKey = 'abby_synthetic_elemental_fixture';
 const uiImages = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
   'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
   ...(beeBatAvailable ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : []),
-  ...(snakeCrabAvailable ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : [])];
+  ...(snakeCrabAvailable ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : []),
+  ...(ghostPlantAvailable ? ['review-ghost-fire-acquisition-icon', 'review-ghost-ice-acquisition-icon', 'review-potted-plant-fire-acquisition-icon', 'review-potted-plant-ice-acquisition-icon'] : [])];
 const evaluationImageIds = new Set(evaluation?.release.assets.filter(({ kind }) => kind === 'image').map(({ id }) => id) || []);
 function loadFixture() {
   try {

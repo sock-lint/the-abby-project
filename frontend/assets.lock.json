@@ -83,6 +83,12 @@
       "family_id": "abby-elemental-snake-hermit-crab",
       "manifest_sha256": "2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3",
       "release_version": "1.0.0"
+    },
+    {
+      "family_id": "abby-elemental-ghost-potted-plant",
+      "release_version": "1.0.0",
+      "manifest_sha256": "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9",
+      "directory": "abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
     }
   ],
   "schema_version": 1

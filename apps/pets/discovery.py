@@ -13,9 +13,10 @@ from django.utils import timezone
 
 from apps.achievements.models import SkillProgress, UserBadge
 from apps.quests.controls import control_context, identity, retry_state
-from apps.quests.goals import FACT_TRIGGERS, number
+from apps.quests.goals import number
 from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
 from apps.quests.models import ChallengeOccurrence, ChallengePin, Quest, QuestDefinition, QuestRewardItem
+from apps.quests.progress_sources import has_progress_source
 from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_pairs, egg_species, item_is_available, potion_type_for_item
 from apps.rpg.models import ItemDefinition
@@ -119,7 +120,7 @@ def _visible_history_ids(user, now):
     return visible
 
 
-def acquisition_challenges(user):
+def acquisition_challenges(user, *, personal=False):
     """One batched projection keyed by (species ID, potion ID), never a write."""
     now = timezone.now()
     pairs = available_pet_pairs()
@@ -203,11 +204,11 @@ def acquisition_challenges(user):
     available = {}
     for definition_id, pair_set in current_pairs.items():
         definition = current[definition_id]
-        allowed = (definition.trigger_filter or {}).get("allowed_triggers")
         available[definition_id] = bool(
-            pair_set and user.role == "child" and definition_id in controls["offered"]
+            pair_set and user.is_active and (user.role == "child" or (personal and user.role == "parent"))
+            and definition_id in controls["offered"]
             and (definition.is_repeatable or definition_id in repeating or definition_id not in completed)
-            and (not allowed or FACT_TRIGGERS.intersection(allowed))
+            and has_progress_source(definition.quest_type, definition.trigger_filter)
             and milestone_eligibility(user, definition, new_enrollment=False,
                                      facts=facts, active_definitions=current)["unlocked"]
         )

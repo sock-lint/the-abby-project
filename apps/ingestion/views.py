@@ -15,6 +15,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 from apps.google_integration.drive import GoogleDriveSelectionSerializer, GoogleDriveService
@@ -23,6 +24,7 @@ from apps.projects.models import (
 )
 from apps.projects.serializers import ProjectDetailSerializer
 from config.permissions import IsParent
+from config.participation import is_personal_space
 
 from .models import ProjectIngestionJob
 from .pipeline.base import IngestionResult
@@ -150,6 +152,8 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
                     {"error": "The project created by this import has been deleted."},
                     status=status.HTTP_409_CONFLICT,
                 )
+            if is_personal_space(request) and job.project.assigned_to_id != request.user.pk:
+                raise NotFound()
             return Response(ProjectDetailSerializer(job.project).data)
         if job.status != ProjectIngestionJob.Status.READY:
             return Response(
@@ -191,7 +195,11 @@ class ProjectIngestViewSet(viewsets.ModelViewSet):
                 data=payload, context={"request": request},
             )
             serializer.is_valid(raise_exception=True)
-            project = serializer.save(created_by=request.user)
+            extras = {"created_by": request.user}
+            if is_personal_space(request):
+                extras.update(assigned_to=request.user, bonus_amount=0, hourly_rate_override=0,
+                              hourly_rate_is_personal_default=True)
+            project = serializer.save(**extras)
 
             # Milestones: ingestors no longer populate these by default
             # (walkthrough content now lives on ``steps``). Parents can still

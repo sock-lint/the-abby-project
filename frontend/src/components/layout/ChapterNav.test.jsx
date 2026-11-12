@@ -71,13 +71,16 @@ describe('ChapterBottomBar', () => {
     }
   });
 
-  it('keeps Chronicle in the bottom bar for parents (no Manage swap)', () => {
+  it('shows the four Family destinations for parents', () => {
     render(
       <MemoryRouter>
         <ChapterBottomBar user={buildParent({ display_name: 'Dad' })} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Memories')).toBeInTheDocument();
+    expect(screen.getByText('Children')).toBeInTheDocument();
+    expect(screen.queryByText('Memories')).toBeNull();
+    expect(screen.queryByText('Pets')).toBeNull();
+    expect(screen.getAllByRole('link')).toHaveLength(4);
     // Manage is now reached via the AvatarMenu in the mobile header, not the
     // bottom bar — the old swap dropped Chronicle, which was wrong.
     expect(screen.queryByText('Manage')).toBeNull();

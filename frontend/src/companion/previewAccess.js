@@ -5,6 +5,7 @@ import { companionStage } from './lifecycle';
 import expansion from '../../../shared/catalog/elemental-expansion.json';
 import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 import snakeCrab from '../../../shared/catalog/elemental-snake-hermit-crab.json';
+import ghostPlant from '../../../shared/catalog/elemental-ghost-potted-plant.runtime.json';
 
 const REACHED = { baby: ['baby'], middle: ['baby', 'middle'], grown: ['baby', 'middle', 'grown'] };
 
@@ -91,7 +92,7 @@ export function useSurpriseOwnership(needed = true) {
 const CHALLENGE_ART = new Map([
   ['challenge-ember-nest', ['chick', 'fire']], ['challenge-frost-nest', ['chick', 'ice']],
   ['challenge-ember-trail', ['meshtint-wolf', 'fire']], ['challenge-frost-trail', ['meshtint-wolf', 'ice']],
-  ...[expansion, beeBat, snakeCrab].flatMap(({ families }) => families.flatMap(({ species_slug, challenges }) =>
+  ...[expansion, beeBat, snakeCrab, ghostPlant].flatMap(({ families }) => families.flatMap(({ species_slug, challenges }) =>
     challenges.map(({ catalog_icon, potion_slug }) => [catalog_icon, [species_slug, potion_slug]]))),
 ]);
 const CHALLENGE_COPY = new Map([

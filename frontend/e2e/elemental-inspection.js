@@ -33,7 +33,7 @@ export async function inspectElementalMaterialIsolation(evaluation) {
     { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
   ) : null;
   requireValue(!evaluation || candidate, 'Exact elemental evaluation binding is required.');
-  const releases = [elemental, ...['abby-elemental-bee-bat', 'abby-elemental-snake-hermit-crab'].map((familyId) =>
+  const releases = [elemental, ...['abby-elemental-bee-bat', 'abby-elemental-snake-hermit-crab', 'abby-elemental-ghost-potted-plant'].map((familyId) =>
     candidate?.release.family_id === familyId ? candidate : stagedElementalRelease(undefined, undefined, undefined, undefined, familyId))].filter(Boolean);
   const selectedReleases = new Map(releases.flatMap((selected) => [...new Set(selected.release.appearance_bindings.stages.map(({ species_slug }) => species_slug))]
     .map((species) => [species, selected])));

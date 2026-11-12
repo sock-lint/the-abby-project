@@ -3,10 +3,16 @@ import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import QuestsHub from './index.jsx';
-import { AuthProvider } from '../../hooks/useApi.js';
+import { AuthProvider, useAuth } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
-import { buildUser } from '../../test/factories.js';
+import { buildParent, buildUser } from '../../test/factories.js';
 import userEvent from '@testing-library/user-event';
+import SpaceProvider from '../../providers/SpaceProvider';
+
+function AccountIdentity() {
+  const { user } = useAuth();
+  return <output aria-label="Account identity">{user?.id}:{user?.role}</output>;
+}
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -14,6 +20,36 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('QuestsHub', () => {
+  it.each(['/quests', '/quests?tab=study&child=7'])(
+    'keeps a parent’s personal Tasks on Habits without Homework: %s', async (route) => {
+      sessionStorage.setItem('abby:spaces:1:90', JSON.stringify({ space: 'personal' }));
+      const reads = [];
+      server.use(
+        http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ id: 90, family: { id: 1 } }))),
+        http.get('*/api/habits/', ({ request }) => {
+          reads.push({ space: request.headers.get('X-Abby-Space'), userId: new URL(request.url).searchParams.get('user_id') });
+          return HttpResponse.json([]);
+        }),
+      );
+      render(<MemoryRouter initialEntries={[route]}><AuthProvider><SpaceProvider><QuestsHub /><AccountIdentity /></SpaceProvider></AuthProvider></MemoryRouter>);
+      await waitFor(() => expect(screen.getByRole('status', { name: 'Account identity' })).toHaveTextContent('90:parent'));
+      expect(screen.getByRole('tab', { name: 'Habits' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.queryByRole('tab', { name: 'Homework' })).not.toBeInTheDocument();
+      expect(screen.getAllByRole('tab')).toHaveLength(6);
+      await waitFor(() => expect(reads).toContainEqual({ space: 'personal', userId: null }));
+      expect(screen.queryByRole('combobox', { name: 'Child' })).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(['family', 'child'])('keeps Homework as the default for %s Tasks', async (viewer) => {
+    const account = viewer === 'family' ? buildParent({ id: 90, family: { id: 1 } }) : buildUser({ id: 7, family: { id: 1 } });
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(account)),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7 })])));
+    render(<MemoryRouter initialEntries={['/quests']}><AuthProvider><SpaceProvider><QuestsHub /><AccountIdentity /></SpaceProvider></AuthProvider></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Account identity' })).toHaveTextContent(`${account.id}:${account.role}`));
+    expect(screen.getByRole('tab', { name: 'Homework' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('tab')).toHaveLength(7);
+  });
   it('opens optional Challenges from Tasks and explains how they fit everyday work', async () => {
     const user = userEvent.setup();
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));

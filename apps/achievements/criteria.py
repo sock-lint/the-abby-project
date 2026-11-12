@@ -150,6 +150,12 @@ def _projects_completed(user, c):
     return user.assigned_projects.filter(status="completed").count() >= c.get("count", 1)
 
 
+def _project_category_ids(name):
+    """Keep current-name unions while admitting only unambiguous renamed sources."""
+    from .source_identity import project_category_resolution
+    return project_category_resolution(name).category_ids
+
+
 @criterion(Badge.CriteriaType.CATEGORY_PROJECTS, scopes={"project"})
 def _category_projects(user, c):
     count = c.get("count", 3)
@@ -159,8 +165,15 @@ def _category_projects(user, c):
             status="completed", category__isnull=False,
         ).values("category").annotate(n=Count("id")).filter(n__gte=1)
         return cats.count() >= category_count
+    name = c.get("category")
+    if name is None:
+        # The original category__name__iexact=None lookup counted projects
+        # without a category. Omitted/null selectors retain that saved rule.
+        return user.assigned_projects.filter(
+            status="completed", category__isnull=True,
+        ).count() >= count
     return user.assigned_projects.filter(
-        status="completed", category__name__iexact=c.get("category"),
+        status="completed", category_id__in=_project_category_ids(name),
     ).count() >= count
 
 
@@ -551,13 +564,13 @@ def _category_mastery(user, c):
     unreachable for younger children.
     """
     from apps.achievements.models import Skill, SkillCategory
+    from apps.achievements.source_identity import resolve_source_identity
 
     category_name = c.get("category")
     if not category_name:
         return False
-    try:
-        category = SkillCategory.objects.get(name=category_name)
-    except SkillCategory.DoesNotExist:
+    category = resolve_source_identity(SkillCategory, {"name": category_name})
+    if category is None:
         return False
     min_level = int(c.get("min_level", 3))
     required_skill_ids = set(

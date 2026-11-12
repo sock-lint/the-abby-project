@@ -25,6 +25,13 @@ for _name in COUNT_CRITERIA:
 for _name in ("total_earned", "total_coins_earned", "coins_spent_lifetime"):
     CRITERIA_KEYS[_name] = {"amount"}
 
+BADGE_SKILL_LEVEL_FIELDS = {
+    "skill_level_reached": "level",
+    "subjects_completed": "min_level",
+    "skill_categories_breadth": "min_level",
+    "category_mastery": "min_level",
+}
+
 
 ENTRY_FIELDS = {
     "categories": set("id name icon color description is_retired".split()),
@@ -63,6 +70,21 @@ def whole_number(value, label, minimum=0, maximum=1000000):
     return number
 
 
+def validate_badge_runtime_levels(criteria_type, value):
+    """Check only skill-level goals, including read-only legacy availability."""
+    key = BADGE_SKILL_LEVEL_FIELDS.get(criteria_type)
+    if key is None:
+        return
+    if not isinstance(value, dict):
+        raise ValidationError("criteria_value must be an object.")
+    if key not in value:
+        return
+    if type(value[key]) not in {int, float}:
+        raise ValidationError(f"criteria_value.{key} must be a number.")
+    from apps.achievements.models import XP_THRESHOLDS
+    whole_number(value[key], f"criteria_value.{key}", 1, max(XP_THRESHOLDS))
+
+
 def validate_badge_criteria(criteria_type, value):
     from apps.achievements.models import Badge
     if criteria_type not in Badge.CriteriaType.values:
@@ -72,6 +94,7 @@ def validate_badge_criteria(criteria_type, value):
     unknown = set(value) - CRITERIA_KEYS.get(criteria_type, set())
     if unknown:
         raise ValidationError(f"Unknown criteria_value keys: {sorted(unknown)}.")
+    validate_badge_runtime_levels(criteria_type, value)
     for key, item in value.items():
         if key in {"category", "quest_name"}:
             if not isinstance(item, str) or not item.strip():
@@ -95,7 +118,7 @@ def validate_badge_criteria(criteria_type, value):
 def validate_content(parsed, *, strict=True):
     """Reject malformed eligibility and reward rules before any upsert."""
     from apps.rpg.content.loader import ContentPackError
-    from apps.achievements.models import Badge
+    from apps.achievements.models import Badge, XP_THRESHOLDS
     try:
         for section, data in parsed.items():
             if strict and set(data) - SECTION_KEYS[section]:
@@ -172,7 +195,7 @@ def validate_content(parsed, *, strict=True):
                     if section == "skill_tree" and key == "skills":
                         for prerequisite in entry.get("prereqs", []):
                             if isinstance(prerequisite, dict):
-                                whole_number(prerequisite.get("level", 2), "prerequisite level", 0, 100)
+                                whole_number(prerequisite.get("level", 2), "prerequisite level", 0, max(XP_THRESHOLDS))
                     if section == "badges" and strict:
                         validate_badge_criteria(entry.get("criteria_type"), entry.get("criteria_value", {}))
     except (ValidationError, TypeError, KeyError, AttributeError) as error:

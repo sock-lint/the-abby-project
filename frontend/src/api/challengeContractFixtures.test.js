@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderWithProviders, screen } from '../test/render';
 import ChallengeGoalCard, { ChallengeGoalDetail } from '../pages/trials/ChallengeGoalCard';
 import createdGoal from '../../../contracts/api/fixtures/challenge-goal-created.json';
+import recoveredCustomGoal from '../../../contracts/api/fixtures/challenge-custom-goal-recovered.json';
 import initialGoals from '../../../contracts/api/fixtures/challenges-initial.json';
 import goalOrigins from '../../../contracts/api/fixtures/challenges-origins.json';
 import partialGoals from '../../../contracts/api/fixtures/challenges-partial.json';
@@ -18,6 +19,8 @@ import unpinnedGoal from '../../../contracts/api/fixtures/challenge-unpinned.jso
 import firstRun from '../../../contracts/api/fixtures/challenge-run-first.json';
 import completedRun from '../../../contracts/api/fixtures/challenge-run-completed.json';
 import invalidGoal from '../../../contracts/api/fixtures/challenge-goal-invalid.json';
+import unavailableGoalChild from '../../../contracts/api/fixtures/challenge-goal-child-unavailable.json';
+import unavailableGoalParent from '../../../contracts/api/fixtures/challenge-goal-parent-unavailable.json';
 import promisedQuest from '../../../contracts/api/fixtures/quest-promised-item-active.json';
 import promisedQuestHistory from '../../../contracts/api/fixtures/quest-promised-item-history.json';
 import formerParticipantHistory from '../../../contracts/api/fixtures/quest-history-former-participant.json';
@@ -49,6 +52,50 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it.each([
+    [404, unavailableGoalChild],
+    [403, unavailableGoalParent],
+  ])('preserves a goal authority failure with status %s without replaying the request', async (status, response) => {
+    const rejected = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json(response, { status }));
+    server.use(rejected.handler);
+    await expect(createChallengeGoal({ user_id: 7, request_id: '33333333-3333-4333-8333-333333333333' }))
+      .rejects.toMatchObject({ status, response });
+    expect(rejected.calls).toHaveLength(1);
+  });
+
+  it('recovers the original paid custom goal with its saved UUID and dates after the deadline', async () => {
+    const payload = {
+      request_id: '33333333-3333-4333-8333-333333333333',
+      user_id: 7, name: 'Run two miles on the saved day', trigger_type: 'movement_session',
+      movement_type_id: 31, metric: 'distance', target: '2', unit: 'mi', period: 'custom',
+      start_date: '2026-10-14', end_date: '2026-10-14', repeat_weekly: false,
+      coin_reward: 7, xp_reward: 15, skill_tags: [{ skill_id: 22, xp_weight: 1 }],
+    };
+    const sessions = [];
+    const recovery = spyHandler('post', /\/api\/challenges\/goals\/$/, ({ request }) => {
+      const url = new URL(request.url);
+      sessions.push({ authorization: request.headers.get('Authorization'), query: url.search });
+      return HttpResponse.json(recoveredCustomGoal, { status: 201 });
+    });
+    server.use(recovery.handler);
+    const saved = await createChallengeGoal(payload);
+    expect(recovery.calls).toEqual([{
+      method: 'POST', url: expect.stringMatching(/\/api\/challenges\/goals\/$/), body: payload,
+    }]);
+    expect(sessions).toEqual([{ authorization: 'Token test-session', query: '' }]);
+    expect(localStorage.getItem('abby_auth_token')).toBe('test-session');
+    expect(saved).toEqual(recoveredCustomGoal);
+    expect(saved).toMatchObject({
+      id: 'goal:1', goal_definition_id: 1, origin: 'parent', status: 'completed',
+      progress: '2', repeat_weekly: false, retry_of: null,
+      reward_receipt: { status: 'awarded', coins_awarded: 7 },
+    });
+    expect(new Date(saved.starts_at).toISOString()).toBe('2026-10-14T07:00:00.000Z');
+    expect(new Date(saved.ends_at).toISOString()).toBe('2026-10-15T07:00:00.000Z');
+    expect(saved.reward_receipt.awarded_at).toBe(saved.completed_at);
+    expect(Date.parse(saved.ends_at)).toBeLessThan(Date.parse('2026-10-16T19:00:00Z'));
+  });
+
   it('preserves the confirmed daily fallback XP after its taxonomy is renamed', async () => {
     server.use(http.get('*/api/challenges/', () => HttpResponse.json(renamedTaxonomyDaily)));
     const saved = await getChallenges();

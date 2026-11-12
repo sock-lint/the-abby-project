@@ -70,7 +70,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-ghost
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: rare
     egg_coin_value: 3
 
@@ -88,7 +88,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-potted-plant
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: common
     egg_coin_value: 3
 

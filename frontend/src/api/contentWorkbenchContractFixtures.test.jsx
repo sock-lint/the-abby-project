@@ -48,6 +48,10 @@ describe('Content workbench shared API contract', () => {
     );
     const { user } = renderWithProviders(<ContentWorkbench />);
     await user.click(await screen.findByRole('button', { name: /Practice challenge/ }));
+    const audit = screen.getByRole('region', { name: 'Published reward audit' });
+    expect(within(audit).getByText('unreachable_challenge_filters · quests · 909')).toBeVisible();
+    const warning = catalog.audits.findings.find((finding) => finding.code === 'unreachable_challenge_filters');
+    expect(within(audit).getByText(warning.detail)).toBeVisible();
     const editor = screen.getByRole('form', { name: 'Challenge editor' });
     expect(within(editor).getByRole('spinbutton', { name: 'Coin reward' })).toHaveValue(10);
     expect(within(editor).getByRole('spinbutton', { name: 'XP reward' })).toHaveValue(15);

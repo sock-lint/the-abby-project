@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLocation } from 'react-router-dom';
-import { renderWithProviders, screen } from '../../test/render';
+import { renderWithProviders, screen, within } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import PinnedChallengeCard from './PinnedChallengeCard';
+import ChallengeGoalCard from '../../pages/trials/ChallengeGoalCard';
 import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
 
 vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
@@ -14,6 +15,30 @@ function LocationProbe() {
 }
 
 describe('Pinned challenge on Today', () => {
+  it.each([
+    { target: '1', progress: '0', progressText: '0 / 1 active day', targetText: '1 active day' },
+    { target: '5', progress: '1', progressText: '1 / 5 active days', targetText: '5 active days' },
+  ])('keeps day-based progress consistent between Challenges and Today for target $target', ({ target, progress, progressText, targetText }) => {
+    const goal = buildChallengeGoal({
+      name: 'Weekly Reset', origin: 'catalog', metric: 'count', unit: 'active days', target, progress,
+      what_counts: 'positive habit taps; counts once per active day in the saved household timezone',
+      action: { label: 'View habits', path: '/quests?tab=rituals' },
+    });
+    renderWithProviders(<>
+      <section aria-label="Challenges list"><ChallengeGoalCard goal={goal} onSelect={() => {}} /></section>
+      <section aria-label="Today focus"><PinnedChallengeCard goal={goal} /></section>
+    </>, { withAuth: false });
+    const challenges = within(screen.getByRole('region', { name: 'Challenges list' }));
+    const today = within(screen.getByRole('region', { name: 'Today focus' }));
+    expect(challenges.getByText(`${targetText} · ${goal.what_counts}`)).toBeInTheDocument();
+    for (const surface of [challenges, today]) {
+      expect(surface.getByText(progressText)).toBeInTheDocument();
+      expect(surface.queryByText(/\d \/ \d activities/)).not.toBeInTheDocument();
+      expect(surface.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress);
+      expect(surface.getByRole('progressbar')).toHaveAttribute('aria-valuemax', target);
+    }
+  });
+
   it('keeps the saved goal and fractional progress inside the tall kit canvas', () => {
     const { container } = renderWithProviders(<PinnedChallengeCard goal={buildChallengeGoal()} />, { withAuth: false });
     expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();

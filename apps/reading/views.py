@@ -1,9 +1,11 @@
+from django.db.models import Q
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
+from config.participation import is_personal_space
 from apps.usage.services import record_action
 
 from .models import ReadingBook, ReadingSession
@@ -40,7 +42,7 @@ def _target_user(request, source="query_params", *, required_for_parent=True):
     bucket = request.query_params if source == "query_params" else request.data
     if "user_id" in bucket:
         _positive_id(bucket.get("user_id"), "user_id")
-    if request.user.role == "parent" and required_for_parent and "user_id" not in bucket:
+    if request.user.role == "parent" and not is_personal_space(request) and required_for_parent and "user_id" not in bucket:
         raise serializers.ValidationError({"user_id": "Choose a child in your family."})
     target, error = resolve_target_user(request, source=source)
     if error is not None:
@@ -55,7 +57,11 @@ class ReadingOwnerViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        queryset = self.get_role_filtered_queryset(super().get_queryset()).filter(user__role="child")
+        # A parent's shelf is personal. Family supervision never exposes a
+        # co-parent's saved books, sessions or reflection text.
+        queryset = self.get_role_filtered_queryset(super().get_queryset()).filter(
+            Q(user__role="child") | Q(user=self.request.user),
+        )
         if "user_id" in self.request.query_params:
             target = _target_user(self.request)
             queryset = queryset.filter(user=target)

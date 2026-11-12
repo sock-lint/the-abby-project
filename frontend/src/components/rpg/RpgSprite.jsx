@@ -38,6 +38,8 @@ const ELEMENTAL_PORTRAIT_KEYS = new Set([
   'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount',
   'meshtint-snake', 'meshtint-snake-middle', 'meshtint-snake-mount',
   'meshtint-hermit-crab', 'meshtint-hermit-crab-middle', 'meshtint-hermit-crab-mount',
+  'meshtint-ghost', 'meshtint-ghost-middle', 'meshtint-ghost-mount',
+  'meshtint-potted-plant', 'meshtint-potted-plant-middle', 'meshtint-potted-plant-mount',
 ]);
 
 // Gentle-nudge dimming applied to pet sprites whose happiness has slipped.

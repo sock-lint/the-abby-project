@@ -37,6 +37,8 @@ class MilestoneRewardMigrationTests(unittest.TestCase):
             parent = User.objects.create(username="history-parent", role="parent", family=family)
             project = Project.objects.create(title="Historical phases", created_by=parent, assigned_to=child)
             unassigned_project = Project.objects.create(title="Unassigned phases", created_by=parent)
+            Project.objects.create(title="Historical parent zero", created_by=parent, assigned_to=parent,
+                                   hourly_rate_override="0.00")
             cases = {
                 "completed": {"is_completed": True},
                 "reopened": {"completed_at": timezone.now()},
@@ -58,14 +60,18 @@ class MilestoneRewardMigrationTests(unittest.TestCase):
                     subject=child, target_ct=target_type, target_id=rows[key].pk,
                 )
             Payment.objects.create(project=project, user=child, amount="7.00", entry_type="milestone_bonus")
-            before = {
-                (app, name): list(old_apps.get_model(app, name).objects.order_by("pk").values())
+            historical_fields = {
+                (app, name): tuple(field.attname for field in old_apps.get_model(app, name)._meta.concrete_fields)
                 for app, name in [
                     ("projects", "Project"), ("projects", "ProjectMilestone"),
                     ("payments", "PaymentLedger"), ("rewards", "CoinLedger"),
                     ("achievements", "SkillProgress"), ("notifications", "Notification"),
                     ("activity", "ActivityEvent"),
                 ]
+            }
+            before = {
+                (app, name): list(old_apps.get_model(app, name).objects.order_by("pk").values(*fields))
+                for (app, name), fields in historical_fields.items()
             }
             executor = MigrationExecutor(connection)
             targets = executor.loader.graph.leaf_nodes()
@@ -82,8 +88,16 @@ class MilestoneRewardMigrationTests(unittest.TestCase):
                 (rows[key].pk, child.pk, True) for key in ("completed", "reopened", "typed_activity")
             } | {(rows["unassigned_completed"].pk, None, True)}
             for (app, name), saved in before.items():
-                actual = list(new_apps.get_model(app, name).objects.order_by("pk").values())
+                actual = list(new_apps.get_model(app, name).objects.order_by("pk").values(
+                    *historical_fields[(app, name)],
+                ))
                 assert actual == saved, (app, name, actual, saved)
+            # Additive schema fields are checked separately; preserve every
+            # historical value, including an explicit parent-owned zero rate.
+            defaults = list(new_apps.get_model("projects", "Project").objects.order_by("pk").values_list(
+                "hourly_rate_is_personal_default", flat=True,
+            ))
+            assert len(defaults) == 3 and all(value is False for value in defaults), defaults
             live = Receipt.objects.create(milestone_id=rows["fresh"].pk, user_id=parent.pk)
             receipt_state = list(Receipt.objects.order_by("pk").values())
             migration = import_module("apps.projects.migrations.0023_milestone_completion_reward_receipt")
@@ -108,7 +122,9 @@ class MilestoneRewardMigrationTests(unittest.TestCase):
                 ("achievements", "SkillProgress"), ("notifications", "Notification"),
                 ("activity", "ActivityEvent"),
             ]:
-                assert list(new_apps.get_model(app, name).objects.order_by("pk").values()) == before[(app, name)]
+                assert list(new_apps.get_model(app, name).objects.order_by("pk").values(
+                    *historical_fields[(app, name)],
+                )) == before[(app, name)]
         '''
         bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
         env = {key: os.environ[key] for key in bootstrap if key in os.environ}

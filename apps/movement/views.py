@@ -2,11 +2,13 @@ from django.db.models import ProtectedError
 from rest_framework import permissions, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from config.participation import is_personal_space
 
 from config.viewsets import (
     RoleFilteredQuerySetMixin,
     child_not_found_response,
     get_child_or_404,
+    resolve_target_user,
 )
 
 from .models import MovementSession, MovementType
@@ -126,7 +128,11 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
         # Parent can log on behalf of a child via optional user_id.
         target_user = request.user
-        if request.user.role == "parent":
+        if is_personal_space(request):
+            target_user, error = resolve_target_user(request, source="data")
+            if error is not None:
+                return error
+        elif request.user.role == "parent":
             child_id = request.data.get("user_id")
             if child_id:
                 target_user = get_child_or_404(child_id, requesting_user=request.user)

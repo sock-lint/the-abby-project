@@ -17,6 +17,7 @@ export default function ReviewStep({
   draft, setDraft,
   overrides, setOverrides,
   categories,
+  personal = false,
   milestoneHandlers, stepHandlers, resourceHandlers, materialHandlers,
   committing, onCommit, onDiscard,
 }) {
@@ -40,6 +41,7 @@ export default function ReviewStep({
       )}
 
       <ProjectOverridesCard
+        personal={personal}
         draft={draft}
         setDraft={setDraft}
         overrides={overrides}

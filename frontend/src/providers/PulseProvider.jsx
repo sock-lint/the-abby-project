@@ -26,42 +26,67 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   const [savedPulse, setSavedPulse] = useState(null);
   const pulse = savedPulse?.account === account ? savedPulse.data : null;
   const cancelledRef = useRef(false);
-  // Consecutive beats the proxy answered with a gateway status or an HTML page.
-  const failedBeatsRef = useRef(0);
+  // The current run of beats the proxy answered with a gateway status or an
+  // HTML page: how many, when the first and latest began, and whether it has
+  // been reported. `beat` also runs from `refresh()` and on tab focus, so a
+  // count alone says nothing about how long the outage has lasted.
+  const failureRunRef = useRef(null);
+  // When the newest successful beat began: a failure from a request that began
+  // before it is stale and says nothing about the service now.
+  const lastSuccessBeganAtRef = useRef(0);
 
   const beat = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
     const requestedAccount = accountRef.current;
     if (!requestedAccount) return;
+    const beganAt = Date.now();
     try {
       const data = await getPulse();
       if (!cancelledRef.current && accountRef.current === requestedAccount) {
-        // A late answer for a previous account must not reset this one's count.
-        failedBeatsRef.current = 0;
+        // A late answer for a previous account must not reset this one's run.
+        failureRunRef.current = null;
+        lastSuccessBeganAtRef.current = Math.max(lastSuccessBeganAtRef.current, beganAt);
         setSavedPulse({ account: requestedAccount, data });
       }
     } catch (err) {
       // Silent, like every poller before it — a missed beat must never break
       // the shell, and the next one is 30s away. A deploy swaps containers for
       // longer than one beat's retry, so a transient failure is reported only
-      // when it persists across several beats, i.e. a real outage.
-      if (err?.deferredReport && accountRef.current === requestedAccount) {
-        failedBeatsRef.current += 1;
-        if (failedBeatsRef.current === PULSE_OUTAGE_BEATS) {
+      // when it persists across several beats over a real stretch of time,
+      // i.e. a real outage.
+      if (err?.deferredReport && accountRef.current === requestedAccount
+        && beganAt >= lastSuccessBeganAtRef.current) {
+        let run = failureRunRef.current;
+        // Beats skipped while the tab was hidden leave a gap; failures on
+        // either side of it are not one continuous outage.
+        if (!run || beganAt - run.lastBeganAt > 2 * intervalMs) {
+          run = { count: 0, firstBeganAt: beganAt, lastBeganAt: beganAt, reported: false };
+        }
+        // Beats overlap (refresh, focus), so an older one can fail after newer
+        // ones. One that began before this run did says nothing about it, and
+        // must neither rewind the run nor bridge a gap to an earlier failure.
+        if (beganAt < run.firstBeganAt) return;
+        run.count += 1;
+        run.lastBeganAt = Math.max(run.lastBeganAt, beganAt);
+        failureRunRef.current = run;
+        const spanMs = beganAt - run.firstBeganAt;
+        if (!run.reported && run.count >= PULSE_OUTAGE_BEATS && spanMs >= (PULSE_OUTAGE_BEATS - 1) * intervalMs) {
+          run.reported = true;
           Sentry.captureException(err.deferredReport.error, {
-            extra: { ...err.deferredReport.extra, consecutiveFailedBeats: failedBeatsRef.current },
+            extra: { ...err.deferredReport.extra, consecutiveFailedBeats: run.count, failingForMs: spanMs },
           });
         }
       }
     }
-  }, []);
+  }, [intervalMs]);
 
   useEffect(() => {
     if (!user) {
       return undefined;
     }
     cancelledRef.current = false;
-    failedBeatsRef.current = 0;
+    failureRunRef.current = null;
+    lastSuccessBeganAtRef.current = 0;
     beat();
     const interval = setInterval(beat, intervalMs);
     const onVisibility = () => {

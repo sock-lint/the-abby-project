@@ -46,9 +46,12 @@ def validate_trigger_filter(value, *, allow_catalog_policy=False):
     """Raise ValidationError if ``value`` isn't a valid ``trigger_filter`` dict.
 
     Accepts: missing, ``None``, or ``{}`` (no filter — match every trigger).
-    Rejects: unknown keys, ``allowed_triggers`` values outside ``TriggerType``.
+    Optional null selectors leave the corresponding restriction inactive.
+    Non-null IDs are positive integers, chore IDs are a list of those IDs,
+    and on-time is a boolean. Values are validated without coercion so they
+    match the typed evidence saved by source services.
     """
-    if not value:
+    if value is None:
         return
     if not isinstance(value, dict):
         raise ValidationError("trigger_filter must be an object.")
@@ -61,6 +64,22 @@ def validate_trigger_filter(value, *, allow_catalog_policy=False):
             f"Valid keys: {sorted(known)}",
         )
 
+    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+        selector = value.get(key)
+        if selector is not None and (type(selector) is not int or selector < 1):
+            raise ValidationError(f"trigger_filter.{key} must be a positive integer or null.")
+
+    chore_ids = value.get("chore_ids")
+    if chore_ids is not None and (
+        not isinstance(chore_ids, list)
+        or any(type(chore_id) is not int or chore_id < 1 for chore_id in chore_ids)
+    ):
+        raise ValidationError("trigger_filter.chore_ids must be a list of positive integers or null.")
+
+    on_time = value.get("on_time")
+    if on_time is not None and type(on_time) is not bool:
+        raise ValidationError("trigger_filter.on_time must be a boolean or null.")
+
     if "distinct_active_days" in value and type(value["distinct_active_days"]) is not bool:
         raise ValidationError("trigger_filter.distinct_active_days must be a boolean.")
     if "reward_policy_version" in value and (
@@ -72,7 +91,9 @@ def validate_trigger_filter(value, *, allow_catalog_policy=False):
 
     allowed_triggers = value.get("allowed_triggers")
     if allowed_triggers is not None:
-        if not isinstance(allowed_triggers, list):
+        if not isinstance(allowed_triggers, list) or any(
+            not isinstance(trigger, str) for trigger in allowed_triggers
+        ):
             raise ValidationError(
                 "trigger_filter.allowed_triggers must be a list of trigger strings.",
             )

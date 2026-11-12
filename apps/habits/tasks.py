@@ -1,4 +1,5 @@
 import logging
+from itertools import chain
 
 from celery import shared_task
 
@@ -8,13 +9,13 @@ logger = logging.getLogger(__name__)
 @shared_task
 def decay_habit_strength_task():
     """Evaluate the previous family-local day, once per active habit."""
-    from apps.families.queries import children_across_families
+    from apps.families.queries import children_across_families, parents_across_families
     from apps.habits.services import HabitService
 
     total_decayed = 0
-    total_children = 0
-    for _family, child in children_across_families():
-        total_decayed += HabitService.decay_all_habits(child)
-        total_children += 1
+    total_users = 0
+    for _family, user in chain(children_across_families(), parents_across_families()):
+        total_decayed += HabitService.decay_all_habits(user)
+        total_users += 1
 
-    return f"Habit decay complete: {total_decayed} habits decayed across {total_children} children."
+    return f"Habit decay complete: {total_decayed} habits decayed across {total_users} people."

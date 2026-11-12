@@ -1,3 +1,4 @@
+import { useSpace } from '../../hooks/useSpace';
 import ChapterHub from '../../components/layout/ChapterHub';
 import Portfolio from '../Portfolio';
 import Yearbook from '../Yearbook';
@@ -12,6 +13,7 @@ import GradesPage from '../grades/GradesPage';
  * Chronicle is the memoir.
  */
 export default function ChronicleHub() {
+  const { isParentAccount, isPersonalSpace } = useSpace();
   return (
     <ChapterHub
       title="Memories"
@@ -21,7 +23,7 @@ export default function ChronicleHub() {
       tabs={[
         { id: 'sketchbook', label: 'Gallery', render: () => <Portfolio /> },
         { id: 'journal',    label: 'Journal',    render: () => <JournalReader /> },
-        { id: 'grades',     label: 'Grades',     render: () => <GradesPage /> },
+        ...(!(isParentAccount && isPersonalSpace) ? [{ id: 'grades', label: 'Grades', render: () => <GradesPage /> }] : []),
         { id: 'yearbook',   label: 'Timeline',   render: () => <Yearbook /> },
       ]}
     />

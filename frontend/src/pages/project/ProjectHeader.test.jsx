@@ -23,6 +23,35 @@ function renderHeader(props = {}) {
 }
 
 describe('ProjectHeader', () => {
+  it('lets a parent complete their own Family project without a child submission step', async () => {
+    const onAction = vi.fn();
+    const onEdit = vi.fn();
+    const user = userEvent.setup();
+    renderHeader({ isParent: true, isAssigned: true, project: { status: 'in_progress', assigned_to: { id: 99, role: 'parent' } }, onAction, onEdit });
+    expect(screen.queryByRole('button', { name: 'Submit for review' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Complete project' }));
+    expect(onAction).toHaveBeenCalledExactlyOnceWith('approve');
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(onEdit).toHaveBeenCalledOnce();
+  });
+
+  it('labels an own parent completion in Family review without changing child review controls', async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    renderHeader({ isParent: true, isAssigned: true, project: { status: 'in_review', assigned_to: { id: 99, role: 'parent' } }, onAction });
+    await user.click(screen.getByRole('button', { name: 'Complete project' }));
+    expect(onAction).toHaveBeenCalledExactlyOnceWith('approve');
+  });
+
+  it('preserves Family approval and change requests for a child’s project', async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+    renderHeader({ isParent: true, isAssigned: false, project: { status: 'in_review', assigned_to: { id: 7, role: 'child' } }, onAction });
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await user.click(screen.getByRole('button', { name: 'Request changes' }));
+    expect(onAction.mock.calls).toEqual([['approve'], ['request-changes']]);
+  });
+
   it.each([
     ['2026-10-19T06:59:00Z', false],
     ['2026-10-19T07:00:00Z', true],

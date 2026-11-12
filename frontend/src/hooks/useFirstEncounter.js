@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getLorebook, updateMe } from '../api';
 import { usePulse } from '../providers/pulseContext';
 import { useAuth } from './useApi';
+import { useSpaceForUser } from './useSpace';
 
 function normalizeEntries(response) {
   const list = Array.isArray(response?.entries) ? response.entries : [];
@@ -16,6 +17,7 @@ function normalizeEntries(response) {
  */
 export function useFirstEncounter() {
   const { user, setUser } = useAuth();
+  const { isPersonalSpace } = useSpaceForUser(user);
   const { pulse } = usePulse();
   const [activeEntry, setActiveEntry] = useState(null);
   const queuedRef = useRef([]);
@@ -25,7 +27,7 @@ export function useFirstEncounter() {
 
   useEffect(() => {
     if (!pulse) return;
-    if (!user || user.role === 'parent') return;
+    if (!user || !isPersonalSpace) return;
     if (busyRef.current || activeEntry) return;
 
     const slugs = Array.isArray(pulse.newly_unlocked_lorebook)
@@ -61,7 +63,7 @@ export function useFirstEncounter() {
     };
     show();
     return () => { cancelled = true; };
-  }, [pulse, activeEntry, user]);
+  }, [pulse, activeEntry, user, isPersonalSpace]);
 
   const dismiss = useCallback(async () => {
     if (!activeEntry) return;

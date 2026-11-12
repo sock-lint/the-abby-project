@@ -7,6 +7,12 @@ import { buildUser, buildParent } from '../../test/factories';
 import { selectDropdown } from '../../test/selectDropdown';
 import { spyHandler } from '../../test/spy';
 import Reading from './index';
+import SpaceProvider from '../../providers/SpaceProvider';
+
+function AccountIdentity() {
+  const { user } = useAuth();
+  return <output aria-label="Account identity">{user?.id}:{user?.role}</output>;
+}
 
 const PICK = {
   id: 'wild-robot-escapes', title: 'The Wild Robot Escapes', author: 'Peter Brown', interests: ['animals', 'science'],
@@ -32,6 +38,44 @@ function stub({ parent = false, picks = [PICK], family = [], books = [] } = {}) 
 const suggestedCard = () => screen.findByRole('article', { name: `Suggested book: ${PICK.title}` });
 
 describe('Reading discovery', () => {
+  it('keeps My space book discovery personal without family suggestion controls or child copy', async () => {
+    stub({ parent: true });
+    sessionStorage.setItem('abby:spaces:1:90', JSON.stringify({ space: 'personal' }));
+    const reads = [];
+    server.use(http.get('*/api/reading/recommendations/', ({ request }) => {
+      reads.push({ space: request.headers.get('X-Abby-Space'), userId: new URL(request.url).searchParams.get('user_id') });
+      return HttpResponse.json({ results: [PICK], basis: 'Books picked for you.' });
+    }));
+    renderWithProviders(<SpaceProvider><Reading /><AccountIdentity /></SpaceProvider>, { route: '/quests?tab=reading&child=7' });
+    const card = await suggestedCard();
+    expect(screen.getByRole('status', { name: 'Account identity' })).toHaveTextContent('90:parent');
+    expect(reads).toContainEqual({ space: 'personal', userId: null });
+    expect(within(card).getByRole('button', { name: 'Save to want to read' })).toBeEnabled();
+    expect(screen.queryByRole('region', { name: 'Family book suggestions' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Suggestions from your family')).not.toBeInTheDocument();
+    expect(screen.queryByText('Books your parents suggest will appear here. You choose which ones to save.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Send a suggestion/ })).not.toBeInTheDocument();
+  });
+
+  it.each(['family', 'child'])('retains family book suggestions for the %s experience', async (viewer) => {
+    const parent = viewer === 'family';
+    stub({ parent, family: [FAMILY] });
+    const reads = [];
+    server.use(http.get('*/api/reading/recommendations/', ({ request }) => {
+      reads.push({ space: request.headers.get('X-Abby-Space'), userId: new URL(request.url).searchParams.get('user_id') });
+      return HttpResponse.json({ results: [PICK] });
+    }));
+    renderWithProviders(<SpaceProvider><Reading /><AccountIdentity /></SpaceProvider>, { route: '/quests?tab=reading&child=7' });
+    const card = await suggestedCard();
+    expect(screen.getByRole('region', { name: 'Family book suggestions' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Account identity' })).toHaveTextContent(parent ? '90:parent' : '7:child');
+    expect(reads).toContainEqual({ space: null, userId: parent ? '7' : null });
+    if (parent) expect(within(card).getByRole('button', { name: `Send a suggestion: ${PICK.title}` })).toBeEnabled();
+    else {
+      expect(screen.queryByRole('button', { name: /Send a suggestion/ })).not.toBeInTheDocument();
+      expect(screen.getByText('Suggestions from your family')).toBeInTheDocument();
+    }
+  });
   it('shows covers, a spoiler-free hook, formats, pages, series order, and encoded library searches with an image fallback', async () => {
     stub();
     renderWithProviders(<Reading />);

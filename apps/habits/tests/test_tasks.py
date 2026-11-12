@@ -46,8 +46,8 @@ class DecayHabitTaskTests(TestCase):
         habit.refresh_from_db()
         self.assertEqual(habit.strength, 4)
 
-    def test_decay_does_not_touch_parent_habits(self):
-        """Parent users' rows must never decay — only children own habits."""
+    def test_decay_includes_parent_personal_habits(self):
+        """Parents participating personally follow the same habit rules."""
         parent_habit = Habit.objects.create(
             name="Parent journal",
             habit_type="positive",
@@ -57,7 +57,7 @@ class DecayHabitTaskTests(TestCase):
         )
         decay_habit_strength_task()
         parent_habit.refresh_from_db()
-        self.assertEqual(parent_habit.strength, 5)
+        self.assertEqual(parent_habit.strength, 4)
 
     def test_decay_runs_across_every_family(self):
         """The Beat task is system-wide; every family's children must decay."""

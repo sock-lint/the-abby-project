@@ -28,7 +28,44 @@ class AuthoringArchiveConcurrencyTests(TransactionTestCase):
         try:
             return operation(User.objects.get(pk=self.actor.pk))
         finally:
-            close_old_connections()
+            connection.close()
+
+    def test_worker_closes_its_physical_connection_after_success(self):
+        physical_connections = []
+        expected = object()
+
+        def succeed(actor):
+            physical_connections.append(connection.connection)
+            self.assertEqual(actor.pk, self.actor.pk)
+            return expected
+
+        # Keep the executor and driver connection alive through the assertion.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            try:
+                self.assertIs(pool.submit(self.worker, succeed).result(timeout=15), expected)
+                self.assertEqual(len(physical_connections), 1)
+                self.assertTrue(physical_connections[0].closed)
+            finally:
+                pool.submit(lambda: connection.close()).result(timeout=15)
+
+    def test_worker_closes_its_physical_connection_after_error(self):
+        physical_connections = []
+        expected = RuntimeError("Synthetic archive worker failure")
+
+        def fail(actor):
+            physical_connections.append(connection.connection)
+            self.assertEqual(actor.pk, self.actor.pk)
+            raise expected
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            try:
+                with self.assertRaises(RuntimeError) as raised:
+                    pool.submit(self.worker, fail).result(timeout=15)
+                self.assertIs(raised.exception, expected)
+                self.assertEqual(len(physical_connections), 1)
+                self.assertTrue(physical_connections[0].closed)
+            finally:
+                pool.submit(lambda: connection.close()).result(timeout=15)
 
     def test_concurrent_creates_cannot_exceed_active_capacity(self):
         for _ in range(19):

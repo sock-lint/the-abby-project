@@ -5,7 +5,7 @@ earned badges. Unsupported retained definitions are reported, never rewritten.
 """
 from django.core.exceptions import ValidationError
 
-from apps.achievements.availability import badge_goal_is_available
+from apps.achievements.availability import BadgeGoalAvailability, native_badge_skill_level
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject, XP_THRESHOLDS
 from apps.achievements.taxonomy import available_for_new_choices
 from apps.pets.models import PetSpecies, PotionType
@@ -18,7 +18,7 @@ from apps.rpg.catalog_support import (
     pet_is_available, potion_is_available, potion_type_for_item,
 )
 from apps.rpg.constants import TriggerType
-from apps.rpg.content.validation import validate_badge_criteria
+from apps.rpg.content.validation import BADGE_SKILL_LEVEL_FIELDS, validate_badge_criteria
 from apps.rpg.models import DropTable, ItemDefinition
 from apps.rpg.item_effects import effect_summary
 
@@ -52,10 +52,39 @@ def catalog_page(params):
                       "next_after": selected[-1].pk if more else None}
 
 
-def _badge_available(badge):
+def _badge_availability(section, rows):
+    """Prepare global inputs for this selected page, including quest gates."""
+    availability = BadgeGoalAvailability()
+    badges = rows if section == "badges" else (
+        [row.required_badge for row in rows if row.required_badge_id] if section == "quests" else ()
+    )
+    availability.prepare_named_categories(badges)
+    return availability
+
+
+def catalog_rows(section, rows):
+    """Project one actual page with shared availability and no player state."""
+    rows = list(rows)
+    availability = _badge_availability(section, rows)
+    return [catalog_row(section, row, availability=availability) for row in rows]
+
+
+def _badge_available(badge, *, availability=None):
+    availability = availability or BadgeGoalAvailability()
     try:
-        validate_badge_criteria(badge.criteria_type, badge.criteria_value)
-        return badge_goal_is_available(badge)
+        criteria = badge.criteria_value
+        available = None
+        if badge.criteria_type in BADGE_SKILL_LEVEL_FIELDS and isinstance(criteria, dict):
+            # A read may retain native-compatible legacy level representations.
+            # Validate every other field with today's strict rules, without
+            # changing saved criteria or the audit/publication validators.
+            available = availability.is_available(badge)
+            if not available:
+                return False
+            level = native_badge_skill_level(badge.criteria_type, criteria)
+            criteria = {**criteria, BADGE_SKILL_LEVEL_FIELDS[badge.criteria_type]: max(1, level)}
+        validate_badge_criteria(badge.criteria_type, criteria)
+        return availability.is_available(badge) if available is None else available
     except (ValidationError, AttributeError, TypeError, ValueError):
         # Invalid authored criteria belong in the audit, not a failed listing.
         return False
@@ -65,7 +94,7 @@ def _item_availability(item):
     return {"runtime_available": item_is_available(item), "unavailable_reason": item_unavailable_reason(item)}
 
 
-def _quest_available(quest):
+def _quest_available(quest, *, availability=None):
     """Structural catalog availability, without inspecting a child's state."""
     from apps.quests.milestone_eligibility import validate_milestone_gate
     try:
@@ -74,11 +103,11 @@ def _quest_available(quest):
         return False
     from apps.quests.reference_locks import definitions_with_available_taxonomy
     return definitions_with_available_taxonomy(active_system_definitions()).filter(pk=quest.pk).exists() and (
-        not quest.required_badge_id or _badge_available(quest.required_badge)
+        not quest.required_badge_id or _badge_available(quest.required_badge, availability=availability)
     )
 
 
-def catalog_row(section, row):
+def catalog_row(section, row, *, availability=None):
     common = {"id": row.pk}
     if section in {"categories", "subjects", "skills"}:
         common.update(is_retired=row.is_retired, available_for_new_choices=available_for_new_choices(row))
@@ -94,7 +123,7 @@ def catalog_row(section, row):
     if section == "badges":
         return {**common, **{key: getattr(row, key) for key in (
             "name", "description", "icon", "subject_id", "criteria_type", "criteria_value", "rarity", "xp_bonus", "award_coins",
-        )}, "available_for_new_user": _badge_available(row)}
+        )}, "available_for_new_user": _badge_available(row, availability=availability)}
     if section == "items":
         return {**common, **{key: getattr(row, key) for key in (
             "slug", "name", "description", "icon", "sprite_key", "item_type", "rarity", "coin_value", "metadata",
@@ -116,7 +145,8 @@ def catalog_row(section, row):
                 "required_skill_level": row.required_skill_level,
                 "automatic_tracking_available": tracking["available"],
                 "unsupported_triggers": tracking["unsupported"],
-                "available_for_new_user": tracking["available"] and definition_is_available(row) and _quest_available(row),
+                "available_for_new_user": tracking["available"] and definition_is_available(row) and _quest_available(
+                    row, availability=availability),
                 "skill_tags": [{"skill_id": tag.skill_id, "skill_name": tag.skill.name, "xp_weight": tag.xp_weight}
                                for tag in row.skill_tags.all()],
                 "reward_items": [{"item_id": reward.item_id, "slug": reward.item.slug, "name": reward.item.name,
@@ -166,6 +196,8 @@ def _skill_cycle_ids(skills):
 def audit_catalog_rows(section, rows):
     from apps.rpg.services import ConsumableService
 
+    rows = list(rows)
+    availability = _badge_availability(section, rows)
     findings = []
     cycle_ids, incomplete = _skill_cycle_ids([row.pk for row in rows]) if section == "skills" else (set(), False)
     for row in rows:
@@ -204,7 +236,7 @@ def audit_catalog_rows(section, rows):
             except (ValidationError, TypeError, ValueError) as exc:
                 detail = "; ".join(exc.messages) if isinstance(exc, ValidationError) else "Malformed trigger filter."
                 findings.append(_finding("invalid_trigger_filter", section, row, detail, "error"))
-            if row.required_badge_id and not _badge_available(row.required_badge):
+            if row.required_badge_id and not _badge_available(row.required_badge, availability=availability):
                 findings.append(_finding("unreachable_required_badge", section, row,
                     "Required badge is unreachable through new supported acquisition; saved earned badges may still qualify."))
             if row.xp_reward and not any(tag.xp_weight > 0 for tag in row.skill_tags.all()):
@@ -226,7 +258,7 @@ def audit_catalog_rows(section, rows):
             except (ValidationError, TypeError, ValueError) as exc:
                 detail = "; ".join(exc.messages) if isinstance(exc, ValidationError) else "Malformed badge criteria."
                 findings.append(_finding("invalid_badge_criteria", section, row, detail, "error"))
-            if not _badge_available(row):
+            if not _badge_available(row, availability=availability):
                 findings.append(_finding("unreachable_badge", section, row,
                     "Goal is unreachable through new supported acquisition; saved ownership or an earned badge may still qualify."))
             criteria = row.criteria_value if isinstance(row.criteria_value, dict) else {}

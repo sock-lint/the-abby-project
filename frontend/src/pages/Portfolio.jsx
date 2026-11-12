@@ -13,6 +13,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import useBackDismiss from '../hooks/useBackDismiss';
 import BottomSheet from '../components/BottomSheet';
 import EmptyState from '../components/EmptyState';
@@ -48,7 +49,9 @@ const SORT_MODES = [
 ];
 
 export default function Portfolio() {
-  const { user, isParent } = useRole();
+  const { user } = useRole();
+  const { isFamilySpace: isParent, isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const { data, loading, error: loadError, reload } = useApi(getPortfolio);
   const { data: projectsData } = useApi(getProjects);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -377,7 +380,7 @@ export default function Portfolio() {
           </div>
           {filter === 'creations' && (
             <p className="font-script text-tiny text-ink-whisper text-center">
-              Log what you made. Your first two creations each day earn XP. Submit one for a parent to review for bonus XP.
+              {personalParent ? 'Log what you made. Your first two creations each day can earn XP.' : 'Log what you made. Your first two creations each day earn XP. Submit one for a parent to review for bonus XP.'}
             </p>
           )}
         </div>
@@ -409,7 +412,7 @@ export default function Portfolio() {
               items={group.items}
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
-              onSubmitForBonus={handleSubmitForBonus}
+              onSubmitForBonus={personalParent ? undefined : handleSubmitForBonus}
               onWithdrawCreation={handleWithdrawCreation}
               canDelete={canDelete}
             />
@@ -425,7 +428,7 @@ export default function Portfolio() {
               items={month.items}
               onOpen={openViewer}
               onRequestDelete={setPendingDelete}
-              onSubmitForBonus={handleSubmitForBonus}
+              onSubmitForBonus={personalParent ? undefined : handleSubmitForBonus}
               onWithdrawCreation={handleWithdrawCreation}
               canDelete={canDelete}
               showMeta

@@ -10,6 +10,16 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+SOURCE_KEYS = {
+    "clock_out": "time_entry_id", "chore_complete": "completion_id",
+    "homework_complete": "submission_id", "homework_created": "assignment_id",
+    "habit_log": "habit_log_id", "movement_session": "session_id",
+    "project_complete": "project_id", "milestone_complete": "milestone_id",
+    "creation_logged": "creation_id", "journal_entry": "entry_id",
+    "savings_goal_complete": "savings_goal_id", "expedition_returned": "expedition_id",
+    "reading_logged": "reading_reward_id",
+}
+
 
 def household_timezone(user):
     try:
@@ -19,7 +29,8 @@ def household_timezone(user):
 
 
 def _tags(manager, weight="xp_weight"):
-    return [{"skill_id": tag.skill_id, "xp_weight": getattr(tag, weight, 1)} for tag in manager.all()]
+    return [{"skill_id": tag.skill_id, "category_id": tag.skill.category_id,
+             "xp_weight": getattr(tag, weight, 1)} for tag in manager.select_related("skill")]
 
 
 def _homework_work_day(submission):
@@ -40,27 +51,28 @@ def resolve_activity(user, trigger_type, context):
     """Only accepted source records count; incoming arbitrary quantities do not."""
     trigger = str(trigger_type)
     sources = {
-        "clock_out": ("time_entry_id", "timecards.TimeEntry", {"user": user, "status": "completed"}),
-        "chore_complete": ("completion_id", "chores.ChoreCompletion", {"user": user, "status": "approved"}),
-        "homework_complete": ("submission_id", "homework.HomeworkSubmission", {"user": user, "status": "approved"}),
-        "homework_created": ("assignment_id", "homework.HomeworkAssignment", {"assigned_to": user, "is_active": True}),
-        "habit_log": ("habit_log_id", "habits.HabitLog", {"user": user, "direction": 1}),
-        "movement_session": ("session_id", "movement.MovementSession", {"user": user}),
-        "project_complete": ("project_id", "projects.Project", {"assigned_to": user, "status": "completed"}),
-        "milestone_complete": ("milestone_id", "projects.ProjectMilestone", {"project__assigned_to": user, "is_completed": True}),
-        "creation_logged": ("creation_id", "creations.Creation", {"user": user}),
-        "journal_entry": ("entry_id", "chronicle.ChronicleEntry", {"user": user, "kind": "journal"}),
-        "savings_goal_complete": ("savings_goal_id", "projects.SavingsGoal", {
+        "clock_out": ("timecards.TimeEntry", {"user": user, "status": "completed"}),
+        "chore_complete": ("chores.ChoreCompletion", {"user": user, "status": "approved"}),
+        "homework_complete": ("homework.HomeworkSubmission", {"user": user, "status": "approved"}),
+        "homework_created": ("homework.HomeworkAssignment", {"assigned_to": user, "is_active": True}),
+        "habit_log": ("habits.HabitLog", {"user": user, "direction": 1}),
+        "movement_session": ("movement.MovementSession", {"user": user}),
+        "project_complete": ("projects.Project", {"assigned_to": user, "status": "completed"}),
+        "milestone_complete": ("projects.ProjectMilestone", {"project__assigned_to": user, "is_completed": True}),
+        "creation_logged": ("creations.Creation", {"user": user}),
+        "journal_entry": ("chronicle.ChronicleEntry", {"user": user, "kind": "journal"}),
+        "savings_goal_complete": ("projects.SavingsGoal", {
             "user": user, "completed_at__isnull": False, "reward_qualifies": True,
         }),
-        "expedition_returned": ("expedition_id", "pets.MountExpedition", {"mount__user": user, "status": "claimed"}),
-        "reading_logged": ("reading_reward_id", "reading.ReadingDailyReward", {
+        "expedition_returned": ("pets.MountExpedition", {"mount__user": user, "status": "claimed"}),
+        "reading_logged": ("reading.ReadingDailyReward", {
             "user": user, "awarded_at__isnull": False,
         }),
     }
     if trigger not in sources:
         return None
-    key, model_name, filters = sources[trigger]
+    key = SOURCE_KEYS[trigger]
+    model_name, filters = sources[trigger]
     pk = context.get(key)
     if not pk:
         return None
@@ -98,6 +110,10 @@ def resolve_activity(user, trigger_type, context):
         occurred_at = source.completed_at or occurred_at
         safe_context = {"project_id": source.project_id, "milestone_id": source.pk,
                         "skill_tags": _tags(source.project.skill_tags)}
+        # Native milestone XP uses its own fixed tags, with a project fallback.
+        # Keep the existing bonus-XP context while freezing separate category
+        # evidence; changing category matching must not redirect that bonus.
+        safe_context["category_skill_tags"] = _tags(source.skill_tags, "xp_amount") or safe_context["skill_tags"]
     elif trigger == "savings_goal_complete":
         occurred_at = source.completed_at
         safe_context = {"savings_goal_id": source.pk}
@@ -118,6 +134,31 @@ def resolve_activity(user, trigger_type, context):
             "occurred_at": occurred_at, "occurred_on": occurred_on, "context": safe_context}
 
 
+def resolve_category_context(user, trigger_type, context):
+    """Prefer the exact saved source snapshot, never incoming category claims.
+
+    Older internal progress calls can still supply their scalar category when
+    they have no saved-source selector. A supplied invalid/foreign source fails
+    closed. Existing facts without category evidence stay historical unknowns.
+    """
+    from .models import ChallengeActivity
+
+    trigger = str(trigger_type)
+    key = SOURCE_KEYS.get(trigger)
+    if key is None or key not in context:
+        return {"skill_category_id": context.get("skill_category_id")}
+    source_id = context.get(key)
+    if not source_id:
+        return {}
+    fact = ChallengeActivity.objects.filter(
+        user=user, source_type=trigger, source_id=str(source_id), trigger_type=trigger,
+    ).first()
+    if fact is not None:
+        return {} if fact.voided else fact.context
+    data = resolve_activity(user, trigger, context)
+    return data["context"] if data is not None else {}
+
+
 @transaction.atomic
 def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
     """Freeze the source service's daily-counter decision before any evaluator.
@@ -127,7 +168,7 @@ def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
     credit, while parent-authored goals still count their saved work.
     """
     from .models import ChallengeActivity
-    if str(trigger_type) not in {"homework_created", "creation_logged"} or user.role != "child":
+    if str(trigger_type) not in {"homework_created", "creation_logged"} or user.role not in {"child", "parent"}:
         return
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
     data = resolve_activity(user, trigger_type, context)
@@ -151,7 +192,7 @@ def freeze_milestone_eligibility(user, trigger_type, context):
     """
     from .goals import _catalog_goals
     from .models import ChallengeActivity
-    if str(trigger_type) != "reading_logged" or user.role != "child":
+    if str(trigger_type) != "reading_logged" or user.role not in {"child", "parent"}:
         return
     from .milestone_eligibility import gated_definitions
     if not gated_definitions().exists():
@@ -173,7 +214,7 @@ def record_activity(user, trigger_type, context=None):
     """Persist before evaluation so a failed downstream step stays retryable."""
     from .models import ChallengeActivity
     data = resolve_activity(user, trigger_type, context or {})
-    if data is None or user.role != "child":
+    if data is None or user.role not in {"child", "parent"}:
         return {"goals": [], "daily_bonus": None}
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
     identity = {field: data[field] for field in ("source_type", "source_id", "trigger_type")}
@@ -208,7 +249,7 @@ def retry_pending_activity(user=None, limit=100):
     from .goals import ingest_activity
     from .daily_bonus import process_daily_bonus
     query = ChallengeActivity.objects.filter(
-        processed_at__isnull=True, voided=False, user__is_active=True, user__role="child",
+        processed_at__isnull=True, voided=False, user__is_active=True, user__role__in=["child", "parent"],
     ).select_related("user__family")
     if user is not None:
         query = query.filter(user=user)

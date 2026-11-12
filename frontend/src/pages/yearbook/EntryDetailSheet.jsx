@@ -32,7 +32,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
   const canEdit = isOwner && isSameDay
   const isPrivate = isPersonalEntry && (isDailyNote || entry.is_private !== false)
 
-  if (isPrivate && isParent) {
+  if (isPrivate && isParent && entry.user !== user?.id) {
     return (
       <BottomSheet title={isGrade ? 'Private grade entry' : 'Private journal entry'} onClose={onClose}>
         <p className="text-body">This {isGrade ? 'grade' : 'journal'} entry is only visible to its author.</p>
@@ -67,7 +67,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
               size="sm"
               icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}
             >
-              {isPrivate ? 'Only me' : 'Shared with parents'}
+              {isPrivate ? 'Only me' : isParent && entry.user === user?.id ? 'Shared with co-parents' : 'Shared with parents'}
             </RuneBadge>
           )}
         </div>

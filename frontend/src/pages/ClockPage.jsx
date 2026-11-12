@@ -6,6 +6,7 @@ import { Play, Square, Ban } from 'lucide-react';
 import { getClockStatus, clockIn, clockOut, getProject, getProjects, getTimeEntries, voidTimeEntry } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
@@ -41,6 +42,8 @@ export default function ClockPage() {
 function ClockPageBody({ requestedProjectId }) {
   const reducedMotion = usePrefersReducedMotion();
   const { user, isParent } = useRole();
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const hasRequestedProject = requestedProjectId !== null;
   const validRequestedId = /^[1-9]\d*$/.test(requestedProjectId || '')
     && Number.isSafeInteger(Number(requestedProjectId));
@@ -175,7 +178,7 @@ function ClockPageBody({ requestedProjectId }) {
       <div>
         <PageHeader title="Time tracking" kicker="Track your project work" />
         <p className="font-body text-body text-ink-secondary mt-1">
-          Log project time to earn coins, XP, and weekly pay.
+          {personalParent ? 'Log project time to earn coins and XP.' : 'Log project time to earn coins, XP, and weekly pay.'}
         </p>
       </div>
 
@@ -249,7 +252,8 @@ function ClockPageBody({ requestedProjectId }) {
                   <div className="font-script text-body text-ink-whisper mt-3">
                     {clockBusy
                       ? 'Clocking out…'
-                      : 'Clock out to save this session to your weekly timecard.'}
+                      : personalParent ? 'Clock out to save this project session.'
+                        : 'Clock out to save this session to your weekly timecard.'}
                   </div>
                 </motion.div>
               ) : (
@@ -385,7 +389,9 @@ function ClockPageBody({ requestedProjectId }) {
       {confirmingClockOut && (
         <ConfirmDialog
           title={`Clock out after ${formatTime(elapsed)}?`}
-          message="This saves your session to your weekly timecard. Only a parent can void the entry afterward."
+          message={personalParent
+            ? 'This saves your project session. You can void the entry afterward if needed.'
+            : 'This saves your session to your weekly timecard. Only a parent can void the entry afterward.'}
           confirmLabel="Clock out"
           onConfirm={confirmClockOut}
           onCancel={() => setConfirmingClockOut(false)}

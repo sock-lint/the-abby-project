@@ -11,6 +11,7 @@ export default function ProjectOverridesCard({
   draft, setDraft,
   overrides, setOverrides,
   categories,
+  personal = false,
 }) {
   const setOverride = (k) => (e) => setOverrides({ ...overrides, [k]: e.target.value });
 
@@ -49,12 +50,12 @@ export default function ProjectOverridesCard({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <TextField
+        {!personal && <TextField
           label="Bonus ($)"
           value={overrides.bonus_amount}
           onChange={setOverride('bonus_amount')}
           type="number" step="0.01" min="0" inputMode="decimal"
-        />
+        />}
         <TextField
           label="Materials Budget ($)"
           value={overrides.materials_budget}

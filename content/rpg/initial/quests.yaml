@@ -82,7 +82,7 @@ quests:
 
   # 2026-04-23 — bumped from 75c to 100c to land in the Easy-tier band.
   - name: Focus Master
-    description: Clock 20 hours of focused project work to defeat the distraction monster!
+    description: Deal 200 damage through tracked project work (10 damage per tracked hour) to defeat the distraction monster! Damage is rounded down for each completed session.
     icon: "🧠"
     sprite_key: quest-focus-master
     quest_type: boss
@@ -503,7 +503,7 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   - name: The Summer Before High School
-    description: A 90-day quest to build rock-solid habits before freshman year. Every habit tap, chore, and assignment chips away at the boss.
+    description: A 90-day quest to build rock-solid habits before freshman year. Positive habit taps and other qualifying activities chip away at the boss.
     icon: "⚔️"
     sprite_key: quest-summer-before-hs
     quest_type: boss
@@ -1019,12 +1019,11 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   # ─── Savings-goal quest (2026-04-22) ────────────────────────────────────
-  # Uses the ``savings_goal_id`` filter, wired into QuestService.record_progress
-  # in the same commit. Parent-assignable; target_value 1 because completion
-  # is a single event (the goal being marked complete).
+  # Automatic savings-goal challenge. One qualifying completion fills the
+  # target; eligibility comes from the server-owned savings reward policy.
 
   - name: Hoard Builder
-    description: "Finish one savings goal during this challenge window. Any completed savings goal counts unless a parent adds a specific goal filter."
+    description: "Complete one qualifying savings goal during this challenge window. Saving partway earns no progress. For new goals, at least some savings must be new: money already held when you create or change the target, already counted, or reserved for an older goal cannot qualify. If one savings update completes several new goals, only one can count."
     icon: "🏦"
     sprite_key: quest-hoard-builder
     quest_type: collection
@@ -1505,6 +1504,120 @@ quests:
     is_system: true
     reward_items:
     - slug: meshtint-hermit-crab-egg
+      quantity: 1
+    - slug: ice-potion
+      quantity: 1
+    skill_tags:
+    - skill: Life Skills::Persistence
+      weight: 1
+
+  # Owner-accepted Ghost and Potted Plant exact-pair discovery bundles.
+  - name: Ember Wisp
+    description: 'Discover a Fire Ghost: finish 20 approved chores or homework assignments, project milestones,
+      whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days.
+      The first two creations each day count. Earn one Ghost Egg and one Fire potion.'
+    icon: 🔥
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers:
+      - chore_complete
+      - homework_complete
+      - milestone_complete
+      - project_complete
+      - creation_logged
+      - reading_logged
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+    - slug: meshtint-ghost-egg
+      quantity: 1
+    - slug: fire-potion
+      quantity: 1
+    skill_tags:
+    - skill: Life Skills::Persistence
+      weight: 1
+  - name: Frost Wisp
+    description: 'Discover an Ice Ghost: finish 20 approved chores or homework assignments, project milestones,
+      whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days.
+      The first two creations each day count. Earn one Ghost Egg and one Ice potion.'
+    icon: ❄️
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers:
+      - chore_complete
+      - homework_complete
+      - milestone_complete
+      - project_complete
+      - creation_logged
+      - reading_logged
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+    - slug: meshtint-ghost-egg
+      quantity: 1
+    - slug: ice-potion
+      quantity: 1
+    skill_tags:
+    - skill: Life Skills::Persistence
+      weight: 1
+  - name: Ember Sprout
+    description: 'Discover a Fire Seed: finish 5 approved chores or homework assignments, project milestones,
+      whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days.
+      The first two creations each day count. Earn one Seed Egg and one Fire potion.'
+    icon: 🔥
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers:
+      - chore_complete
+      - homework_complete
+      - milestone_complete
+      - project_complete
+      - creation_logged
+      - reading_logged
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+    - slug: meshtint-potted-plant-egg
+      quantity: 1
+    - slug: fire-potion
+      quantity: 1
+    skill_tags:
+    - skill: Life Skills::Persistence
+      weight: 1
+  - name: Frost Sprout
+    description: 'Discover an Ice Seed: finish 5 approved chores or homework assignments, project milestones,
+      whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days.
+      The first two creations each day count. Earn one Seed Egg and one Ice potion.'
+    icon: ❄️
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers:
+      - chore_complete
+      - homework_complete
+      - milestone_complete
+      - project_complete
+      - creation_logged
+      - reading_logged
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+    - slug: meshtint-potted-plant-egg
       quantity: 1
     - slug: ice-potion
       quantity: 1

@@ -5,14 +5,16 @@ import { getFamilyChildren } from '../api';
 import { getToken } from '../api/client';
 import { normalizeList } from '../utils/api';
 import { useRole } from './useRole';
+import { useSpace } from './useSpace';
 
 // URLs carry only a child ID. It is usable only after the current account's
 // family roster verifies it; credentials and child data never enter the URL.
 // Remember only the selected ID per parent/family; verify it on every mount.
 export default function useChildContext() {
-  const { user, isParent } = useRole();
+  const { user } = useRole();
+  const { isFamilySpace: isParent, isParentAccount, space } = useSpace();
   const [params, setParams] = useSearchParams();
-  const accountScope = `${user?.id}:${user?.role}:${user?.family?.id ?? ''}:${getToken()}`;
+  const accountScope = `${user?.id}:${user?.role}:${user?.family?.id ?? ''}:${getToken()}:${space}`;
   const [state, setState] = useState(null);
   const [revision, setRevision] = useState(0);
   const current = state?.scope === accountScope ? state : null;
@@ -45,7 +47,7 @@ export default function useChildContext() {
     setParams(next, { replace: true });
   };
   return {
-    user, isParent, children, selectedChild, selectChild,
+    user, isParent, isParentAccount, children: children ?? (isParent ? null : []), selectedChild, selectChild,
     targetUserId: isParent ? selectedChild?.id ?? null : user?.id,
     scope: accountScope,
     loading: isParent && !current,

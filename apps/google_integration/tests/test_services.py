@@ -5,6 +5,7 @@ import base64
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlsplit
 
+from cryptography.fernet import InvalidToken
 from django.test import TestCase, override_settings
 
 from apps.google_integration.models import CalendarEventMapping, GoogleAccount
@@ -12,6 +13,7 @@ from apps.google_integration.services import (
     GoogleAuthService,
     _decrypt,
     _encrypt,
+    _fernet,
     _legacy_encrypt,
 )
 from apps.projects.models import User
@@ -103,11 +105,14 @@ class LegacyToFernetMigrationOnRefreshTests(TestCase):
         # Manually plant a legacy-format row to simulate "this account
         # was linked before audit H3 landed".
         import json
-        legacy_cipher = _legacy_encrypt(json.dumps({
-            "token": "old-token",
-            "refresh_token": "refresh",
-            "expiry": "2000-01-01T00:00:00",
-        }).encode())
+        # A valid legacy salt can start with Fernet's version byte. Always
+        # exercise that collision without changing production encryption.
+        with patch("apps.google_integration.services.os.urandom", return_value=b"\x80" + b"\x00" * 15):
+            legacy_cipher = _legacy_encrypt(json.dumps({
+                "token": "old-token",
+                "refresh_token": "refresh",
+                "expiry": "2000-01-01T00:00:00",
+            }).encode())
         self.account = GoogleAccount.objects.create(
             user=self.user,
             google_id="g-rotate",
@@ -116,14 +121,12 @@ class LegacyToFernetMigrationOnRefreshTests(TestCase):
         )
 
     def test_legacy_ciphertext_present_initially(self):
-        # Sanity: the planted row is NOT Fernet (no 0x80 prefix).
+        # The salt prefix does not identify the format; authenticated Fernet
+        # parsing must reject this valid legacy row before fallback decrypts it.
         raw = bytes(self.account.encrypted_credentials)
-        self.assertNotEqual(raw[:1], b"\x80")
-        # First byte after b64 decode is NOT 0x80 either (it's a random
-        # salt byte from the legacy scheme).
-        # We can't assert "not Fernet" by trying to b64-decode legacy
-        # output (might happen to be valid b64), so just check decrypt
-        # works via the legacy path.
+        self.assertEqual(raw[:1], b"\x80")
+        with self.assertRaises(InvalidToken):
+            _fernet().decrypt(raw)
         creds = GoogleAuthService.decrypt_credentials(raw)
         self.assertEqual(creds["token"], "old-token")
 

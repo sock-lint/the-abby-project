@@ -13,10 +13,10 @@ against the Celery tasks that used to iterate globally.
 from __future__ import annotations
 
 from datetime import date
+from unittest.mock import patch
 
 from django.test import TestCase
 
-from apps.families.models import Family
 from apps.families.queries import (
     children_across_families,
     children_in,
@@ -60,7 +60,6 @@ class HelperFamilyScopingTests(TestCase):
 
     def test_extra_filters_applied_per_family(self):
         # date_of_birth filter only matches one of our seeded children.
-        from apps.accounts.models import User
         target = self.f1.children[0]
         target.date_of_birth = date(2015, 5, 15)
         target.save(update_fields=["date_of_birth"])
@@ -128,8 +127,14 @@ class TaskFamilyScopingTests(TestCase):
     def test_decay_habits_iterates_every_family(self):
         from apps.habits.tasks import decay_habit_strength_task
 
-        result = decay_habit_strength_task()
-        self.assertIn("across 2 children", result)
+        people = [*self.f1.parents, *self.f1.children, *self.f2.parents, *self.f2.children]
+        with patch("apps.habits.services.HabitService.decay_all_habits", return_value=1) as decay:
+            result = decay_habit_strength_task()
+        self.assertCountEqual(
+            [call.args[0].pk for call in decay.call_args_list],
+            [person.pk for person in people],
+        )
+        self.assertEqual(result, "Habit decay complete: 4 habits decayed across 4 people.")
 
     def test_daily_bonus_repair_keeps_each_familys_facts_and_rewards_separate(self):
         from apps.quests.tasks import rotate_daily_challenges_task

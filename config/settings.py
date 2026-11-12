@@ -593,9 +593,9 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 ).split(",")
 CORS_ALLOW_CREDENTIALS = True
 
-# The public sprite catalog revalidates its ETag from packaged WebViews.
+# Packaged WebViews revalidate the public catalog and select a parent space.
 # Origins still come from CORS_ALLOWED_ORIGINS; this adds no origin access.
-CORS_ALLOW_HEADERS = (*default_headers, "if-none-match")
+CORS_ALLOW_HEADERS = (*default_headers, "if-none-match", "x-abby-space")
 
 # Cache (Redis)
 

@@ -10,12 +10,14 @@ beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
 afterEach(() => vi.useRealTimers());
 
 describe('Elemental hatch and evolution celebrations', () => {
-  const snakeCrab = [
+  const elementalFamilies = [
     ['meshtint-snake', 'Snakelet', 'Snake', 'Snake Naga', 'snake-egg-portrait'],
     ['meshtint-hermit-crab', 'Shell', 'Spike', 'Hermit King', 'hermit-crab-egg-portrait'],
+    ['meshtint-ghost', 'Ghost', 'Spook', 'Phantom', 'ghost-egg-portrait'],
+    ['meshtint-potted-plant', 'Seed', 'Sprout', 'Flower Pot Monster', 'potted-plant-egg-portrait'],
   ].flatMap((family) => ['fire', 'ice'].map((potion) => [...family, potion]));
 
-  it.each(snakeCrab)('preserves the natural %s egg and exact %s Baby appearance through the ordinary hatch celebration', async (slug, baby, _middle, _grown, eggId, element) => {
+  it.each(elementalFamilies)('preserves the natural %s egg and exact %s Baby appearance through the ordinary hatch celebration', async (slug, baby, _middle, _grown, eggId, element) => {
     const species = { slug, sprite_key: slug, name: baby }, potion = { slug: element, name: element };
     renderWithProviders(<PetCeremonyModal mode="hatch" pet={{ id: 91, species, potion }} onDismiss={() => {}} />, { withAuth: false });
     expect(screen.getByRole('img', { name: 'egg' })).toHaveAttribute('data-asset-id', eggId);
@@ -24,7 +26,7 @@ describe('Elemental hatch and evolution celebrations', () => {
     expect(screen.getByRole('img', { name: baby })).toHaveAttribute('data-potion', element);
   });
 
-  it.each(snakeCrab)('shows the confirmed %s %s Baby immediately with reduced motion', (slug, baby, _middle, _grown, _eggId, element) => {
+  it.each(elementalFamilies)('shows the confirmed %s %s Baby immediately with reduced motion', (slug, baby, _middle, _grown, _eggId, element) => {
     renderWithProviders(<PetCeremonyModal mode="hatch" pet={{ id: 91, species: { slug, sprite_key: slug, name: baby }, potion: { slug: element, name: element } }}
       reducedMotion onDismiss={() => {}} />, { withAuth: false });
     expect(screen.queryByRole('img', { name: 'egg' })).toBeNull();
@@ -32,7 +34,7 @@ describe('Elemental hatch and evolution celebrations', () => {
     expect(screen.getByRole('img', { name: baby })).toHaveAttribute('data-potion', element);
   });
 
-  it.each(snakeCrab)('preserves confirmed %s %s Middle and Grown fallback sprites during evolution', async (slug, baby, middle, grown, _eggId, element) => {
+  it.each(elementalFamilies)('preserves confirmed %s %s Middle and Grown fallback sprites during evolution', async (slug, baby, middle, grown, _eggId, element) => {
     renderWithProviders(<PetCeremonyModal mode="evolve" species={{ slug, sprite_key: slug, name: baby }} potion={{ slug: element, name: element }}
       fromStage="middle" onDismiss={() => {}} />, { withAuth: false });
     expect(screen.getByRole('img', { name: middle })).toHaveAttribute('data-sprite-key', `${slug}-middle`);
@@ -41,7 +43,7 @@ describe('Elemental hatch and evolution celebrations', () => {
     expect(screen.getByRole('img', { name: grown })).toHaveAttribute('data-potion', element);
   });
 
-  it.each(snakeCrab)('shows the confirmed %s %s Grown fallback directly with reduced motion', (slug, baby, middle, grown, _eggId, element) => {
+  it.each(elementalFamilies)('shows the confirmed %s %s Grown fallback directly with reduced motion', (slug, baby, middle, grown, _eggId, element) => {
     renderWithProviders(<PetCeremonyModal mode="evolve" species={{ slug, sprite_key: slug, name: baby }} potion={{ slug: element, name: element }}
       fromStage="middle" reducedMotion onDismiss={() => {}} />, { withAuth: false });
     expect(screen.queryByRole('img', { name: middle })).toBeNull();

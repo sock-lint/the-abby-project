@@ -17,6 +17,7 @@ import { useApi } from '../hooks/useApi';
 import useMountedRef from '../hooks/useMountedRef';
 import { useFormState } from '../hooks/useFormState';
 import useChildContext from '../hooks/useChildContext';
+import { useSpace } from '../hooks/useSpace';
 import ChildContext from '../components/family/ChildContext';
 import { getFamilyChores, getFamilyChoreProposals, getFamilyChoreCompletions } from '../api';
 import ApprovalQueue from '../components/ApprovalQueue';
@@ -60,13 +61,15 @@ const STATUS_TONE = {
 };
 
 function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mode, onClose, onSaved }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   // mode: 'create' | 'edit' | 'approve'. Resolved by caller so labels + submit
   // routing are unambiguous (approve has its own endpoint).
   const mounted = useMountedRef();
   const resolvedMode = mode || (chore ? 'edit' : 'create');
   const isApprove = resolvedMode === 'approve';
   const isEdit = resolvedMode === 'edit';
-  const canSetRewards = isParent;
+  const canSetRewards = isParent || personalParent;
   const [advanced, setAdvanced] = useState(resolvedMode !== 'create');
   const [offerReward, setOfferReward] = useState(Number(chore?.reward_amount) > 0 || Number(chore?.coin_reward) > 0);
 
@@ -115,7 +118,7 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
           ? form.schedule_start_date || null : null,
       };
       const parentExtras = canSetRewards ? {
-        reward_amount: offerReward ? form.reward_amount : '0.00',
+        reward_amount: offerReward && !personalParent ? form.reward_amount : '0.00',
         coin_reward: offerReward ? parseInt(form.coin_reward) || 0 : 0,
         xp_reward: parseInt(form.xp_reward) || 0,
         assigned_to: form.assigned_to ? parseInt(form.assigned_to) : null,
@@ -148,10 +151,10 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
     ? 'Approve chore proposal'
     : isEdit
       ? 'Edit chore'
-      : isParent ? 'New chore' : 'Propose a chore';
+      : canSetRewards ? 'New chore' : 'Propose a chore';
   const submitLabel = isApprove ? 'Approve & publish'
     : isEdit ? 'Update'
-    : isParent ? 'Create' : 'Send to parent';
+    : canSetRewards ? 'Create' : 'Send to parent';
 
   return (
     <BottomSheet title={title} onClose={onClose} disabled={saving} dirty={dirty}>
@@ -191,9 +194,9 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
           </>}
         </>}
         {canSetRewards && <>
-          <CheckboxField label="Offer money or coins (optional)" checked={offerReward} onChange={(event) => setOfferReward(event.target.checked)} />
+          <CheckboxField label={personalParent ? 'Offer Coins (optional)' : 'Offer money or coins (optional)'} checked={offerReward} onChange={(event) => setOfferReward(event.target.checked)} />
           {offerReward && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
+            {!personalParent && <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />}
             <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
           </div>}
           <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>
@@ -226,6 +229,8 @@ export default function Chores() {
 }
 
 function ChoresWorkspace({ context }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const mounted = useMountedRef();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
@@ -242,7 +247,7 @@ function ChoresWorkspace({ context }) {
     isParent ? getFamilyChoreProposals : listMyChoreProposals,
     [isParent],
   );
-  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi((signal) => isParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]), [isParent]);
+  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi((signal) => isParent || personalParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]), [isParent, personalParent]);
 
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
@@ -385,10 +390,13 @@ function ChoresWorkspace({ context }) {
     setShowForm(true);
   };
 
-  const doneCount = chores.filter(
+  // Personal lists retain unavailable chores for editing. Only today's
+  // available work and current submissions belong in the progress summary.
+  const progressChores = isParent ? chores : chores.filter((c) => c.is_available || c.today_status != null);
+  const doneCount = progressChores.filter(
     (c) => c.is_done || c.today_status === 'approved' || c.today_status === 'pending',
   ).length;
-  const progressPct = chores.length > 0 ? Math.round((doneCount / chores.length) * 100) : 0;
+  const progressPct = progressChores.length > 0 ? Math.round((doneCount / progressChores.length) * 100) : 0;
   const versoStats = isParent
     ? [
       { value: completionsData === null ? '—' : pendingCompletions.length, label: 'awaiting approval' },
@@ -396,12 +404,12 @@ function ChoresWorkspace({ context }) {
     ]
     : [
       { value: choresData === null ? '—' : doneCount, label: 'done today' },
-      { value: choresData === null ? '—' : chores.length, label: 'chores' },
+      { value: choresData === null ? '—' : progressChores.length, label: 'chores' },
     ];
   const versoProgressLabel = choresData === null ? 'Chores unavailable' : isParent
     ? `${chores.length} chores added`
-    : (chores.length > 0
-      ? `${doneCount} of ${chores.length} done today`
+    : (progressChores.length > 0
+      ? `${doneCount} of ${progressChores.length} done today`
       : 'No chores today');
 
   // Track which rubric numeral comes next so empty sections don't burn
@@ -436,7 +444,7 @@ function ChoresWorkspace({ context }) {
             onClick={openCreate}
             className="flex items-center gap-1"
           >
-            <Plus size={14} /> {isParent ? 'New chore' : 'Propose a chore'}
+            <Plus size={14} /> {isParent || personalParent ? 'New chore' : 'Propose a chore'}
           </Button>
         </div>
 
@@ -530,7 +538,7 @@ function ChoresWorkspace({ context }) {
         <section>
           <ChapterRubric
             index={nextRubric()}
-            name={isParent ? 'All chores' : "Today's chores"}
+            name={isParent ? 'All chores' : personalParent ? 'My chores' : "Today's chores"}
             icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
           />
           {chores.length > 0 && (
@@ -568,7 +576,7 @@ function ChoresWorkspace({ context }) {
                     <div className="flex-1 min-w-0">
                       <div className="font-body text-body font-medium text-ink-primary flex items-center gap-2">
                         {chore.title}
-                        {isParent && !chore.is_active && (
+                        {(isParent || personalParent) && !chore.is_active && (
                           <RuneBadge tone="ink" size="sm">inactive</RuneBadge>
                         )}
                       </div>
@@ -582,9 +590,9 @@ function ChoresWorkspace({ context }) {
                           ~130px at 360px — wraps like its Study and Forge
                           siblings instead of painting past the card edge. */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-script text-caption text-ink-whisper">
-                        <span className="flex items-center gap-0.5">
+                        {!personalParent && <span className="flex items-center gap-0.5">
                           <DollarSign size={10} />{chore.reward_amount}
-                        </span>
+                        </span>}
                         <span className="flex items-center gap-0.5">
                           <CoinIcon size={10} />{chore.coin_reward}
                         </span>
@@ -657,6 +665,10 @@ function ChoresWorkspace({ context }) {
                           <Check size={14} /> Done
                         </Button>
                       ) : null}
+                      {personalParent && <div className="flex gap-1 mt-1">
+                        <IconButton variant="secondary" onClick={() => openEdit(chore)} aria-label="Edit chore"><Pencil size={16} /></IconButton>
+                        <IconButton variant="danger" onClick={() => setDeleteConfirm(chore.id)} aria-label="Delete chore"><Trash2 size={16} /></IconButton>
+                      </div>}
                     </div>
                   </div>
                   {calendarEvent && (
@@ -693,7 +705,7 @@ function ChoresWorkspace({ context }) {
                       </div>
                       <SubmissionTiming record={c} kind="chore" timezone={context.user.family?.timezone} />
                       <div className="font-script text-caption text-ink-whisper">
-                        ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                        {!personalParent && <>${c.reward_amount_snapshot} + </>}{c.coin_reward_snapshot} coins
                       </div>
                     </div>
                   </div>

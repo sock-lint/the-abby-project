@@ -1,0 +1,53 @@
+{
+  "child": {
+    "id": 7,
+    "display_name": "Abby"
+  },
+  "level": 0,
+  "coin_balance": 45,
+  "skills": [
+    {
+      "id": 803,
+      "user": 7,
+      "skill": 802,
+      "skill_name": "Drawing",
+      "skill_icon": "",
+      "skill_catalog_icon": null,
+      "category_name": "Creative practice",
+      "subject_name": null,
+      "xp_points": 25,
+      "level": 1,
+      "unlocked": true,
+      "xp_to_next_level": 275
+    }
+  ],
+  "badges": [
+    {
+      "id": 805,
+      "user": 7,
+      "badge": {
+        "id": 804,
+        "name": "First drawing",
+        "description": "",
+        "icon": "",
+        "catalog_icon": null,
+        "subject": null,
+        "criteria_type": "manual",
+        "criteria_value": {},
+        "xp_bonus": 0,
+        "rarity": "common",
+        "catalog_available": true,
+        "coin_bonus": 5
+      },
+      "earned_at": "2026-10-18T19:00:00-07:00"
+    }
+  ],
+  "pets": [],
+  "mounts": [],
+  "counts": {
+    "skills": 1,
+    "badges": 1,
+    "pets": 0,
+    "mounts": 0
+  }
+}

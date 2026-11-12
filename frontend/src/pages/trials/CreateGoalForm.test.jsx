@@ -1,21 +1,141 @@
 import { selectDropdown } from '../../test/selectDropdown';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useEffect, useState } from 'react';
 import { delay, http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, within, waitFor } from '../../test/render';
+import { renderWithProviders, screen, within, waitFor, act } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import { buildChallengeGoal } from '../../test/challenges';
 import { buildUser } from '../../test/factories';
 import CreateGoalForm from './CreateGoalForm';
 
-function renderForm() {
+function renderForm(props = {}) {
   server.use(http.get('*/api/movement-types/', () => HttpResponse.json([{ id: 3, name: 'Run' }])));
-  return renderWithProviders(<CreateGoalForm children={[{ id: 7, display_name: 'Abby' }]} />);
+  return renderWithProviders(<CreateGoalForm children={[{ id: 7, display_name: 'Abby' }]} {...props} />);
 }
 
 beforeEach(() => { server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser()))); });
 
 describe('Parent measurable challenges', () => {
+  it('omits inactive children while keeping active and legacy roster entries selectable', async () => {
+    const { user } = renderForm({ children: [
+      buildUser({ id: 7, display_name: 'Inactive child', is_active: false }),
+      buildUser({ id: 8, display_name: 'Active child', is_active: true }),
+      buildUser({ id: 9, display_name: 'Legacy active child' }),
+    ] });
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await user.click(screen.getByLabelText('Child'));
+    const choices = within(screen.getByRole('listbox'));
+    expect(choices.queryByRole('option', { name: 'Inactive child' })).not.toBeInTheDocument();
+    expect(choices.getByRole('option', { name: 'Active child', exact: true })).toBeVisible();
+    expect(choices.getByRole('option', { name: 'Legacy active child' })).toBeVisible();
+  });
+
+  it.each([false, true])('uses an active child when the initial child is inactive (requested open: %s)', async (requestOpen) => {
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    const { user } = renderForm({ requestOpen, initialChildId: 7, children: [
+      buildUser({ id: 7, display_name: 'Inactive child', is_active: false }),
+      buildUser({ id: 8, display_name: 'Active child', is_active: true }),
+    ] });
+    if (!requestOpen) await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Create challenge' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].url).toMatch(/\/api\/challenges\/goals\/$/);
+    expect(create.calls[0].body).toEqual({
+      request_id: expect.stringMatching(/^[a-f0-9-]{36}$/), user_id: 8,
+      name: 'Approved chores · 2 activities this week', trigger_type: 'chore_complete',
+      metric: 'count', target: '2', unit: 'actions', period: 'this_week', repeat_weekly: false,
+      coin_reward: 10, xp_reward: 0, skill_tags: [],
+    });
+  });
+
+  it.each([false, true])('offers no creation when every child is inactive (requested open: %s)', (requestOpen) => {
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    renderForm({ requestOpen, initialChildId: 7, children: [
+      buildUser({ id: 7, display_name: 'Inactive child', is_active: false }),
+    ] });
+    expect(screen.queryAllByRole('button', { name: 'Create challenge' })).toHaveLength(0);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(create.calls).toHaveLength(0);
+  });
+
+  it('requires an explicit active-child choice when the draft child becomes inactive', async () => {
+    let changeRoster;
+    function ChangingRoster() {
+      const [children, setChildren] = useState([
+        buildUser({ id: 7, display_name: 'Abby', is_active: true }),
+        buildUser({ id: 8, display_name: 'Beck', is_active: true }),
+      ]);
+      useEffect(() => { changeRoster = setChildren; }, []);
+      return <CreateGoalForm children={children} />;
+    }
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    const { user } = renderWithProviders(<ChangingRoster />);
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await user.type(screen.getByLabelText('Title (optional)'), 'Keep my draft');
+    act(() => changeRoster([
+      buildUser({ id: 7, display_name: 'Abby', is_active: false }),
+      buildUser({ id: 8, display_name: 'Beck', is_active: true }),
+    ]));
+    const submit = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' });
+    expect(submit()).toBeDisabled();
+    expect(create.calls).toHaveLength(0);
+    await selectDropdown(user, screen.getByLabelText('Child'), '8');
+    await user.click(submit());
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].url).toMatch(/\/api\/challenges\/goals\/$/);
+    expect(create.calls[0].body).toMatchObject({ user_id: 8, name: 'Keep my draft' });
+  });
+
+  it('shows a missing-child response without conflict recovery or an automatic mutation retry', async () => {
+    const onCreated = vi.fn();
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json(
+      { detail: 'Child not found.' }, { status: 404 },
+    ));
+    server.use(create.handler);
+    const { user } = renderForm({ onCreated });
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    const submit = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' });
+    await user.click(submit());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Child not found.');
+    expect(screen.queryByRole('button', { name: 'New challenge' })).not.toBeInTheDocument();
+    expect(create.calls).toHaveLength(1);
+    expect(onCreated).not.toHaveBeenCalled();
+    await user.click(submit());
+    await waitFor(() => expect(create.calls).toHaveLength(2));
+    expect(create.calls[1].body).toEqual(create.calls[0].body);
+    expect(create.calls[0].url).toMatch(/\/api\/challenges\/goals\/$/);
+  });
+
+  it('clears an earlier saved conflict when a later submission cannot find the child', async () => {
+    const onCreated = vi.fn();
+    let requests = 0;
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => {
+      requests += 1;
+      return requests === 1
+        ? HttpResponse.json({ error: 'request_id was already used for different goal details' }, { status: 409 })
+        : HttpResponse.json({ detail: 'Child not found.' }, { status: 404 });
+    });
+    server.use(create.handler);
+    const { user } = renderForm({ onCreated });
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    const submit = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' });
+    await user.click(submit());
+    expect(await screen.findByRole('button', { name: 'New challenge' })).toBeVisible();
+    await user.click(submit());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Child not found.');
+    expect(screen.queryByRole('button', { name: 'New challenge' })).not.toBeInTheDocument();
+    expect(create.calls).toHaveLength(2);
+    expect(create.calls[1].body).toEqual(create.calls[0].body);
+    expect(create.calls[1].url).toMatch(/\/api\/challenges\/goals\/$/);
+    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(onCreated).toHaveBeenCalledWith(null);
+  });
+
   it('creates a recurring 2-mile running goal with a readable preview and exact structured request', async () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
     server.use(create.handler);

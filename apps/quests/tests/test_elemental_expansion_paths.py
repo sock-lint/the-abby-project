@@ -39,7 +39,7 @@ def approved_policy(*pairs):
     # A selective test must not inherit the other three expansion pairs or
     # elemental pairs introduced by later batches.
     for row in policy["pets"]:
-        if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab"}:
+        if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant"}:
             row["potion_slugs"] = ["base"]
     for species, potion in pairs:
         row = next(row for row in policy["pets"] if row["species_slug"] == species)
@@ -70,12 +70,12 @@ class ElementalExpansionPathTests(TestCase):
         policy = json.loads(POLICY_PATH.read_text())
         pairs = {(row["species_slug"], potion) for row in policy["pets"] for potion in row["potion_slugs"]}
         base_species = {row["species_slug"] for row in policy["pets"]}
-        elemental_species = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab"}
+        elemental_species = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat", "meshtint-snake", "meshtint-hermit-crab", "meshtint-ghost", "meshtint-potted-plant"}
         self.assertEqual(pairs, {(species, "base") for species in base_species} | {
             (species, potion) for species in elemental_species for potion in ("fire", "ice")
         })
         self.assertEqual(len(base_species), 15)
-        self.assertEqual(len(available_pet_pairs()), 31)
+        self.assertEqual(len(available_pet_pairs()), 35)
         descriptor = json.loads(POLICY_PATH.with_name("elemental-expansion.json").read_text())["release"]
         source = next(row for row in policy["sources"] if row["id"] == descriptor["family_id"])
         self.assertEqual((source["release_version"], source["manifest_sha256"]),

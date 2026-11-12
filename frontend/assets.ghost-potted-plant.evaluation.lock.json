@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "family_id": "abby-elemental-ghost-potted-plant",
+      "release_version": "1.0.0",
+      "manifest_sha256": "6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9",
+      "directory": "abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9"
+    }
+  ]
+}

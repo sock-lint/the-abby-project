@@ -5,16 +5,18 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { elementalEvaluationPlugin, evaluationPrefix, evaluationPin, evaluationPins, snakeCrabEvaluationPin } from './elemental-evaluation-server.mjs';
+import { elementalEvaluationPlugin, evaluationPrefix, evaluationPin, evaluationPins, snakeCrabEvaluationPin, ghostPlantEvaluationPin } from './elemental-evaluation-server.mjs';
 
 const checkout = fileURLToPath(new URL('../..', import.meta.url));
 
-test('separate immutable pins preserve Bee/Bat review and allow only the exact verified Snake/Hermit Crab candidate', () => {
+test('separate immutable pins preserve earlier reviews and allow only the exact verified Ghost/Potted Plant candidate', () => {
   assert.equal(evaluationPin.family_id, 'abby-elemental-bee-bat');
   assert.equal(evaluationPin.manifest_sha256, '7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5');
   assert.equal(snakeCrabEvaluationPin.family_id, 'abby-elemental-snake-hermit-crab');
   assert.equal(snakeCrabEvaluationPin.manifest_sha256, '2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3');
-  assert.equal(evaluationPins.length, 2);
+  assert.equal(ghostPlantEvaluationPin.family_id, 'abby-elemental-ghost-potted-plant');
+  assert.equal(ghostPlantEvaluationPin.manifest_sha256, '6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9');
+  assert.equal(evaluationPins.length, 3);
   assert.equal(evaluationPins[0], evaluationPin);
   for (const pin of evaluationPins) {
     assert.equal(pin.directory, `${pin.family_id}/${pin.release_version}/${pin.manifest_sha256}`);

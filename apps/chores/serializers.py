@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from config.participation import is_personal_space
+
 from .models import Chore, ChoreCompletion, ChoreSkillTag
 
 
@@ -24,6 +26,14 @@ class ChoreSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(
         source="created_by.display_label", read_only=True,
     )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if is_personal_space(self.context.get("request")):
+            # Legacy Family chores may retain money; personal completion
+            # snapshots zero cash without rewriting that configuration.
+            data["reward_amount"] = "0.00"
+        return data
 
     class Meta:
         model = Chore

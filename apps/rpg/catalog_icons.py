@@ -14,6 +14,7 @@ ELEMENTAL_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bindings.json")
 ELEMENTAL_EXPANSION_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-expansion-bindings.json")
 ELEMENTAL_BEE_BAT_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bee-bat-bindings.json")
 ELEMENTAL_SNAKE_HERMIT_CRAB_PATH = BINDINGS_PATH.with_name("elemental-snake-hermit-crab.json")
+ELEMENTAL_GHOST_POTTED_PLANT_PATH = BINDINGS_PATH.with_name("elemental-ghost-potted-plant.json")
 
 
 @lru_cache(maxsize=1)
@@ -45,6 +46,16 @@ def elemental_bee_bat_bindings():
 def prepared_snake_hermit_crab_challenges():
     """Proposed receiving handles only; no payload, artwork pin or activation."""
     descriptor = json.loads(ELEMENTAL_SNAKE_HERMIT_CRAB_PATH.read_text(encoding="utf-8"))
+    return {
+        challenge["name"]: {"quest_type": "collection", "asset_id": challenge["catalog_icon"]}
+        for family in descriptor["families"] for challenge in family["challenges"]
+    }
+
+
+@lru_cache(maxsize=1)
+def prepared_ghost_potted_plant_challenges():
+    """Receiving handles only; reading them neither publishes art nor opens offers."""
+    descriptor = json.loads(ELEMENTAL_GHOST_POTTED_PLANT_PATH.read_text(encoding="utf-8"))
     return {
         challenge["name"]: {"quest_type": "collection", "asset_id": challenge["catalog_icon"]}
         for family in descriptor["families"] for challenge in family["challenges"]
@@ -117,6 +128,8 @@ def challenge_catalog_icon(definition):
         entry = elemental_bee_bat_bindings()["challenges"].get(definition.name)
     if entry is None:
         entry = prepared_snake_hermit_crab_challenges().get(definition.name)
+    if entry is None:
+        entry = prepared_ghost_potted_plant_challenges().get(definition.name)
     if entry and definition.quest_type == entry["quest_type"]:
         return entry["asset_id"]
     entry = bindings()["challenges"].get(definition.name)

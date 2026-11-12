@@ -5,6 +5,7 @@ import {
   Map as MapIcon, Box, Printer, CircleAlert, MessageCircle,
 } from 'lucide-react';
 import { CoinIcon } from './icons/JournalIcons';
+import { notificationLinkSpace, relativeNotificationUrl } from '../utils/notificationLinks';
 
 // Sensible default routes per notification type. Used as a fallback when
 // the backend ``link`` field is empty so a click always takes the user
@@ -100,6 +101,65 @@ const ACCENT_CLASS = {
   ember: 'text-ember-deep',
   ink:   'text-ink-secondary',
 };
+
+// Parent inboxes contain both household decisions and personal achievements.
+// Only types with an unambiguous audience select a space automatically.
+const FAMILY_NOTIFICATIONS = new Set([
+  'chore_submitted', 'chore_proposed', 'habit_proposed', 'homework_submitted',
+  'redemption_requested', 'exchange_requested', 'timecard_ready',
+  'creation_submitted', 'print_request_submitted', 'print_budget_low',
+  'low_reward_stock', 'approval_reminder',
+  'homework_created', 'homework_approved', 'homework_rejected', 'homework_due_soon',
+  'print_request_approved', 'print_request_rejected', 'print_started', 'print_finished', 'print_failed',
+]);
+const PERSONAL_NOTIFICATIONS = new Set([
+  'badge_earned', 'skill_unlocked', 'streak_milestone', 'streak_at_risk',
+  'perfect_day', 'daily_check_in', 'drop_received', 'quest_completed',
+  'pet_evolved', 'mount_bred', 'expedition_returned', 'comeback_suggested',
+]);
+const AMBIGUOUS_PET_NOTIFICATIONS = new Set(['pet_evolved', 'expedition_returned']);
+
+export function notificationSpace(notification) {
+  // Family fan-out links identify the child explicitly. Pet events also have
+  // personal recipients, so the type alone must not override that destination.
+  if (/^\/family(?:[/?#]|$)/.test(notification?.link || '')) return 'family';
+  if (FAMILY_NOTIFICATIONS.has(notification?.notification_type)) return 'family';
+  if (PERSONAL_NOTIFICATIONS.has(notification?.notification_type)) return 'personal';
+  return null;
+}
+
+export function destinationForNotification(notification, { isParentAccount = false } = {}) {
+  const { defaultRoute } = metaForNotification(notification);
+  const target = notification?.link || defaultRoute;
+  if (!isParentAccount) return { space: null, target };
+  const url = relativeNotificationUrl(target);
+  const linkedSpace = notificationLinkSpace(target);
+  if (AMBIGUOUS_PET_NOTIFICATIONS.has(notification?.notification_type)) {
+    if (linkedSpace === 'family' && url?.pathname === '/family') return { space: 'family', target };
+    // Earlier personal and parent fan-out rows share both type and URL. Only
+    // new direct links identify personal events; never guess the subject of an
+    // earlier row from its title or the parent's currently selected child.
+    if (linkedSpace === 'personal' && url?.pathname === '/bestiary') return { space: 'personal', target };
+    return { space: 'family', target: '/family' };
+  }
+  if (notification?.notification_type === 'journal_reply') {
+    if (linkedSpace && ['/family', '/chronicle'].includes(url?.pathname)) return { space: linkedSpace, target };
+    return { space: 'family', target: '/family' };
+  }
+  if (notification?.notification_type === 'savings_goal_completed') {
+    if (linkedSpace === 'family' && url?.pathname === '/family') return { space: 'family', target };
+    if (url?.pathname === '/treasury' && url.searchParams.getAll('tab').length === 1
+      && url.searchParams.get('tab') === 'hoards'
+      && (linkedSpace === 'personal' || !url.searchParams.has('space'))) return { space: 'personal', target };
+    return { space: 'family', target: '/family' };
+  }
+  if (notification?.notification_type === 'chore_approved'
+    && (url?.pathname === '/chores' || (url?.pathname === '/quests' && url.searchParams.get('tab') === 'duties'))
+    && (linkedSpace === 'personal' || !url.searchParams.has('space'))) return { space: 'personal', target };
+  if (['project_approved', 'milestone_completed'].includes(notification?.notification_type) && linkedSpace === 'personal'
+    && url?.pathname.startsWith('/projects/')) return { space: 'personal', target };
+  return { space: notificationSpace(notification), target };
+}
 
 export function metaForNotification(notification) {
   const meta = NOTIFICATION_TYPE_META[notification?.notification_type];

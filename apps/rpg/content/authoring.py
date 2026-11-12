@@ -13,6 +13,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Value
 
 from apps.achievements.models import Skill, SkillCategory, SkillPrerequisite, Subject
 from apps.achievements.taxonomy import validate_new_taxonomy_references
@@ -70,6 +71,63 @@ def _canonical_lookup(model, lookup):
     return result
 
 
+def _has_retained_category_source(name, *, exclude_object_id):
+    current = SkillCategory.objects.filter(name__iexact=name)
+    sources = RPGContentOverride.objects.filter(
+        model_label="achievements.skillcategory",
+        source_lookup__name__iexact=name,
+        values___authoring={"version": 1, "source": "mcp"},
+    ).exclude(object_id=exclude_object_id).exclude(object_id__in=current.values("pk"))
+    for source in sources:
+        if (isinstance(source.source_lookup, dict)
+                and set(source.source_lookup) == {"name"}
+                and isinstance(source.source_lookup["name"], str)
+                and SkillCategory.objects.filter(pk=source.object_id).exists()):
+            return True
+    return False
+
+
+def _validate_category_alias_reuse(obj):
+    # Existing members of a current-name union can keep their namespace. Only
+    # a genuinely renamed source reserves a new incoming case-insensitive name.
+    if obj.pk and SkillCategory.objects.filter(pk=obj.pk, name__iexact=obj.name).exists():
+        return
+    if _has_retained_category_source(obj.name, exclude_object_id=obj.pk):
+        raise ContentPackError("This category name is retained by another renamed entry; choose another name.")
+
+
+def _validate_direct_category_source(obj, previous):
+    """Predict the first source that record_direct_override will preserve."""
+    if previous is None:
+        return
+    source = RPGContentOverride.objects.filter(
+        model_label="achievements.skillcategory", object_id=obj.pk,
+    ).first()
+    lookup = source.source_lookup if source else natural_lookup(previous)
+    if not isinstance(lookup, dict) or set(lookup) != {"name"} or not isinstance(lookup["name"], str):
+        return
+    name = lookup["name"]
+    # Let the database apply the same iexact semantics used by native payouts,
+    # including backend-specific Unicode comparisons, to the candidate name.
+    if SkillCategory.objects.filter(pk=obj.pk).annotate(
+        _candidate_name=Value(obj.name),
+    ).filter(_candidate_name__iexact=name).exists():
+        return
+    was_retained = not SkillCategory.objects.filter(pk=obj.pk, name__iexact=name).exists()
+    was_valid = source and RPGContentOverride.objects.filter(
+        pk=source.pk, values___authoring={"version": 1, "source": "mcp"},
+    ).exists()
+    if was_retained and was_valid:
+        # Already-persisted ambiguity keeps the established fail-closed policy;
+        # unrelated metadata/retirement edits do not introduce a new conflict.
+        return
+    if (SkillCategory.objects.filter(name__iexact=name).exclude(pk=obj.pk).exists()
+            or _has_retained_category_source(name, exclude_object_id=obj.pk)):
+        # Removing the last current spelling must not leave two retained-only
+        # identities that the source-name guard prevents either owner repairing.
+        raise ContentPackError("This edit would retain a category name used by another entry; choose another name.")
+
+
 def validate_source_identity(obj):
     """Keep current names disjoint from another object's retained source name.
 
@@ -80,8 +138,13 @@ def validate_source_identity(obj):
     label = obj._meta.label_lower
     if label not in AUTHORING_MODELS | {"quests.questdefinition"}:
         return
+    if label == "achievements.skillcategory":
+        _validate_category_alias_reuse(obj)
     lookup = natural_lookup(obj)
     sources = RPGContentOverride.objects.filter(model_label=label).exclude(object_id=obj.pk)
+    if label == "achievements.skillcategory":
+        # Orphaned provenance remains in history without reserving a live name.
+        sources = sources.filter(object_id__in=SkillCategory.objects.values("pk"))
     if label == "quests.questdefinition":
         # Retired aliases and private templates do not participate in the
         # loader's global source-name resolution.
@@ -106,6 +169,8 @@ def validate_catalog_object(obj):
     label = obj._meta.label_lower
     validate_source_identity(obj)
     previous = type(obj).objects.filter(pk=obj.pk).first() if obj.pk else None
+    if label == "achievements.skillcategory":
+        _validate_direct_category_source(obj, previous)
     try:
         if label in {"achievements.skill", "achievements.subject"}:
             validate_new_taxonomy_references(SkillCategory, [obj.category_id],
@@ -166,6 +231,8 @@ def record_direct_override(actor, obj, before_lookup):
         # A renamed source keeps its original identity. Reusing that identity
         # for a second row would make a later bundled reload ambiguous.
         candidates = RPGContentOverride.objects.filter(model_label=obj._meta.label_lower).exclude(object_id=obj.pk)
+        if obj._meta.label_lower == "achievements.skillcategory":
+            candidates = candidates.filter(object_id__in=SkillCategory.objects.values("pk"))
         for key, value in before_lookup.items():
             candidates = candidates.filter(**{f"source_lookup__{key}": value})
         if any(row.source_lookup == before_lookup and row.values.get("_authoring") == {"version": 1, "source": "mcp"} for row in candidates):
@@ -199,6 +266,9 @@ def preserved_authoring_entry(model_label, lookup, *, pack_key=None, entry=None)
         return None
     model = apps.get_model(model_label)
     overrides = RPGContentOverride.objects.filter(model_label=model_label)
+    if model_label == "achievements.skillcategory":
+        # Count only actual retained identities, before checking exact ties.
+        overrides = overrides.filter(object_id__in=model.objects.values("pk"))
     if pack_key:
         claim = ContentPackEntry.objects.filter(
             pack=pack_key, model_label=model_label, kind=model._meta.model_name,

@@ -45,6 +45,11 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
         QuestSkillTag.objects.create(id=905, quest_definition=quest, skill=skill, xp_weight=1)
         QuestRewardItem.objects.create(id=906, quest_definition=quest, item=self.item, quantity=1)
         DropTable.objects.create(id=907, trigger_type="chore_complete", item=self.item, weight=10)
+        QuestDefinition.objects.create(
+            id=909, name="Unreachable practice", description="Synthetic retained challenge with incompatible filters.",
+            quest_type="collection", target_value=1, duration_days=7, is_system=True,
+            trigger_filter={"allowed_triggers": ["chore_complete"], "on_time": True},
+        )
 
     def test_catalog_rewards_and_references_match_the_shared_wire_contract(self):
         body = self.assert_response_fixture(
@@ -53,9 +58,19 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
         self.assertEqual(len(body["catalog"]["items"]), 1)
         self.assertEqual(body["catalog"]["items"][0]["effect_summary"],
             "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.")
-        self.assertEqual(len(body["catalog"]["quests"]), 2)
+        self.assertEqual(len(body["catalog"]["quests"]), 3)
         target = next(row for row in body["catalog"]["quests"] if row["id"] == 904)
         self.assertEqual((target["prerequisite_quest"], target["required_skill"], target["required_skill_level"]), (908, 902, 1))
+        unreachable = next(row for row in body["catalog"]["quests"] if row["id"] == 909)
+        self.assertFalse(unreachable["automatic_tracking_available"])
+        self.assertFalse(unreachable["available_for_new_user"])
+        self.assertEqual(unreachable["unsupported_triggers"], [])
+        self.assertEqual(len(body["audits"]["findings"]), 1)
+        warning = body["audits"]["findings"][0]
+        self.assertEqual((warning["code"], warning["section"], warning["id"], warning["severity"]),
+                         ("unreachable_challenge_filters", "quests", 909, "warning"))
+        self.assertIn("Every selected filter must match the same saved-work activity", warning["detail"])
+        self.assertFalse(body["audits"]["incomplete"])
         self.assertEqual(body["drafts"], [])
         self.assertEqual(body["simulation"]["pet_incubation_policy"], INCUBATION_POLICY)
 

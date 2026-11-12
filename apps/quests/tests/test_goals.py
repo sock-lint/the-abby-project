@@ -343,10 +343,14 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         self.assertEqual(CoinLedger.objects.filter(user=self.child).count(), 1)
         # An offline unpin of the previous window clears the same ongoing goal.
         self.assertEqual(set_pin(self.child, original_id, clear=True), {"pin": None})
-    def test_parent_read_has_no_new_catalog_goals_that_cannot_progress(self):
-        self.definition()
-        self.assertEqual(list_goals(self.parent)["results"], [])
-        self.assertFalse(ChallengeGoal.objects.filter(user=self.parent).exists())
+    def test_parent_read_enrolls_own_catalog_without_awarding_or_enrolling_other_members(self):
+        definition = self.definition()
+        payload = list_goals(self.parent)
+        self.assertEqual(len(payload["results"]), 1)
+        self.assertEqual(payload["results"][0]["progress"], "0")
+        self.assertTrue(ChallengeGoal.objects.filter(user=self.parent, catalog_definition=definition).exists())
+        self.assertFalse(CoinLedger.objects.filter(user=self.parent).exists())
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.family.children[1]).exists())
     def test_locked_skill_does_not_invent_xp_in_paid_receipt(self):
         self.skill.is_locked_by_default = True
         self.skill.save(update_fields=["is_locked_by_default"])
@@ -583,10 +587,14 @@ class GoalApiTests(_GoalFixture, TestCase):
         self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
 
     def test_rolling_catalog_cycle_keeps_saved_wall_clock_across_dst_and_zone_change(self):
-        ChallengeEnrollment.objects.filter(user=self.child).update(timezone_name="America/New_York")
-        definition = self.definition(is_repeatable=True)
         offered_at = datetime(2026, 10, 28, 16, 15, tzinfo=ZoneInfo("UTC"))
         with patch("django.utils.timezone.now", return_value=offered_at):
+            # Both admission cutoffs belong to the fixture clock, even when
+            # this test runs after its fixed offer date.
+            ChallengeEnrollment.objects.filter(user=self.child).update(
+                starts_at=offered_at - timedelta(days=1), timezone_name="America/New_York",
+            )
+            definition = self.definition(is_repeatable=True)
             first = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
         original = first.data["results"][0]
         self.assertEqual(original["ends_at"], datetime(2026, 11, 4, 17, 15, tzinfo=ZoneInfo("UTC")).isoformat())

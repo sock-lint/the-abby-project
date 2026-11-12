@@ -48,7 +48,9 @@ describe('RpgSprite', () => {
     const keys = ['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
       'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
       'meshtint-bee', 'meshtint-bee-middle', 'meshtint-bee-mount', 'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount',
-      'meshtint-snake', 'meshtint-snake-middle', 'meshtint-snake-mount', 'meshtint-hermit-crab', 'meshtint-hermit-crab-middle', 'meshtint-hermit-crab-mount'];
+      'meshtint-snake', 'meshtint-snake-middle', 'meshtint-snake-mount', 'meshtint-hermit-crab', 'meshtint-hermit-crab-middle', 'meshtint-hermit-crab-mount',
+      'meshtint-ghost', 'meshtint-ghost-middle', 'meshtint-ghost-mount',
+      'meshtint-potted-plant', 'meshtint-potted-plant-middle', 'meshtint-potted-plant-mount'];
     const { rerender } = render(<RpgSprite spriteKey={keys[0]} potionSlug={potionSlug} alt="Elemental pet" />);
     for (const spriteKey of keys) {
       for (const size of [24, 32, 64, 96, 128, 256]) {
@@ -76,7 +78,9 @@ describe('RpgSprite', () => {
   it.each(['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
     'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
       'meshtint-bee', 'meshtint-bee-middle', 'meshtint-bee-mount', 'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount',
-      'meshtint-snake', 'meshtint-snake-middle', 'meshtint-snake-mount', 'meshtint-hermit-crab', 'meshtint-hermit-crab-middle', 'meshtint-hermit-crab-mount'])(
+      'meshtint-snake', 'meshtint-snake-middle', 'meshtint-snake-mount', 'meshtint-hermit-crab', 'meshtint-hermit-crab-middle', 'meshtint-hermit-crab-mount',
+      'meshtint-ghost', 'meshtint-ghost-middle', 'meshtint-ghost-mount',
+      'meshtint-potted-plant', 'meshtint-potted-plant-middle', 'meshtint-potted-plant-mount'])(
     'keeps %s elemental artwork unavailable instead of recoloring its Base portrait', (spriteKey) => {
       useSyntheticLicensedPortraits();
       renderWithCatalog(<RpgSprite spriteKey={spriteKey} icon="🐾" alt="Fire companion" potionSlug="fire" dim="stale" />,

@@ -188,6 +188,11 @@ export default defineConfig(({ command, mode }) => {
             if (/[\\/]node_modules[\\/]@sentry(-internal)?[\\/]/.test(id)) {
               return 'sentry'
             }
+            // Keep growing release metadata below the worker's precache limit.
+            // Raw manifests get stable family chunks; ?url byte exports stay intact.
+            const sharedManifest = id.replace(/\\/g, '/')
+              .match(/\/src\/avatar\/shared\/([^/]+)\/[^/]+\/[a-f0-9]{64}\/manifest\.json$/)
+            if (sharedManifest) return `asset-manifest-${sharedManifest[1]}`
             return undefined
           },
         },

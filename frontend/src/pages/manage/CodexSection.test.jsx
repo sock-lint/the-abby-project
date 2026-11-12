@@ -65,6 +65,60 @@ describe('CodexSection', () => {
     await waitFor(() => expect(screen.getByText(/gold coin/i)).toBeInTheDocument());
   });
 
+  it('shows the seven original pouch artworks without duplicate payout-version cards', async () => {
+    const pouches = [
+      ['pouch-small', 'Small Coin Pouch', 'common', '1 Coin'],
+      ['pouch-rupee', 'Loose Rupee', 'common', '2 Coins'],
+      ['pouch-medium', 'Medium Coin Pouch', 'uncommon', '3 Coins'],
+      ['pouch-large', 'Large Coin Pouch', 'rare', '10 Coins'],
+      ['pouch-gold', 'Gold Stack', 'epic', '20 Coins'],
+      ['pouch-treasure', 'Treasure Hoard', 'legendary', '50 Coins'],
+      ['pouch-mega', 'Mega Hoard', 'legendary', '100 Coins'],
+    ];
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json(pouches.flatMap(
+        ([slug, name, rarity, amount], index) => [
+          { id: index * 2 + 1, slug, name, item_type: 'coin_pouch', rarity, icon: '🪙', coin_value: 5 },
+          { id: index * 2 + 2, slug: `${slug}-v2`, name: `${name} (${amount})`, item_type: 'coin_pouch', rarity, icon: '🪙' },
+        ],
+      ))),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
+    );
+    const user = userEvent.setup();
+    render(<CodexSection />);
+
+    await screen.findByText('Small Coin Pouch');
+    for (const [, name, , amount] of pouches) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(screen.queryByText(`${name} (${amount})`)).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole('tab', { name: 'Items, 7 entries' })).toBeInTheDocument();
+    const group = screen.getByRole('heading', { name: 'Coin Pouches' }).parentElement;
+    expect(within(group).getByText('(7)')).toBeInTheDocument();
+    expect(screen.getAllByText('×7')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: /Small Coin Pouch/ }));
+    const detail = screen.getByRole('dialog', { name: 'Small Coin Pouch' });
+    expect(within(detail).getByText('5 coins')).toBeInTheDocument();
+  });
+
+  it('keeps custom amount-labeled pouches and other versioned items in the catalog', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([
+        { id: 101, slug: 'pouch-custom-v2', name: 'Special Pouch (7 Coins)', item_type: 'coin_pouch', rarity: 'common', icon: '🪙' },
+        { id: 102, slug: 'food-berry-v2', name: 'Fresh Berry', item_type: 'food', rarity: 'common', icon: '🫐' },
+      ])),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
+    );
+    render(<CodexSection />);
+
+    expect(await screen.findByRole('tab', { name: 'Items, 2 entries' })).toBeInTheDocument();
+    expect(screen.getByText('Special Pouch (7 Coins)')).toBeInTheDocument();
+    expect(screen.getByText('Fresh Berry')).toBeInTheDocument();
+  });
+
   it('uses the current color-theme name in catalog cards and their details', async () => {
     server.use(
       http.get('*/api/items/catalog/', () => HttpResponse.json([

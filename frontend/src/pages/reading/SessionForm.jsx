@@ -1,3 +1,4 @@
+import { useSpace } from '../../hooks/useSpace';
 import { useState } from 'react';
 import { createReadingSession, updateReadingSession } from '../../api';
 import BottomSheet from '../../components/BottomSheet';
@@ -9,6 +10,8 @@ import { REACTIONS, REFLECTION_PROMPTS } from './reading.constants';
 import useReadingSave from './useReadingSave';
 
 export default function SessionForm({ session, books, selectedBook, today, adventure, userId, credential, onClose, onSaved }) {
+  const { isParentAccount, isPersonalSpace } = useSpace();
+  const personalParent = isParentAccount && isPersonalSpace;
   const initial = {
     book: String(session?.book ?? selectedBook?.id ?? ''), occurred_on: session?.occurred_on ?? today,
     duration_minutes: String(session?.duration_minutes ?? ''), pages_read: String(session?.pages_read ?? ''),
@@ -47,7 +50,7 @@ export default function SessionForm({ session, books, selectedBook, today, adven
         <TextField label="Chapter or section (optional)" value={form.section} onChange={change('section')} placeholder="For example, chapters 3–4" maxLength={120} error={errors.section} />
         <div className="rounded-xl bg-moss/10 p-3 space-y-3">
           <p className="text-body font-bold text-ink-primary">A little about what you read</p>
-          <p className="text-caption text-ink-secondary">Optional. You and your parents can read these notes. For a private thought, use your Journal.</p>
+          <p className="text-caption text-ink-secondary">{personalParent ? 'Optional. These notes stay in your personal bookshelf.' : 'Optional. You and your parents can read these notes. For a private thought, use your Journal.'}</p>
           <div className="flex flex-wrap gap-2" aria-label="Reading reflection prompts">
             {REFLECTION_PROMPTS.map((value) => <Button key={value} variant="secondary" size="sm" aria-pressed={prompt === value} onClick={() => setPrompt(prompt === value ? '' : value)}>{value}</Button>)}
           </div>

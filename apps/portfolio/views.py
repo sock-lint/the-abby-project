@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.viewsets import filter_queryset_by_role, filter_resources_under_accessible_projects
+from config.participation import is_personal_space
 
 from .models import ProjectPhoto
 from .serializers import ProjectPhotoSerializer
@@ -19,7 +20,10 @@ class ProjectPhotoViewSet(viewsets.ModelViewSet):
     queryset = ProjectPhoto.objects.select_related("project")
 
     def get_queryset(self):
-        return filter_resources_under_accessible_projects(self.request.user, super().get_queryset())
+        qs = filter_resources_under_accessible_projects(self.request.user, super().get_queryset())
+        if is_personal_space(self.request):
+            qs = qs.filter(user=self.request.user, project__assigned_to=self.request.user)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -43,6 +47,8 @@ class PortfolioView(APIView):
             user,
             ProjectPhoto.objects.select_related("project"),
         )
+        if is_personal_space(request):
+            photos = photos.filter(user=user, project__assigned_to=user)
 
         grouped = {}
         for photo in photos:
@@ -65,6 +71,8 @@ class PortfolioView(APIView):
             ).select_related("submission__assignment"),
             role_filter_field="submission__user",
         )
+        if is_personal_space(request):
+            hw_proofs = hw_proofs.filter(submission__user=user)
 
         hw_grouped = {}
         for proof in hw_proofs:
@@ -93,6 +101,8 @@ class PortfolioView(APIView):
             ),
             role_filter_field="user",
         ).order_by("-created_at")
+        if is_personal_space(request):
+            creation_qs = creation_qs.filter(user=user)
 
         creations = [
             {
@@ -148,6 +158,10 @@ class ExportPortfolioView(APIView):
             Creation.objects.select_related("primary_skill", "primary_skill__category"),
             role_filter_field="user",
         )
+        if is_personal_space(request):
+            photos = photos.filter(user=request.user, project__assigned_to=request.user)
+            hw_proofs = hw_proofs.filter(submission__user=request.user)
+            creations = creations.filter(user=request.user)
         photos = list(photos)
         hw_proofs = list(hw_proofs)
         creations = list(creations)

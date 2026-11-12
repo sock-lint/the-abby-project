@@ -18,10 +18,16 @@ export const snakeCrabEvaluationPin = Object.freeze({
   manifest_sha256: '2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3',
   directory: 'abby-elemental-snake-hermit-crab/1.0.0/2c14765c0fd379f4f06b76a8b38cb6be7a04f7e618d6eaff89c7cac84d1e80b3',
 });
-export const evaluationPins = Object.freeze([evaluationPin, snakeCrabEvaluationPin]);
+export const ghostPlantEvaluationPin = Object.freeze({
+  family_id: 'abby-elemental-ghost-potted-plant', release_version: '1.0.0',
+  manifest_sha256: '6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9',
+  directory: 'abby-elemental-ghost-potted-plant/1.0.0/6e1f2cb2f67503c63e3ab8a27135b6f7579f894e0d62b814bfa89df3a45ae9e9',
+});
+export const evaluationPins = Object.freeze([evaluationPin, snakeCrabEvaluationPin, ghostPlantEvaluationPin]);
 const inventories = new Map([
   [evaluationPin.family_id, { files: 146, bytes: 31_484_079 }],
   [snakeCrabEvaluationPin.family_id, { files: 234, bytes: 88_597_843 }],
+  [ghostPlantEvaluationPin.family_id, { files: 154, bytes: 51_889_149 }],
 ]);
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const within = (parent, child) => child === parent || child.startsWith(`${parent}${path.sep}`);

@@ -42,7 +42,8 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
     from apps.rpg.serializers import DropLogSerializer
     from apps.timecards.services import ClockService
 
-    is_child = user.role == "child"
+    from config.participation import is_personal_space
+    is_child = user.role == "child" or is_personal_space(request)
 
     notifications = list(
         user.notifications.all()[:NOTIFICATION_SLICE],

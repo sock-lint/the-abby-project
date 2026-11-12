@@ -9,6 +9,13 @@ Self-reported physical activity sessions. No approval flow — child logs a sess
 - `MovementDailyCounter` — inherits `DailyCounterModel`. Anti-farm gate that survives session deletes.
 
 ## Services
+
+Parents can log their own activity in My space with `X-Abby-Space: personal`.
+Lists/deletions are self-scoped and a nonself `user_id` is rejected before
+logging or rewards. Family keeps the existing explicit child logging flow.
+Parent sessions use the same XP limits, measured distances and automatic
+challenge activity pipeline; the space hint changes no account role.
+
 - `MovementSessionService`:
   - `log_session(user, movement_type, duration_minutes, intensity, notes, occurred_at, distance, distance_unit, client_request_id)` — validates a positive measured distance, normalizes it to metres, buckets the saved session in the family timezone, preserves the daily XP/drop cap, and records automatic challenge activity independently of that cap (`TriggerType.MOVEMENT_SESSION`). Identical UUID retries return the saved session and original challenge receipts; changed details are rejected.
   - `compute_xp_pool(duration_minutes, intensity)` — `floor(minutes / 10) × XP_PER_10_MIN × intensity_mult`. Under 10 min = 0 XP.

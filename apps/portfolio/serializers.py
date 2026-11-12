@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from config.viewsets import filter_projects_accessible_to
+from config.participation import is_personal_space
 
 from .models import ProjectPhoto
 
@@ -15,6 +16,8 @@ class ProjectPhotoSerializer(serializers.ModelSerializer):
             fields["project"].queryset = filter_projects_accessible_to(
                 request.user, fields["project"].queryset,
             )
+            if is_personal_space(request):
+                fields["project"].queryset = fields["project"].queryset.filter(assigned_to=request.user)
         return fields
 
     class Meta:

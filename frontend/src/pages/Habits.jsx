@@ -8,6 +8,7 @@ import {
   listMyHabitProposals, approveHabitProposal,
   getAllSkills,
 } from '../api';
+import { useSpace } from '../hooks/useSpace';
 import { useApi } from '../hooks/useApi';
 import useMountedRef from '../hooks/useMountedRef';
 import { useFormState } from '../hooks/useFormState';
@@ -76,12 +77,12 @@ function HabitHistoryBars({ series }) {
   );
 }
 
-function HabitFormModal({ habit, children, skills, isParent, initialChildId, mode, onClose, onSaved }) {
+function HabitFormModal({ habit, children, skills, isParent, canManage, initialChildId, mode, onClose, onSaved }) {
   const mounted = useMountedRef();
   const resolvedMode = mode || (habit ? 'edit' : 'create');
   const isApprove = resolvedMode === 'approve';
   const isEdit = resolvedMode === 'edit';
-  const canSetRewards = isParent;
+  const canSetRewards = canManage;
   const [advanced, setAdvanced] = useState(resolvedMode !== 'create');
 
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
@@ -141,11 +142,11 @@ function HabitFormModal({ habit, children, skills, isParent, initialChildId, mod
     ? 'Approve habit proposal'
     : isEdit
       ? 'Edit habit'
-      : isParent ? 'New habit' : 'Propose a habit';
+      : canManage ? 'New habit' : 'Propose a habit';
   const submitLabel = isApprove
     ? 'Approve & publish'
     : isEdit ? 'Update habit'
-    : isParent ? 'Create habit' : 'Send to parent';
+    : canManage ? 'Create habit' : 'Send to parent';
 
   return (
     <BottomSheet title={title} onClose={onClose} disabled={saving} dirty={dirty}>
@@ -163,7 +164,7 @@ function HabitFormModal({ habit, children, skills, isParent, initialChildId, mod
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        {canSetRewards && <SelectField
+        {isParent && <SelectField
           label="Child"
           value={form.user}
           onChange={onField('user')}
@@ -175,8 +176,8 @@ function HabitFormModal({ habit, children, skills, isParent, initialChildId, mod
           {children?.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
         </SelectField>}
         <TextField label="Times per day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} helpText="Positive logs allowed each day." />
-        {isParent && <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>}
-        {(!isParent || advanced) && <div className="space-y-3">
+        {canManage && <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>}
+        {(!canManage || advanced) && <div className="space-y-3">
           <IconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} options={HABIT_ICONS} />
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
             <option value="positive">Build a habit (+)</option><option value="negative">Reduce a habit (−)</option><option value="both">Both</option>
@@ -209,6 +210,8 @@ function HabitsWorkspace({ context }) {
   const mounted = useMountedRef();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
+  const { isParentAccount } = useSpace();
+  const canManage = isParentAccount;
   const { data: rawHabits, loading, refreshing, error: habitsError, reload } = useApi(isParent ? getFamilyHabits : getHabits, [isParent]);
   const { data: tapHistory, error: historyError, reload: reloadHistory } = useApi(getHabitHistory);
   const { data: rawProposals, error: proposalsError, reload: reloadProposals } = useApi(
@@ -216,8 +219,8 @@ function HabitsWorkspace({ context }) {
     [isParent],
   );
   const { data: rawSkills, error: skillsError, reload: reloadSkills } = useApi(
-    (signal) => isParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]),
-    [isParent],
+    (signal) => canManage ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]),
+    [canManage],
   );
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
@@ -237,7 +240,7 @@ function HabitsWorkspace({ context }) {
   // refetch lands; on error we also clear so we don't ghost a phantom.
   const [tapDeltas, setTapDeltas] = useState({});
 
-  const habitsRaw = normalizeList(rawHabits).filter((habit) => isParent
+  const habitsRaw = normalizeList(rawHabits).filter((habit) => canManage
     ? String(habit.user) === String(targetUserId)
     : habit.is_active !== false);
   const habits = habitsRaw.map((h) => {
@@ -419,7 +422,7 @@ function HabitsWorkspace({ context }) {
             onClick={openCreate}
             className="flex items-center gap-1.5"
           >
-            <Plus size={16} /> {isParent ? 'New habit' : 'Propose a habit'}
+            <Plus size={16} /> {canManage ? 'New habit' : 'Propose a habit'}
           </Button>
         </div>
 
@@ -548,7 +551,7 @@ function HabitsWorkspace({ context }) {
                             variant="success"
                             size="sm"
                             onClick={() => handleTap(habit, 1)}
-                            disabled={tapping === `${habit.id}-1` || atCap}
+                            disabled={tapping === `${habit.id}-1` || atCap || habit.is_active === false}
                             title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
                             className="flex items-center gap-1"
                           >
@@ -561,14 +564,14 @@ function HabitsWorkspace({ context }) {
                           variant="danger"
                           size="sm"
                           onClick={() => handleTap(habit, -1)}
-                          disabled={tapping === `${habit.id}--1`}
+                          disabled={tapping === `${habit.id}--1` || habit.is_active === false}
                           className="flex items-center gap-1"
                         >
                           <ThumbsDown size={14} /> Log setback
                         </Button>
                       )}
                     </div>
-                    {isParent && (
+                    {canManage && (
                       <div className="flex flex-wrap gap-1">
                         <Button
                           variant="ghost"
@@ -609,10 +612,11 @@ function HabitsWorkspace({ context }) {
       {showForm && (
         <HabitFormModal
           habit={editingHabit}
-          initialChildId={isParent ? targetUserId : undefined}
+          initialChildId={canManage ? targetUserId : undefined}
           children={isParent ? children : null}
           skills={skills}
           isParent={isParent}
+          canManage={canManage}
           mode={formMode}
           onClose={closeForm}
           onSaved={handleSaved}

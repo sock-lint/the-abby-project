@@ -41,6 +41,7 @@ import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
+import { useSpace } from '../hooks/useSpace';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -52,6 +53,7 @@ const ICON_MAP = { BookOpen, Sparkles, Flame };
 const KIND_LABEL = { homework: 'Homework', chore: 'Chore', habit: 'Habit' };
 
 export default function ChildDashboard({ data, reload }) {
+  const { isParentAccount } = useSpace();
   const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
   const { data: challenges, pinnedGoal, loading: challengesLoading, error: challengesError, reload: reloadChallenges } = useChallenges({ refreshKey: data });
@@ -282,14 +284,14 @@ export default function ChildDashboard({ data, reload }) {
 
       <AccordionSection
         index={0}
-        title="Rewards & earnings"
+        title={isParentAccount ? 'Rewards & progress' : 'Rewards & earnings'}
         kicker="this week at a glance"
         icon={<TreasuryIcon size={18} />}
         tone="gold"
-        peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h${challenges?.daily_bonus?.awarded ? " · Daily bonus earned" : ""}`}
+        peek={`${isParentAccount ? '' : `${formatCurrency(current_balance)} · `}${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h${challenges?.daily_bonus?.awarded ? " · Daily bonus earned" : ""}`}
       >
         <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          <motion.button
+          {!isParentAccount && <motion.button
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/treasury?tab=coffers')}
@@ -298,7 +300,7 @@ export default function ChildDashboard({ data, reload }) {
           >
             <div className="font-script text-caption uppercase tracking-wider text-moss">Money owed</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(current_balance)}</div>
-          </motion.button>
+          </motion.button>}
           <motion.button
             variants={staggerItem}
             type="button"
@@ -314,14 +316,14 @@ export default function ChildDashboard({ data, reload }) {
           <motion.button
             variants={staggerItem}
             type="button"
-            onClick={() => navigate('/treasury?tab=wages')}
-            aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open timecards`}
+            onClick={() => navigate(isParentAccount ? '/clock' : '/treasury?tab=wages')}
+            aria-label={`${this_week?.hours_worked ?? 0} hours clocked this week — open ${isParentAccount ? 'clock' : 'timecards'}`}
             className="text-left rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 hover:bg-ink-page-rune-glow transition-colors"
           >
             <div className="font-script text-caption uppercase tracking-wider text-sheikah-teal-deep">Hours this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{this_week?.hours_worked ?? 0}h</div>
           </motion.button>
-          <motion.button
+          {!isParentAccount && <motion.button
             variants={staggerItem}
             type="button"
             onClick={() => navigate('/payments')}
@@ -330,7 +332,7 @@ export default function ChildDashboard({ data, reload }) {
           >
             <div className="font-script text-caption uppercase tracking-wider text-ember-deep">Earned this week</div>
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
-          </motion.button>
+          </motion.button>}
         </motion.div>
         <div className="mt-3">
           <DailyChallengeCard challenge={challenges?.daily_bonus ?? null} />
@@ -348,7 +350,7 @@ export default function ChildDashboard({ data, reload }) {
           </div>
         )}
         <div className="font-script text-caption text-ink-whisper mt-3 leading-relaxed">
-          money owed: earned money still owed by your parent · coins: earned across all your work, spent in the reward shop · hours and earnings: this week's clocked time
+          {isParentAccount ? 'Earn Coins through your activities and challenges, and spend them in the reward shop.' : "money owed: earned money still owed by your parent · coins: earned across all your work, spent in the reward shop · hours and earnings: this week's clocked time"}
         </div>
       </AccordionSection>
 

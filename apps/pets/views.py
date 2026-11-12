@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from config.participation import is_personal_space
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 
 from .expeditions import ExpeditionError, ExpeditionNotFound, ExpeditionService
@@ -208,7 +209,7 @@ class PetCodexView(APIView):
 
         return Response({
             "species": PetCodexEntrySerializer(entries, many=True, context={
-                "acquisition_challenges": acquisition_challenges(user),
+                "acquisition_challenges": acquisition_challenges(user, personal=is_personal_space(request)),
             }).data,
             "potions": PotionTypeSerializer(potions_qs, many=True).data,
             "totals": {

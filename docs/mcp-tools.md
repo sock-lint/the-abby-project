@@ -372,10 +372,10 @@ for source ownership, stale-plan checks, retained history and repeat cadence.
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
-| `approve_exchange` | `mcp:write` | No | Required | Approve a pending exchange (parent-only). |
+| `approve_exchange` | `mcp:write` | No | Required | Approve a pending exchange in the parent's current family. |
 | `get_exchange_rate` | `mcp:read` | Yes | — | Return the current ``COINS_PER_DOLLAR`` rate. |
 | `list_exchange_requests` | `mcp:read` | Yes | — | List exchange requests. Children see their own; parents see any child. |
-| `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange (parent-only). No ledger side-effects. |
+| `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange in the parent's family. No ledger side-effects. |
 | `request_exchange` | `mcp:write` | No | Required | Request a money → coins exchange (child self-scoped). |
 
 
@@ -558,6 +558,14 @@ for source ownership, stale-plan checks, retained history and repeat cadence.
 | `list_quest_catalog` | `mcp:read` | Yes | — | Browse available authored QuestDefinition choices. Parent-only. |
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
+
+New private definitions and solo/shared assignments require a matching saved-work
+progress source; bosses also require positive damage. Reward-only rules are
+rejected without creating a campaign, consuming inventory or reserving a new
+request receipt. An identical saved creation UUID still returns its original
+result. `list_quest_catalog` omits unreachable new choices; saved quest reads
+retain their definitions and rewards. Category filters match the trusted category
+snapshot of saved activity tags rather than later taxonomy edits.
 
 
 ## reading

@@ -502,7 +502,7 @@ describe('Today challenge availability', () => {
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/challenges/', () => {
         requests += 1;
-        return requests === 1 ? HttpResponse.json({ error: 'Challenges are temporarily unavailable.' }, { status: 503 }) : HttpResponse.json({ results: [], pin: null, daily_bonus: null });
+        return requests === 1 ? HttpResponse.json({ error: 'Challenges are temporarily unavailable.' }, { status: 500 }) : HttpResponse.json({ results: [], pin: null, daily_bonus: null });
       }),
     ]);
     expect(await screen.findByRole('alert')).toHaveTextContent('Challenges are temporarily unavailable.');

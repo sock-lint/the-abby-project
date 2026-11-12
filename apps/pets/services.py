@@ -169,12 +169,13 @@ class PetService:
                 msg = f"{pet.potion.name} {pet.species.name} is ready to ride."
                 notify(
                     user, title=f"{pet.species.name} evolved into a mount!", message=msg,
-                    notification_type="pet_evolved", link="/bestiary?tab=mounts",
+                    notification_type="pet_evolved",
+                    link="/bestiary?tab=mounts&space=personal" if user.role == "parent" else "/bestiary?tab=mounts",
                 )
                 notify_parents(
                     title=f"{user.display_name or user.username}'s pet evolved",
                     message=msg, notification_type="pet_evolved", about_user=user,
-                    link="/bestiary?tab=mounts",
+                    link=f"/family?child={user.pk}" if user.role == "child" else "/bestiary?tab=mounts",
                 )
         except Exception:
             logger.exception("Notification hook failed in pet evolution")

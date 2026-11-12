@@ -4,17 +4,20 @@ import { STORAGE_KEYS } from '../constants/storage';
 import { purgePrivateApiCaches } from '../pwa/privacy';
 import { apiUrl } from './urls';
 import { summarizeResponse } from './responseDiagnostics';
+import { requestSpace } from './space';
 
 export const AUTH_CHANGED_EVENT = 'abby:auth-changed';
 let readToken;
 let readNamespace;
+let readSpace;
 
 // A prompted worker upgrade leaves the old worker controlling this page.
 // Fresh noncredential query keys prevent it matching another session's JSON,
 // including an old request which completes after its cache was purged.
-function privateReadUrl(path, token) {
-  if (readToken !== token || !readNamespace) {
+function privateReadUrl(path, token, space = requestSpace(token)) {
+  if (readToken !== token || readSpace !== space || !readNamespace) {
     readToken = token;
+    readSpace = space;
     readNamespace = crypto.randomUUID();
   }
   const url = new URL(apiUrl(path), window.location.origin);
@@ -111,12 +114,14 @@ async function request(path, options = {}) {
     // Opt-in: retry a GET once after a gateway status. Background polls ask
     // for it; foreground reads keep surfacing the first failure at once.
     retryGateway = false,
+    space,
     ...fetchOptions
   } = options;
   const token = explicitToken ?? getToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
+  const selectedSpace = space ?? requestSpace(token);
   let url = method === 'GET'
-    ? privateReadUrl(path, token) : apiUrl(path);
+    ? privateReadUrl(path, token, selectedSpace) : apiUrl(path);
   const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
     // Never serve API responses from the HTTP cache. If an upstream proxy
@@ -126,7 +131,11 @@ async function request(path, options = {}) {
     // `<!DOCTYPE html>`. no-store bypasses disk cache on every request.
     cache: 'no-store',
     ...fetchOptions,
-    headers: { 'Content-Type': 'application/json', ...authHeader, ...fetchOptions.headers },
+    headers: {
+      'Content-Type': 'application/json', ...authHeader,
+      ...(selectedSpace === 'personal' ? { 'X-Abby-Space': 'personal' } : {}),
+      ...fetchOptions.headers,
+    },
   };
   if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
     config.body = JSON.stringify(config.body);
@@ -262,7 +271,10 @@ export async function getBlob(path) {
   const hadAuth = Boolean(token);
   const res = await fetchOrOffline(url, {
     cache: 'no-store',
-    headers: token ? { Authorization: `Token ${token}` } : {},
+    headers: {
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+      ...(requestSpace(token) === 'personal' ? { 'X-Abby-Space': 'personal' } : {}),
+    },
   });
   if (!res.ok) {
     const errorMessage = res.statusText || `HTTP ${res.status}`;

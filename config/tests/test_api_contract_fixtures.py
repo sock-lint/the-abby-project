@@ -24,7 +24,7 @@ from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
 from apps.pets.models import PetIncubation, MountExpedition, PetSpecies, PotionType, UserMount, UserPet
 from apps.projects.models import Project
-from apps.quests.models import DailyChallenge
+from apps.quests.models import DailyChallenge, QuestDefinition
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory
 from apps.timecards.models import TimeEntry
@@ -132,6 +132,18 @@ class SharedApiResponseFixtureTests(APITestCase):
             f"API response drifted from {path.name}; review the contract and regenerate deliberately.",
         )
         return actual
+
+    def test_custom_quest_filter_rejection_is_a_field_error_without_a_saved_definition(self):
+        parent_token = Token.objects.create(user=self.habit.created_by, key="e" * 40)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {parent_token.key}")
+        response = self.client.post("/api/quests/", {
+            "name": "Fixture project challenge", "description": "Track project work.", "quest_type": "collection",
+            "target_value": 1, "duration_days": 7, "coin_reward": 0, "xp_reward": 0,
+            "trigger_filter": {"allowed_triggers": ["clock_out"], "project_id": "7"},
+        }, format="json")
+        body = self.assert_response_fixture(response, "quest-create-invalid-filter.json", status=400)
+        self.assertIn("project_id", body["trigger_filter"][0])
+        self.assertFalse(QuestDefinition.objects.filter(name="Fixture project challenge").exists())
 
     def test_clock_idle_and_active_responses_are_self_scoped_json(self):
         project = Project.objects.create(

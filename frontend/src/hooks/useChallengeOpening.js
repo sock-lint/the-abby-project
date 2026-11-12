@@ -4,14 +4,14 @@ import { getToken } from '../api/client';
 
 // Call only from mounted live details. Cards and design previews do not record
 // an opening, and this receipt never claims the description was read.
-export default function useChallengeOpening(goal, { user, onConfirmed }) {
+export default function useChallengeOpening(goal, { user, onConfirmed, personal = false }) {
   const token = getToken();
   const goalId = goal?.id;
-  const eligible = Boolean(token && user?.id && user.role === 'child'
+  const eligible = Boolean(token && user?.id && (user.role === 'child' || (user.role === 'parent' && personal))
     && typeof goalId === 'string' && goalId.startsWith('goal:')
     && goal.origin === 'catalog' && !goal.legacy && typeof goal.catalog_repeatable === 'boolean'
     && ['active', 'completed', 'expired'].includes(goal.status) && !goal.first_details_opened_at);
-  const identity = `${user?.id}:${user?.role}:${user?.family?.id ?? ''}:${token}:${goalId}`;
+  const identity = `${user?.id}:${user?.role}:${user?.family?.id ?? ''}:${personal}:${token}:${goalId}`;
   const attempt = useRef(null);
   const confirmed = useRef(onConfirmed);
   useEffect(() => { confirmed.current = onConfirmed; }, [onConfirmed]);

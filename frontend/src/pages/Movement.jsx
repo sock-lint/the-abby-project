@@ -3,6 +3,7 @@ import { Plus, Trash2, Activity } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { useSpace } from '../hooks/useSpace';
 import {
   listMovementSessions, deleteMovementSession,
 } from '../api';
@@ -80,7 +81,8 @@ function SessionRow({ session, canDelete, onDelete, showOwner }) {
 
 export default function Movement() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, isParent } = useRole();
+  const { user } = useRole();
+  const { isFamilySpace: isParent } = useSpace();
   const { data, loading, refreshing, reload, error } = useApi(listMovementSessions);
   const [logOpen, setLogOpen] = useState(() => searchParams.get('log') === '1');
   const [pendingDelete, setPendingDelete] = useState(null);

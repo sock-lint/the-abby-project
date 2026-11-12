@@ -10,6 +10,7 @@ import { usePulse } from '../../providers/pulseContext';
 import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 import useScrollFades from '../../hooks/useScrollFades';
 import { formatDuration } from '../../utils/format';
+import { useSpaceForUser } from '../../hooks/useSpace';
 
 function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel, description }) {
   const descriptionId = useId();
@@ -69,7 +70,7 @@ export default function HeaderStatusPips({ user }) {
   const { showLeft, showRight, onScroll } = useScrollFades(stripRef);
   // Caller passes ``user`` so we still respect the prop API. Use the
   // shared role check to keep the convention consistent.
-  const isParent = user?.role === 'parent';
+  const { isFamilySpace: isParent } = useSpaceForUser(user);
   // NOTE: HeaderStatusPips is mounted inside JournalShell which receives
   // ``user`` as a prop, so it doesn't read from useRole(). When the
   // shell is migrated to context-only, this can drop the prop and use

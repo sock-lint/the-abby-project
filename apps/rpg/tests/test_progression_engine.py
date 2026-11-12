@@ -25,6 +25,14 @@ def alternate_streak_presentation(profile):
     return {"active_today": False}
 
 
+def alternate_category_match(context, category_id):
+    return context.get("skill_category_id") == category_id
+
+
+def alternate_campaign_source(quest_type, trigger_filter):
+    return bool(trigger_filter.get("allowed_triggers"))
+
+
 def quiet_config(**changes):
     return {
         **DEFAULTS,
@@ -87,7 +95,7 @@ class ProgressionEngineTests(TestCase):
                 "inventory": 0,
             },
         )
-        self.assertEqual(result["catalog"]["supported_pet_variants"], 31)
+        self.assertEqual(result["catalog"]["supported_pet_variants"], 35)
         self.assertEqual(len(result["rules_fingerprint"]), 64)
 
     def test_short_project_facts_cannot_bootstrap_drops_or_expeditions(self):
@@ -225,6 +233,16 @@ class ProgressionEngineTests(TestCase):
     def test_streak_bonus_formula_changes_invalidate_forecast_rules(self):
         before = rules_fingerprint()
         with patch.object(StreakService, "bonus_for_streak", alternate_streak_bonus):
+            self.assertNotEqual(before, rules_fingerprint())
+
+    def test_category_matching_formula_changes_invalidate_forecast_rules(self):
+        before = rules_fingerprint()
+        with patch("apps.rpg.progression.engine.matches_category", alternate_category_match, create=True):
+            self.assertNotEqual(before, rules_fingerprint())
+
+    def test_campaign_source_formula_changes_invalidate_forecast_rules(self):
+        before = rules_fingerprint()
+        with patch("apps.rpg.progression.engine.has_progress_source", alternate_campaign_source, create=True):
             self.assertNotEqual(before, rules_fingerprint())
 
     def test_streak_header_presentation_does_not_invalidate_forecast_rules(self):

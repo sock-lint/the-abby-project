@@ -1,7 +1,7 @@
 quests:
   - slug: summer-prep-arc
     name: The Summer Before High School
-    description: A 90-day quest to build rock-solid habits before freshman year. Every habit tap, chore, and assignment chips away at the boss.
+    description: A 90-day quest to build rock-solid habits before freshman year. Positive habit taps and other qualifying activities chip away at the boss.
     quest_type: boss
     target_value: 800
     duration_days: 90

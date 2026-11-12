@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 const ROUTE_TITLES = {
   '/': 'Today',
   '/quests': 'Tasks',
+  '/family': 'Children',
   '/bestiary': 'Pets',
   '/treasury': 'Rewards',
   '/atlas': 'Progress',
