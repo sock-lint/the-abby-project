@@ -1,15 +1,16 @@
 # Version-specific derivative; never replace the pinned base with :latest.
-FROM ghcr.io/coollabsio/coolify@sha256:3a27ba5f7f98ff7763a0a4d6715ec36e564f9622eea8f492c46f90716ea2525f
+FROM ghcr.io/coollabsio/coolify@sha256:7cfd6e20b796024cf7ae5dfcd981b13a0dd3144ba6fb5f533729de4957c05d96
 
-LABEL org.opencontainers.image.title="Coolify 4.1.2 bounded helper-name retry" \
+LABEL org.opencontainers.image.title="Coolify 4.1.3 bounded helper-name retry" \
       coolify.managed="true" \
-      lol.bos.coolify-helper-patch.version="1" \
-      lol.bos.coolify-helper-patch.base="4.1.2" \
+      lol.bos.coolify-helper-patch.version="2" \
+      lol.bos.coolify-helper-patch.base="4.1.3" \
       lol.bos.coolify-helper-patch.upstream="https://github.com/coollabsio/coolify/pull/11626"
 
 USER root
 COPY apply_patch.php helper_retry.php /opt/coolify-helper-patch/
-RUN php /opt/coolify-helper-patch/apply_patch.php /var/www/html /tmp/coolify-helper-patched \
+RUN php -r 'exit(PHP_VERSION === "8.4.27" ? 0 : 1);' \
+    && php /opt/coolify-helper-patch/apply_patch.php /var/www/html /tmp/coolify-helper-patched \
     && php -l /tmp/coolify-helper-patched/app/Jobs/ApplicationDeploymentJob.php \
     && php -l /tmp/coolify-helper-patched/bootstrap/helpers/docker.php \
     && cp /tmp/coolify-helper-patched/app/Jobs/ApplicationDeploymentJob.php /var/www/html/app/Jobs/ApplicationDeploymentJob.php \
@@ -22,6 +23,7 @@ RUN php /opt/coolify-helper-patch/apply_patch.php /var/www/html /tmp/coolify-hel
 # Graph: nginx -> php-fpm + init-script -> init-seeder -> db-migration.
 # app:init runs CLI PHP and external requests; it does not use local HTTP/FPM.
 RUN printf '%s\n' \
+      'e43268f787130085e71d2e3c0da6213d33c098305f0a0c7080a162b212a435c2  /var/www/html/bootstrap/helpers/sudo.php' \
       '419df54ad7888a246b35fd79beb92b28595e761692f45ee99e228d4be33712dd  /etc/s6-overlay/s6-rc.d/nginx/dependencies' \
       'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /etc/s6-overlay/s6-rc.d/php-fpm/dependencies' \
       '014498f24a848b7d13e9add67074640ea89094c1d59d2750690313db16f9f881  /var/www/html/app/Console/Commands/Init.php' \
