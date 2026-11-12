@@ -26,7 +26,7 @@ LABEL_KEYS = {"config-hash", "container-number", "depends_on", "image", "oneoff"
               "project.config_files", "project.environment_file", "project.working_dir", "service", "version"}
 OWNER_LABEL = "lol.bos.coolify-contract-probe.owner"
 PROBE_FLAGS = ("--no-start", "--no-deps", "--no-build", "--pull", "--no-recreate", "--force-recreate", "--wait", "--wait-timeout")
-SUPPORTED_COMPOSE_VERSION = "5.6.1"
+SUPPORTED_COMPOSE_VERSION = "5.7.0"
 MAX_FREEZE_RECEIPT_BYTES = 1024 * 1024
 
 
@@ -281,7 +281,7 @@ def normalize_labels(probe, *, token, probe_project, probe_file, probe_hash,
                     "project.environment_file": str(final_env), "project.working_dir": str(project_directory)}
     for key, value in replacements.items():
         labels[PREFIX + key] = value
-    # Independently reproduced for exactly 5.6.1 with an explicit container_name:
+    # Independently reproduced for exactly 5.7.0 with an explicit container_name:
     # force-recreate stamps the OLD NAME without slash, not the old container ID.
     # Keep it in the proposal and full installed comparison; never ignore it.
     labels[PREFIX + "replace"] = replacement_name

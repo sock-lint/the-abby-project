@@ -117,15 +117,13 @@ class SafeStatusAndRuntimeSchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             observe_runtime(lambda argv: json.dumps(value).encode())
 
-    def test_unpinned_server_build_changes_full_version_digest(self):
+    def test_unpinned_server_metadata_changes_full_version_digest(self):
         value = {"Client": {**TESTED_CLIENT, "Context": "synthetic", "Experimental": None},
-                 "Server": {**TESTED_SERVER, "Experimental": False, "GitCommit": "synthetic-build-a"}}
+                 "Server": {**TESTED_SERVER, "Experimental": False, "KernelVersion": "synthetic-kernel-a"}}
         first = observe_runtime(lambda argv: json.dumps(value).encode())
-        value["Server"]["GitCommit"] = "synthetic-build-b"
+        value["Server"]["KernelVersion"] = "synthetic-kernel-b"
         second = observe_runtime(lambda argv: json.dumps(value).encode())
         self.assertNotEqual(first["version_sha256"], second["version_sha256"])
-        # This explicitly demonstrates the documented version-tuple limitation;
-        # neither synthetic value is an assertion about the actual server build.
         self.assertEqual(first["server"], second["server"])
 
 

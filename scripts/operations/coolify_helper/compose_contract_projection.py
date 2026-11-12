@@ -30,8 +30,9 @@ COMPOSE_CLIENT_POLICY = {
     "COMPOSE_PROFILES": "", "COMPOSE_MENU": "false", "COMPOSE_ANSI": "never",
     "COMPOSE_PROGRESS": "quiet",
 }
-TESTED_SERVER = {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64"}
-TESTED_CLIENT = {**TESTED_SERVER, "GitCommit": "a82e528"}
+TESTED_SERVER = {"Version": "29.9.3", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64",
+                 "GitCommit": "70efc0e"}
+TESTED_CLIENT = {**TESTED_SERVER, "GitCommit": "5457199"}
 OCI_INDEX = "application/vnd.oci.image.index.v1+json"
 OCI_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 
@@ -99,9 +100,7 @@ def observe_runtime(runner=_read_only_run):
             any(client.get(key) != expected for key, expected in TESTED_CLIENT.items()) or
             client.get("Experimental") is not None or type(client.get("Context")) is not str or not client["Context"]):
         raise ValueError("unsupported Docker client or server runtime")
-    # Server.GitCommit was not independently collected before the operational
-    # stop. Do not invent a build pin: the complete version digest is frozen in
-    # the owner-reviewed ticket, and exact-build proof remains a live-use gate.
+    # The owner-reviewed ticket also freezes the complete version response.
     identity = {key: client.get(key) for key in (*TESTED_CLIENT, "Context", "Experimental")}
     return {"schema_version": 1, "version_sha256": digest(value),
             "client_identity_sha256": digest(identity), "server": copy.deepcopy(TESTED_SERVER)}
@@ -176,7 +175,7 @@ def selected_image_identity(default_candidate, declared_platform, runner=_read_o
 
 
 def model_expected_running_defaults(projected, declared, runtimeProof):
-    """Model only the observed 29.9.2 created-False to started-None OOM default.
+    """Model only the observed 29.9.3 created-False to started-None OOM default.
 
     Actual root-owned disposable start/inspect proved this as the sole changed
     HostConfig key. This is an expected started contract, not normalization of

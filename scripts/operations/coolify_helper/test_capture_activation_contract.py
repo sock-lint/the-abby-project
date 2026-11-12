@@ -35,7 +35,7 @@ class SyntheticEngine:
         self.partial_create_failure = False
         self.unsafe_stub = False
         self.create_help = b"--no-start --no-deps --no-build --pull policy --no-recreate --force-recreate --wait --wait-timeout\n"
-        self.version = b"5.6.1\n"
+        self.version = b"5.7.0\n"
         self.fail_up = True
         self.wrong_replace = False
         self.http_status = b"200"
@@ -104,7 +104,7 @@ class SyntheticEngine:
                 project = argv[argv.index("--project-name") + 1]
                 generated = {"config-hash": digest(safe), "container-number": "1", "depends_on": "",
                     "image": self.candidate if self.wrong_image_label else self.selected_id, "oneoff": "False", "project": project, "project.config_files": str(path),
-                    "project.environment_file": "/dev/null", "project.working_dir": str(self.directory), "service": "coolify", "version": "5.6.1"}
+                    "project.environment_file": "/dev/null", "project.working_dir": str(self.directory), "service": "coolify", "version": "5.7.0"}
                 labels = {driver.PREFIX + key: value for key, value in generated.items()}
                 labels.update(safe["labels"])
                 if self.unexpected_label:

@@ -13,9 +13,10 @@ import compose_contract_projection as projection
 
 
 def runtime_fixture():
-    return {"Client": {"Version": "29.9.2", "ApiVersion": "1.56", "GitCommit": "a82e528",
+    return {"Client": {"Version": "29.9.3", "ApiVersion": "1.56", "GitCommit": "5457199",
                        "Os": "linux", "Arch": "amd64", "Context": "SYNTHETIC-PRIVATE-CONTEXT", "Experimental": None},
-            "Server": {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64",
+            "Server": {"Version": "29.9.3", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64",
+                       "GitCommit": "70efc0e",
                        "KernelVersion": "synthetic-private-kernel"}}
 
 
@@ -224,7 +225,7 @@ class ChainTests(unittest.TestCase):
         for index, path in enumerate(self.files):
             path.write_text(json.dumps({"synthetic": index}))
         self.rendered = {"services": {"coolify": fixtures()[2]}}
-        self.version, self.service_hash, self.calls = b"5.6.1\n", b"coolify " + b"a" * 64 + b"\n", []
+        self.version, self.service_hash, self.calls = b"5.7.0\n", b"coolify " + b"a" * 64 + b"\n", []
         self.runtime = runtime_fixture()
 
     def runner(self, argv):
@@ -374,7 +375,8 @@ class RuntimeSemanticsTests(unittest.TestCase):
         value = runtime_fixture()
         proof = projection.observe_runtime(self.runner(value))
         self.assertEqual(proof["version_sha256"], projection.digest(value))
-        self.assertEqual(proof["server"], {"Version": "29.9.2", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64"})
+        self.assertEqual(proof["server"], {"Version": "29.9.3", "ApiVersion": "1.56", "Os": "linux", "Arch": "amd64",
+                                           "GitCommit": "70efc0e"})
         self.assertNotIn("SYNTHETIC-PRIVATE-CONTEXT", json.dumps(proof))
         self.assertNotIn("synthetic-private-kernel", json.dumps(proof))
 
@@ -383,7 +385,8 @@ class RuntimeSemanticsTests(unittest.TestCase):
                                      ("Client", "GitCommit", "unknown"), ("Client", "Os", "windows"),
                                      ("Client", "Arch", "arm64"), ("Client", "Experimental", True),
                                      ("Server", "Version", "29.9.0"), ("Server", "ApiVersion", "1.55"),
-                                     ("Server", "Os", "windows"), ("Server", "Arch", "arm64")):
+                                     ("Server", "Os", "windows"), ("Server", "Arch", "arm64"),
+                                     ("Server", "GitCommit", "unknown")):
             value = runtime_fixture()
             value[side][field] = invalid
             with self.subTest(side=side, field=field), self.assertRaises(ValueError):

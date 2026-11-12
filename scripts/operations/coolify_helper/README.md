@@ -385,7 +385,7 @@ activation.
 The driver itself queries the actual chain, derives a fresh owner-labeled
 network-none/port-free/private-mount-free recipe, and creates/inspects only its
 own never-started container using the actually supported
-`up --no-start --no-deps --no-build --pull never --no-recreate`. Compose 5.6.1
+`up --no-start --no-deps --no-build --pull never --no-recreate`. Compose 5.7.0
 does not support `create --no-deps`. Required flags are checked against actual
 `up --help` before use. Original dependencies remain declared with safe stub
 definitions; the successful created set must contain management only. Preserve command/entrypoint
@@ -400,16 +400,16 @@ MAC. No new address, static IPAM or firewall acceptance is implied by this data.
 
 Every other Config/HostConfig field remains from the actual probe, including all
 63 observed HostConfig fields. The only proved start-state default transition
-is Docker client/server 29.9.2, API 1.56, Linux/amd64: created
+is Docker client/server 29.9.3, API 1.56, Linux/amd64: created
 `OomKillDisable=false` becomes running `null`. With no explicit OOM option,
 model only that exact transition before proposing the running contract. True,
 missing/unknown defaults, explicit OOM settings or unknown runtime versions
 reject; all other fields remain compared. Actual Docker client/server/context
-metadata is captured and bound in every chain ticket. The current Compose 5.6.1
+metadata is captured and bound in every chain ticket. The current Compose 5.7.0
 differs from the running instance's creator label 2.38.2; version/default changes
 must appear in the review diff. Only eleven explicitly enumerated generated
 Compose metadata fields may be projected from actual same-version config/hash/
-version/path observations. The supported 5.6.1 explicit-name force-recreation
+version/path observations. The supported 5.7.0 explicit-name force-recreation
 transition adds exactly `com.docker.compose.replace` equal to the observed old
 name without its leading slash, **not** its old container ID. The old ID,
 name/project/service and declared explicit name must all bind to actual inspect;
@@ -421,14 +421,12 @@ label order alone is canonicalized, retaining every name/condition/restart bit.
 Unknown generated keys reject; ordinary/image labels stay compared. Never
 ignore a label prefix or assume the old creator version.
 
-The server's Git commit was not independently collected before the operational
-stop. The policy pins the observed client commit and client/server version,
-API, OS and architecture; it rejects an explicitly experimental server. The
-complete version JSON digest, including any server commit, is frozen in the
-approved chain ticket, but a matching version tuple alone does **not** prove an
-independently tested server build. Exact-build proof and renewed independent
-review remain mandatory before live use of the OOM transition. Do not invent
-the missing commit or treat this source policy as runtime acceptance.
+The runtime policy pins the observed Docker client `5457199` and server
+`70efc0e` builds. The chain ticket also freezes the complete version response.
+The exact binaries were exercised in a private Linux amd64 daemon with the
+containerd image store. The fixture used cgroupfs. The target uses systemd
+cgroups. The target still requires independently reviewed operator evidence
+and a fresh contract capture before activation.
 
 For the reviewed existing-MAC endpoint case, an empty requested `IPAMConfig`
 may serialize as `null` or `{}`. Only these empty representations compare
