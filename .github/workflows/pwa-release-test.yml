@@ -32,11 +32,46 @@ jobs:
           cache: 'pip'
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
-      - name: Install frontend dependencies and browsers
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Configure Ubuntu package downloads
+        run: |
+          # Hosted Azure mirrors can keep transferring packages at a few kB/s.
+          # Preserve suites, components and signing configuration; change only
+          # the Ubuntu archive endpoint, including runner mirror-list files.
+          sudo python3 - <<'PY'
+          from pathlib import Path
+
+          paths = [Path('/etc/apt/sources.list'), Path('/etc/apt/apt-mirrors.txt')]
+          paths += list(Path('/etc/apt/sources.list.d').glob('*.list'))
+          paths += list(Path('/etc/apt/sources.list.d').glob('*.sources'))
+          for path in paths:
+              if not path.is_file():
+                  continue
+              original = path.read_text()
+              updated = original.replace('http://azure.archive.ubuntu.com/ubuntu',
+                                         'https://archive.ubuntu.com/ubuntu')
+              updated = updated.replace('https://azure.archive.ubuntu.com/ubuntu',
+                                        'https://archive.ubuntu.com/ubuntu')
+              if updated != original:
+                  path.write_text(updated)
+                  print(f'Updated Ubuntu archive endpoint in {path}')
+          Path('/etc/apt/apt.conf.d/80-pwa-downloads').write_text(
+              'Acquire::Retries "2";\n'
+              'Acquire::http::Timeout "30";\n'
+              'Acquire::https::Timeout "30";\n'
+          )
+          PY
+      - name: Install browser system dependencies
+        timeout-minutes: 10
+        working-directory: frontend
+        run: npx playwright install-deps chromium webkit
+      - name: Install browsers
+        timeout-minutes: 10
         working-directory: frontend
         run: |
-          npm ci
-          npx playwright install --with-deps chromium webkit
+          npx playwright install chromium webkit
       - name: Verify private portrait build loader
         working-directory: frontend
         run: npm run test:licensed-art
